@@ -18,6 +18,8 @@ import {
   ChevronRight,
   CircleDollarSign,
   CreditCard,
+  Eye,
+  EyeOff,
   FileText,
   Home,
   LayoutDashboard,
@@ -142,7 +144,7 @@ type ScannedReceipt = {
   total: number;
   confidence: number;
   items: ReceiptItem[];
-  source: "ocr" | "demo";
+  source: "ocr" | "demo" | "ai";
 };
 
 const currency = new Intl.NumberFormat("id-ID", {
@@ -532,94 +534,305 @@ function getCameraErrorMessage(error: unknown) {
 }
 
 function parseReceiptAmount(value: string) {
-  const numberText = value.replace(/[^\d]/g, "");
-  return Number(numberText) || 0;
+  // Remove everything that is not a digit, comma, or period
+  // Indonesian receipt format: 10.500 or 10,500 or 10500
+  const cleaned = value.replace(/[^\d.,]/g, "");
+  // If there's a period or comma followed by exactly 3 digits at the end, it's a thousands separator
+  const normalized = cleaned.replace(/[.,](?=\d{3}(?:[.,]|$))/g, "");
+  // Remove remaining commas/periods (decimal separators we don't need for IDR)
+  return Number(normalized.replace(/[.,]/g, "")) || 0;
 }
 
 function formatReceiptDate(rawText: string) {
-  const dateMatch = rawText.match(/(\d{2})[./-](\d{2})[./-](\d{2})[-\s]+(\d{1,2})[:.](\d{2})/);
+  // Try many date formats: DD/MM/YYYY, DD-MM-YYYY, DD.MM.YYYY, DD/MM/YY, etc.
+  const patterns = [
+    /(\d{1,2})[./-](\d{1,2})[./-](\d{4})[\s,.-]+(\d{1,2})[:.h](\d{2})/,     // DD/MM/YYYY HH:MM
+    /(\d{1,2})[./-](\d{1,2})[./-](\d{2})[\s,.-]+(\d{1,2})[:.h](\d{2})/,       // DD/MM/YY HH:MM
+    /(\d{1,2})[./-](\d{1,2})[./-](\d{4})/,                                     // DD/MM/YYYY
+    /(\d{1,2})[./-](\d{1,2})[./-](\d{2})/,                                     // DD/MM/YY
+  ];
 
-  if (!dateMatch) return "Tanggal tidak terbaca";
+  for (const pattern of patterns) {
+    const match = rawText.match(pattern);
+    if (!match) continue;
 
-  const [, day, month, year, hour, minute] = dateMatch;
-  const monthName = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "Mei",
-    "Jun",
-    "Jul",
-    "Agu",
-    "Sep",
-    "Okt",
-    "Nov",
-    "Des",
-  ][Number(month) - 1] ?? month;
+    const [, day, month, yearRaw, hour, minute] = match;
+    const year = yearRaw.length === 2 ? `20${yearRaw}` : yearRaw;
+    const monthName = [
+      "Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
+      "Jul", "Agu", "Sep", "Okt", "Nov", "Des",
+    ][Number(month) - 1] ?? month;
+    const timeStr = hour && minute ? `, ${hour.padStart(2, "0")}.${minute}` : "";
 
-  return `${Number(day)} ${monthName} 20${year}, ${hour.padStart(2, "0")}.${minute}`;
+    return `${Number(day)} ${monthName} ${year}${timeStr}`;
+  }
+
+  return "Tanggal tidak terbaca";
 }
 
-function shouldSkipReceiptLine(line: string) {
-  return /NPWP|JL\.|JALAN|SUKOHARJO|NGAGLIK|SLEMAN|HARGA|VOUCHER|CANCEL|TOTAL|TUNAI|KEMBALI|KASIR|RATIH|BESTI|JANGKANG|PRISMATAMA|INDOMARET/.test(line);
+/** Lines that should NOT be treated as items */
+function isReceiptMetaLine(line: string) {
+  return /^(NPWP|JL\b|JALAN|ALAMAT|TEL|TELP|FAX|NO\s*:|\*{3,}|-{3,}|={3,}|KASIR|STRUK|RECEIPT|TERIMA\s*KASIH|THANK|SELAMAT|WELCOME|MEMBER|CUSTOMER|PELANGGAN|NOTA|INVOICE|TOKO|STORE)/i.test(line);
+}
+
+/** Lines that are total/summary lines, not items */
+function isSummaryLine(line: string) {
+  return /^\s*(SUB\s*TOTAL|TOTAL|GRAND\s*TOTAL|BAYAR|TUNAI|CASH|DEBIT|CREDIT|KREDIT|KEMBALIAN|KEMBALI|CHANGE|DIS[CK]|DISC|PPN|TAX|PAJAK|VOUCHER|PROMO|HARGA\s*JUAL|SAVING|HEMAT|PEMBAYARAN|PAYMENT|ROUNDING)\b/i.test(line);
+}
+
+function extractMerchantName(lines: string[]): string {
+  // Common Indonesian store chains
+  const knownMerchants: Record<string, string> = {
+    INDOMARET: "Indomaret",
+    ALFAMART: "Alfamart",
+    ALFAMIDI: "Alfamidi",
+    "CIRCLE K": "Circle K",
+    LAWSON: "Lawson",
+    SUPERINDO: "Superindo",
+    HYPERMART: "Hypermart",
+    TRANSMART: "Transmart",
+    CARREFOUR: "Carrefour",
+    GIANT: "Giant",
+    LOTTE: "Lotte Mart",
+    MATAHARI: "Matahari",
+    STARBUCKS: "Starbucks",
+    MCDONALD: "McDonald's",
+    "KFC": "KFC",
+    "PIZZA HUT": "Pizza Hut",
+    HOKBEN: "HokBen",
+    YOSHINOYA: "Yoshinoya",
+    JCOFFEE: "J.CO",
+    "J.CO": "J.CO",
+    CHATIME: "Chatime",
+    MIXUE: "Mixue",
+    DAGADU: "Dagadu",
+    KOPKEN: "Kopi Kenangan",
+    KENANGAN: "Kopi Kenangan",
+    "KOPI KENANGAN": "Kopi Kenangan",
+    JANJI: "Janji Jiwa",
+    "FORE COFFEE": "Fore Coffee",
+    FORE: "Fore Coffee",
+    TOMORO: "Tomoro Coffee",
+    GRAMEDIA: "Gramedia",
+    ACE: "ACE Hardware",
+    MINISO: "Miniso",
+    UNIQLO: "Uniqlo",
+    WATSONS: "Watsons",
+    GUARDIAN: "Guardian",
+  };
+
+  const fullText = lines.join(" ").toUpperCase();
+  for (const [keyword, name] of Object.entries(knownMerchants)) {
+    if (fullText.includes(keyword)) return name;
+  }
+
+  // Try the first 3 non-empty lines that look like store names
+  for (const line of lines.slice(0, 5)) {
+    const cleaned = line.trim();
+    if (
+      cleaned.length >= 3 &&
+      cleaned.length <= 40 &&
+      !isReceiptMetaLine(cleaned) &&
+      !isSummaryLine(cleaned) &&
+      !/^\d/.test(cleaned) &&
+      !/Rp\s*[\d.,]/i.test(cleaned)
+    ) {
+      return cleaned.split(/\s+/).map((w) =>
+        w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
+      ).join(" ");
+    }
+  }
+
+  return "Struk Belanja";
+}
+
+function extractPaymentMethod(text: string): string {
+  const upper = text.toUpperCase();
+  if (/DEBIT|DEBET/i.test(upper)) return "Debit";
+  if (/CREDIT|KREDIT|CC\b/i.test(upper)) return "Kredit";
+  if (/QRIS|QR/i.test(upper)) return "QRIS";
+  if (/GOPAY/i.test(upper)) return "GoPay";
+  if (/OVO\b/i.test(upper)) return "OVO";
+  if (/DANA\b/i.test(upper)) return "DANA";
+  if (/SHOPEEPAY|SPAY/i.test(upper)) return "ShopeePay";
+  if (/E-?MONEY|EMONEY|FLAZZ|BRIZZI|MANDIRI\s*E/i.test(upper)) return "E-Money";
+  if (/TUNAI|CASH|BAYAR\s*TUNAI/i.test(upper)) return "Tunai";
+  return "Tunai";
 }
 
 function parseReceiptText(rawText: string): ScannedReceipt {
-  const text = rawText.toUpperCase().replace(/[|]/g, "I");
+  const text = rawText.replace(/[|]/g, "I").replace(/\r/g, "");
   const lines = text
     .split(/\n+/)
     .map((line) => line.replace(/\s+/g, " ").trim())
     .filter(Boolean);
+
   const items: ReceiptItem[] = [];
 
+  // Strategy: Try multiple regex patterns to extract items
+  const itemPatterns = [
+    // Pattern 1: NAME  QTY  PRICE  TOTAL  (most common for supermarkets)
+    /^(.+?)\s+(\d{1,3})\s+([\d.,]{3,})\s+([\d.,]{3,})\s*$/i,
+    // Pattern 2: NAME  QTYxPRICE  (e.g. "Nasi Goreng 2x15.000")
+    /^(.+?)\s+(\d{1,3})\s*[xX×]\s*([\d.,]{3,})\s*$/i,
+    // Pattern 3: NAME  Rp PRICE (single item, qty=1)
+    /^(.{3,}?)\s+(?:Rp\.?\s*)?(\d[\d.,]{2,})\s*$/i,
+    // Pattern 4: NAME  QTY  @PRICE  TOTAL
+    /^(.+?)\s+(\d{1,3})\s*@\s*([\d.,]{3,})\s+([\d.,]{3,})\s*$/i,
+    // Pattern 5: QTY NAME PRICE (qty first)
+    /^(\d{1,3})\s+(.{3,}?)\s+([\d.,]{3,})\s*$/i,
+  ];
+
   for (const line of lines) {
-    if (shouldSkipReceiptLine(line)) continue;
+    const upper = line.toUpperCase();
+    if (isReceiptMetaLine(upper) || isSummaryLine(upper)) continue;
 
-    const itemMatch = line.match(/^(.+?)\s+(\d{1,2})\s+([\d.,]{3,})\s+([\d.,]{3,})$/);
+    let matched = false;
 
-    if (!itemMatch) continue;
+    // Try Pattern 1: NAME QTY PRICE TOTAL
+    const m1 = line.match(itemPatterns[0]);
+    if (m1 && !matched) {
+      const [, rawName, rawQty, rawPrice] = m1;
+      const qty = Number(rawQty);
+      const price = parseReceiptAmount(rawPrice);
+      if (qty > 0 && qty <= 100 && price > 0 && rawName.length >= 2) {
+        items.push({ name: rawName.trim(), qty, price });
+        matched = true;
+      }
+    }
 
-    const [, rawName, rawQty, rawPrice] = itemMatch;
-    const qty = Number(rawQty);
-    const price = parseReceiptAmount(rawPrice);
+    // Try Pattern 2: NAME QTYxPRICE
+    if (!matched) {
+      const m2 = line.match(itemPatterns[1]);
+      if (m2) {
+        const [, rawName, rawQty, rawPrice] = m2;
+        const qty = Number(rawQty);
+        const price = parseReceiptAmount(rawPrice);
+        if (qty > 0 && qty <= 100 && price > 0 && rawName.length >= 2) {
+          items.push({ name: rawName.trim(), qty, price });
+          matched = true;
+        }
+      }
+    }
 
-    if (!qty || !price) continue;
+    // Try Pattern 4: NAME QTY @PRICE TOTAL
+    if (!matched) {
+      const m4 = line.match(itemPatterns[3]);
+      if (m4) {
+        const [, rawName, rawQty, rawPrice] = m4;
+        const qty = Number(rawQty);
+        const price = parseReceiptAmount(rawPrice);
+        if (qty > 0 && qty <= 100 && price > 0 && rawName.length >= 2) {
+          items.push({ name: rawName.trim(), qty, price });
+          matched = true;
+        }
+      }
+    }
 
-    items.push({
-      name: rawName.trim(),
-      qty,
-      price,
-    });
+    // Try Pattern 5: QTY NAME PRICE
+    if (!matched) {
+      const m5 = line.match(itemPatterns[4]);
+      if (m5) {
+        const [, rawQty, rawName, rawPrice] = m5;
+        const qty = Number(rawQty);
+        const price = parseReceiptAmount(rawPrice);
+        if (qty > 0 && qty <= 100 && price > 0 && rawName.length >= 2) {
+          items.push({ name: rawName.trim(), qty, price });
+          matched = true;
+        }
+      }
+    }
+
+    // Try Pattern 3: NAME Rp PRICE (qty=1, for simpler receipts like coffee shops)
+    if (!matched) {
+      // Require either 'Rp' or that the number is <= 8 digits to avoid matching phone numbers like 02744464894
+      const m3 = line.match(/^(.{3,}?)\s+(?:Rp\.?\s*(\d[\d.,]{2,})|(\d[\d.,]{2,6}))\s*$/i);
+      if (m3) {
+        const [, rawName, rawPriceRp, rawPriceShort] = m3;
+        const rawPrice = rawPriceRp || rawPriceShort;
+        const price = parseReceiptAmount(rawPrice);
+        // Avoid matching summary lines that have "total", "subtotal", etc.
+        // Also avoid matching address lines (e.g. contains JL, KM, RT, RW)
+        if (price > 0 && rawName.length >= 2 && !isSummaryLine(rawName) && !/^(JL|KM|RT|RW|NO)\b/i.test(rawName)) {
+          items.push({ name: rawName.trim(), qty: 1, price });
+          matched = true;
+        }
+      }
+    }
   }
 
-  if (items.length < 3) {
+  // Extract totals from text
+  const fullText = lines.join("\n").toUpperCase();
+  const totalPatterns = [
+    /(?:GRAND\s*)?TOTAL\s*[:=]?\s*(?:Rp\.?\s*)?([\d.,]+)/i,
+    /BAYAR\s*[:=]?\s*(?:Rp\.?\s*)?([\d.,]+)/i,
+  ];
+  const subtotalPatterns = [
+    /SUB\s*TOTAL\s*[:=]?\s*(?:Rp\.?\s*)?([\d.,]+)/i,
+    /HARGA\s*JUAL\s*[:=]?\s*(?:Rp\.?\s*)?([\d.,]+)/i,
+  ];
+  const discountPatterns = [
+    /DIS[CK](?:OUNT)?\s*[:=]?\s*\(?(?:Rp\.?\s*)?([\d.,]+)\)?/i,
+    /VOUCHER\s*[:=]?\s*\(?(?:Rp\.?\s*)?([\d.,]+)\)?/i,
+    /PROMO\s*[:=]?\s*\(?(?:Rp\.?\s*)?([\d.,]+)\)?/i,
+    /HEMAT\s*[:=]?\s*\(?(?:Rp\.?\s*)?([\d.,]+)\)?/i,
+    /SAVING\s*[:=]?\s*\(?(?:Rp\.?\s*)?([\d.,]+)\)?/i,
+  ];
+
+  let parsedTotal = 0;
+  for (const pattern of totalPatterns) {
+    const match = fullText.match(pattern);
+    if (match) { parsedTotal = parseReceiptAmount(match[1]); break; }
+  }
+
+  let parsedSubtotal = 0;
+  for (const pattern of subtotalPatterns) {
+    const match = fullText.match(pattern);
+    if (match) { parsedSubtotal = parseReceiptAmount(match[1]); break; }
+  }
+
+  let parsedDiscount = 0;
+  for (const pattern of discountPatterns) {
+    const match = fullText.match(pattern);
+    if (match) { parsedDiscount += parseReceiptAmount(match[1]); }
+  }
+
+  // Calculate derived values
+  const itemsTotal = items.reduce((sum, item) => sum + item.qty * item.price, 0);
+  const subtotal = parsedSubtotal || itemsTotal || parsedTotal;
+  const discount = parsedDiscount;
+  const total = parsedTotal || Math.max(subtotal - discount, 0);
+
+  // If no items could be parsed, still return what we can from totals
+  if (items.length === 0 && total === 0) {
     return indomaretExampleReceipt;
   }
 
-  const subtotalMatch = text.match(/HARGA\s+JUAL\s*[:=]?\s*([\d,.]+)/);
-  const voucherTotal = lines.reduce((total, line) => {
-    if (!line.includes("VOUCHER")) return total;
+  const merchant = extractMerchantName(lines);
+  const date = formatReceiptDate(fullText);
+  const payment = extractPaymentMethod(fullText);
 
-    const amountMatch = line.match(/\(?([\d,.]{3,})\)?\s*$/);
-    return total + (amountMatch ? parseReceiptAmount(amountMatch[1]) : 0);
-  }, 0);
-  const subtotal = subtotalMatch
-    ? parseReceiptAmount(subtotalMatch[1])
-    : items.reduce((total, item) => total + item.qty * item.price, 0);
-  const discount = voucherTotal;
+  // Confidence based on how much data we extracted
+  let confidence = 40;
+  if (items.length > 0) confidence += Math.min(30, items.length * 5);
+  if (parsedTotal > 0) confidence += 10;
+  if (date !== "Tanggal tidak terbaca") confidence += 10;
+  if (merchant !== "Struk Belanja") confidence += 10;
+  confidence = Math.min(98, confidence);
 
   return {
-    merchant: text.includes("INDOMARET") ? "Indomaret" : "Struk Belanja",
-    date: formatReceiptDate(text),
-    payment: "Tunai",
+    merchant,
+    date,
+    payment,
     subtotal,
     discount,
-    total: Math.max(subtotal - discount, 0),
-    confidence: Math.min(96, 70 + items.length * 3),
+    total,
+    confidence,
     source: "ocr",
     items,
   };
 }
+
 
 export function TakaFinTrackApp() {
   const [activeView, setActiveView] = useState<ViewKey>(getInitialView);
@@ -860,7 +1073,7 @@ export function TakaFinTrackApp() {
             />
           )}
           {activeView === "scan" && <ScanView categories={categories} onCreateTransaction={createTransaction} onNavigate={changeView} />}
-          {activeView === "chat" && <ChatView />}
+          {activeView === "chat" && <ChatView transactions={transactions} />}
           {activeView === "reports" && <ReportsView analytics={analytics} />}
         </section>
       </div>
@@ -1151,19 +1364,36 @@ function AuthField({
   autoComplete: string;
   onChange: (value: string) => void;
 }) {
+  const [showPassword, setShowPassword] = useState(false);
+  const isPassword = type === "password";
+  const inputType = isPassword ? (showPassword ? "text" : "password") : type;
+
   return (
-    <label htmlFor={id} className="block">
-      <span className="text-xs font-black uppercase tracking-[0.1em] text-slate-400">{label}</span>
-      <input
-        id={id}
-        type={type}
-        value={value}
-        placeholder={placeholder}
-        autoComplete={autoComplete}
-        onChange={(event) => onChange(event.target.value)}
-        className="mt-2 h-12 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-taka-ink outline-none transition placeholder:text-slate-400 focus:border-emerald-300 focus:bg-white"
-      />
-    </label>
+    <div className="relative">
+      <label htmlFor={id} className="block">
+        <span className="text-xs font-black uppercase tracking-[0.1em] text-slate-400">{label}</span>
+        <div className="relative mt-2">
+          <input
+            id={id}
+            type={inputType}
+            value={value}
+            placeholder={placeholder}
+            autoComplete={autoComplete}
+            onChange={(event) => onChange(event.target.value)}
+            className="h-12 w-full rounded-lg border border-slate-200 bg-slate-50 pl-3 pr-10 text-sm font-bold text-taka-ink outline-none transition placeholder:text-slate-400 focus:border-emerald-300 focus:bg-white"
+          />
+          {isPassword && (
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          )}
+        </div>
+      </label>
+    </div>
   );
 }
 
@@ -1356,7 +1586,7 @@ function TopBar({
         <button type="button" className="grid h-10 w-10 place-items-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:border-emerald-300 hover:text-emerald-600 sm:h-11 sm:w-11" aria-label="Notifikasi">
           <Bell size={18} />
         </button>
-        <ProfileMenu user={user} token={token} onUserUpdate={onUserUpdate} />
+        <ProfileMenu user={user} token={token} onUserUpdate={onUserUpdate} onLogout={onLogout} />
         <button type="button" onClick={onAddTransaction} className="hidden items-center gap-2 rounded-lg bg-taka-navy px-4 py-3 text-sm font-extrabold text-white shadow-float transition hover:bg-slate-800 sm:flex">
           <Plus size={18} />
           Tambah
@@ -1370,10 +1600,12 @@ function ProfileMenu({
   user,
   token,
   onUserUpdate,
+  onLogout,
 }: {
   user: AuthUser;
   token: string;
   onUserUpdate: (updates: Partial<AuthUser>) => void;
+  onLogout: () => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [newPassword, setNewPassword] = useState("");
@@ -1382,6 +1614,7 @@ function ProfileMenu({
   const [error, setError] = useState("");
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isSavingPassword, setIsSavingPassword] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   async function saveProfile(updates: Partial<AuthUser>) {
     setIsSavingProfile(true);
@@ -1530,22 +1763,40 @@ function ProfileMenu({
               <p className="text-sm font-black text-taka-ink">Ganti Password</p>
             </div>
             <div className="mt-3 space-y-2">
-              <input
-                type="password"
-                value={newPassword}
-                onChange={(event) => setNewPassword(event.target.value)}
-                className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-taka-ink outline-none transition placeholder:text-slate-400 focus:border-emerald-300 focus:bg-white"
-                placeholder="Password baru"
-                autoComplete="new-password"
-              />
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={(event) => setConfirmPassword(event.target.value)}
-                className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-taka-ink outline-none transition placeholder:text-slate-400 focus:border-emerald-300 focus:bg-white"
-                placeholder="Konfirmasi password"
-                autoComplete="new-password"
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={newPassword}
+                  onChange={(event) => setNewPassword(event.target.value)}
+                  className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 pl-3 pr-10 text-xs font-bold text-taka-ink outline-none transition placeholder:text-slate-400 focus:border-emerald-300 focus:bg-white"
+                  placeholder="Password baru"
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              </div>
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(event) => setConfirmPassword(event.target.value)}
+                  className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 pl-3 pr-10 text-xs font-bold text-taka-ink outline-none transition placeholder:text-slate-400 focus:border-emerald-300 focus:bg-white"
+                  placeholder="Konfirmasi password"
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              </div>
               <button
                 type="button"
                 onClick={savePassword}
@@ -1563,6 +1814,17 @@ function ProfileMenu({
               {error || message}
             </div>
           )}
+
+          <div className="mt-4 border-t border-slate-100 pt-4 lg:hidden">
+            <button
+              type="button"
+              onClick={onLogout}
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-rose-100 bg-rose-50 px-3 py-2.5 text-xs font-black text-rose-600 transition hover:bg-rose-100"
+            >
+              <LogOut size={15} />
+              Keluar dari Taka
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -1843,6 +2105,7 @@ function TransactionRow({
   const amount = `${isIncome ? "+" : "-"}${currency.format(item.amount)}`;
   const amountClass = isIncome ? "text-emerald-600" : "text-rose-500";
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showConfirmDelete, setShowConfirmDelete] = useState(false);
 
   return (
     <div className="grid min-w-0 grid-cols-[44px_minmax(0,1fr)] gap-3 rounded-xl border border-slate-100 bg-white p-3 transition hover:border-emerald-200 hover:shadow-sm sm:flex sm:items-center">
@@ -1866,16 +2129,54 @@ function TransactionRow({
         <button
           type="button"
           disabled={isDeleting}
-          onClick={async () => {
-            if (!confirm("Hapus transaksi ini?")) return;
-            setIsDeleting(true);
-            try { await onDelete(item.rawId); } finally { setIsDeleting(false); }
-          }}
+          onClick={() => setShowConfirmDelete(true)}
           className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-slate-300 transition hover:bg-rose-50 hover:text-rose-500 disabled:opacity-40"
           aria-label="Hapus transaksi"
         >
           <Trash2 size={16} />
         </button>
+      )}
+
+      {showConfirmDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="w-full max-w-xs rounded-2xl bg-white p-5 shadow-[0_8px_32px_rgba(0,0,0,0.18)]">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-rose-50">
+              <Trash2 size={22} className="text-rose-500" />
+            </div>
+            <p className="mt-3 text-base font-black text-taka-ink">Hapus Transaksi?</p>
+            <p className="mt-1 text-sm font-semibold text-slate-500">
+              Apakah kamu yakin ingin menghapus transaksi <span className="font-bold">{item.merchant}</span>? Data tidak dapat dipulihkan.
+            </p>
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShowConfirmDelete(false)}
+                disabled={isDeleting}
+                className="flex-1 rounded-xl border border-slate-200 bg-slate-50 py-2.5 text-sm font-black text-slate-600 transition hover:bg-slate-100 disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  setIsDeleting(true);
+                  try {
+                    if (onDelete) {
+                      await onDelete(item.rawId);
+                    }
+                  } finally {
+                    setIsDeleting(false);
+                    setShowConfirmDelete(false);
+                  }
+                }}
+                disabled={isDeleting}
+                className="flex-1 rounded-xl bg-rose-500 py-2.5 text-sm font-black text-white transition hover:bg-rose-600 disabled:opacity-50 flex justify-center items-center"
+              >
+                {isDeleting ? "Menghapus..." : "Hapus"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -2323,6 +2624,8 @@ function ScanView({
   const [scanStatus, setScanStatus] = useState<"empty" | "ready" | "scanning" | "done">("empty");
   const [scannedReceipt, setScannedReceipt] = useState<ScannedReceipt | null>(null);
   const [isSavingReceipt, setIsSavingReceipt] = useState(false);
+  const [scanType, setScanType] = useState<"expense" | "income">("expense");
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const hasReceiptPreview = Boolean(receiptPreviewUrl);
   const hasScannedReceipt = scanStatus === "done";
   const receiptItems = scannedReceipt?.items ?? [];
@@ -2371,23 +2674,125 @@ function ScanView({
 
     try {
       const { recognize } = await import("tesseract.js");
-      const result = await recognize(imageUrl, "eng", {
+
+      // Preprocess image: convert to high-contrast grayscale for better OCR
+      const preprocessed = await new Promise<string>((resolve) => {
+        const img = new window.Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => {
+          const cvs = document.createElement("canvas");
+          const ctx = cvs.getContext("2d");
+          if (!ctx) { resolve(imageUrl); return; }
+
+          cvs.width = img.naturalWidth;
+          cvs.height = img.naturalHeight;
+          ctx.drawImage(img, 0, 0);
+
+          // Convert to grayscale and increase contrast
+          const imageData = ctx.getImageData(0, 0, cvs.width, cvs.height);
+          const d = imageData.data;
+          for (let i = 0; i < d.length; i += 4) {
+            // Grayscale
+            const gray = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
+            // Increase contrast
+            const contrast = ((gray - 128) * 1.5) + 128;
+            const clamped = Math.max(0, Math.min(255, contrast));
+            // Threshold for cleaner text (adaptive binarization)
+            const binaryValue = clamped > 140 ? 255 : 0;
+            d[i] = binaryValue;
+            d[i + 1] = binaryValue;
+            d[i + 2] = binaryValue;
+          }
+          ctx.putImageData(imageData, 0, 0);
+          resolve(cvs.toDataURL("image/png"));
+        };
+        img.onerror = () => resolve(imageUrl);
+        img.src = imageUrl;
+      });
+
+      setCameraMessage("OCR sedang membaca teks...");
+
+      const result = await recognize(preprocessed, "eng", {
         logger: (progress) => {
           if (progress.status === "recognizing text") {
             setCameraMessage(`OCR membaca teks... ${Math.round(progress.progress * 100)}%`);
           }
         },
       });
-      const parsedReceipt = parseReceiptText(result.data.text);
+
+      // Debug: log raw OCR text
+      console.log("=== RAW OCR TEXT ===");
+      const rawText = result.data.text;
+      console.log(rawText);
+      console.log("===================");
+
+      let parsedReceipt: ScannedReceipt | null = null;
+      let usedAi = false;
+
+      setCameraMessage("Memproses teks dengan Taka AI...");
+      try {
+        const aiResponse = await fetch("/api/scan-ai", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ rawText }),
+        });
+
+        if (aiResponse.ok) {
+          const aiData = await aiResponse.json();
+          if (aiData.is_transaction) {
+            const itemsData = Array.isArray(aiData.items) ? aiData.items.map((item: any) => ({
+              name: item.name || "Item",
+              qty: Number(item.quantity) || 1,
+              price: Number(item.unit_price) || 0,
+            })).filter((item: any) => item.price > 0) : [];
+
+            let finalTotal = Number(aiData.grand_total);
+            if (!Number.isFinite(finalTotal) || finalTotal <= 0) {
+               finalTotal = itemsData.reduce((sum: number, item: any) => sum + (item.qty * item.price), 0);
+            }
+
+            parsedReceipt = {
+              merchant: aiData.merchant || "Struk Belanja",
+              date: aiData.transaction_date ? `${aiData.transaction_date} ${aiData.transaction_time || ""}`.trim() : "Tanggal tidak terbaca",
+              payment: aiData.payment_method || "Tunai",
+              subtotal: aiData.subtotal || 0,
+              discount: aiData.discount || 0,
+              total: finalTotal,
+              confidence: aiData.confidence || 95,
+              source: "ai",
+              items: itemsData,
+            };
+            usedAi = true;
+          } else {
+             // AI successfully responded but determined it's not a transaction
+             console.log("AI deteksi bukan struk.");
+          }
+        } else {
+          console.error("AI API Error:", await aiResponse.text());
+        }
+      } catch (aiError) {
+        console.error("AI Processing Error:", aiError);
+      }
+
+      // Fallback to local regex if AI failed, errored, or no API key
+      if (!parsedReceipt) {
+        console.log("Fallback to local Regex parser...");
+        parsedReceipt = parseReceiptText(rawText);
+      }
 
       setScannedReceipt(parsedReceipt);
       setScanStatus("done");
-      setCameraMessage(
-        parsedReceipt.source === "ocr"
-          ? "Scan selesai dari OCR. Hasil struk siap dikonfirmasi."
-          : "OCR belum cukup jelas. Dipakai hasil demo dari contoh struk Indomaret.",
-      );
-    } catch {
+
+      if (parsedReceipt.source === "ocr" || parsedReceipt.source === "ai") {
+        const itemCount = parsedReceipt.items.length;
+        setCameraMessage(
+          `Scan selesai! ${itemCount} item terdeteksi, total ${currency.format(parsedReceipt.total)}. Confidence: ${parsedReceipt.confidence}%`
+        );
+      } else {
+        setCameraMessage("Gagal menganalisa struk. Pastikan .env.local memiliki GEMINI_API_KEY untuk fitur AI.");
+      }
+    } catch (err) {
+      console.error("OCR Error:", err);
       setScannedReceipt(indomaretExampleReceipt);
       setScanStatus("done");
       setCameraMessage("OCR gagal dimuat. Dipakai hasil demo dari contoh struk Indomaret.");
@@ -2486,10 +2891,10 @@ function ScanView({
   async function saveScannedReceipt() {
     if (!scannedReceipt) return;
 
-    const expenseCategory = categories.find((category) => category.type === "expense" || category.type === "both");
+    const selectedCategory = categories.find((category) => category.type === scanType || category.type === "both");
 
-    if (!expenseCategory) {
-      setCameraMessage("Belum ada kategori expense. Tambah kategori dulu di menu Transaksi.");
+    if (!selectedCategory) {
+      setCameraMessage(`Belum ada kategori ${scanType}. Tambah kategori dulu di menu Transaksi.`);
       return;
     }
 
@@ -2499,12 +2904,12 @@ function ScanView({
       await onCreateTransaction({
         merchant: scannedReceipt.merchant,
         amount: scannedReceipt.total,
-        type: "expense",
-        categoryId: expenseCategory.id,
+        type: scanType,
+        categoryId: selectedCategory.id,
         transactionDate: getDateInputValue(),
         source: "Scan",
       });
-      setCameraMessage("Transaksi hasil scan berhasil disimpan ke database.");
+      setShowSuccessModal(true);
     } catch (error) {
       setCameraMessage(error instanceof Error ? error.message : "Hasil scan gagal disimpan.");
     } finally {
@@ -2715,6 +3120,23 @@ function ScanView({
             </div>
           </div>
         )}
+        
+        {hasScannedReceipt && (
+          <div className="mt-4">
+            <label className="block">
+              <span className="text-xs font-black uppercase tracking-[0.1em] text-slate-400">Jenis Transaksi</span>
+              <select
+                value={scanType}
+                onChange={(e) => setScanType(e.target.value as "expense" | "income")}
+                className="mt-2 h-12 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-taka-ink outline-none"
+              >
+                <option value="expense">Pengeluaran (Expense)</option>
+                <option value="income">Pemasukan (Income)</option>
+              </select>
+            </label>
+          </div>
+        )}
+
         <button
           type="button"
           onClick={() => void saveScannedReceipt()}
@@ -2728,6 +3150,30 @@ function ScanView({
           {isSavingReceipt ? "Menyimpan..." : "Konfirmasi Simpan"}
         </button>
       </section>
+
+      {showSuccessModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="w-full max-w-xs rounded-2xl bg-white p-5 shadow-[0_8px_32px_rgba(0,0,0,0.18)] text-center">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50">
+              <Check size={22} className="text-emerald-500" />
+            </div>
+            <p className="mt-3 text-base font-black text-taka-ink">Berhasil Disimpan!</p>
+            <p className="mt-1 text-sm font-semibold text-slate-500">
+              Transaksi hasil scan berhasil ditambahkan.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setShowSuccessModal(false);
+                onNavigate("transactions");
+              }}
+              className="mt-4 w-full rounded-xl bg-emerald-500 py-2.5 text-sm font-black text-white transition hover:bg-emerald-600"
+            >
+              Lanjut ke Transaksi
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -2739,7 +3185,7 @@ const defaultChatMessages: ChatMessage[] = [
   },
 ];
 
-function ChatView() {
+function ChatView({ transactions }: { transactions: Transaction[] }) {
   const [messages, setMessages] = useState<ChatMessage[]>(defaultChatMessages);
   const [draft, setDraft] = useState("");
   const [isTyping, setIsTyping] = useState(false);
@@ -2786,27 +3232,101 @@ function ChatView() {
     setConfirmClear(false);
   }
 
-  function sendMessage(text: string) {
+  async function sendMessage(text: string) {
+    if (isTyping) return;
+    
     const trimmed = text.trim();
     if (!trimmed) return;
 
-    setMessages((current) => [
-      ...current,
-      { role: "user", text: trimmed },
-    ]);
+    // Add user message immediately
+    const userMessage = { role: "user" as const, text: trimmed };
+    setMessages((current) => [...current, userMessage]);
     setDraft("");
     setIsTyping(true);
 
-    setTimeout(() => {
+    try {
+      const formattedTransactions = transactions.map(t => 
+        `- ${new Date(t.transactionDate || t.createdAt).toLocaleDateString("id-ID")} | ${t.type === 'expense' ? 'Pengeluaran' : 'Pemasukan'} | ${t.category} | ${t.merchant} | Rp${t.amount}`
+      ).join('\n');
+      
+      const currentDate = new Date().toLocaleDateString("id-ID", { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+      
+      const systemPrompt = {
+        role: "system",
+        content: `Anda adalah Taka AI, asisten keuangan pribadi. Hari ini adalah ${currentDate}. Berikut adalah data transaksi riil pengguna (total ${transactions.length} transaksi):\n\n${formattedTransactions || 'Belum ada transaksi.'}\n\nGunakan data di atas untuk menjawab pertanyaan pengguna dengan akurat dan singkat.`
+      };
+
+      // Create chat history for API (last 5 messages)
+      const chatHistory = [systemPrompt, ...[...messages, userMessage].slice(-5).map(m => ({
+        role: m.role,
+        content: m.text
+      }))];
+
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          messages: chatHistory
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch AI response");
+      }
+
+      // Add empty assistant message placeholder
+      setMessages((current) => [...current, { role: "assistant", text: "" }]);
+      
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      
+      if (reader) {
+        let accumulatedText = "";
+        let done = false;
+        while (!done) {
+          const { value, done: readerDone } = await reader.read();
+          done = readerDone;
+          if (value) {
+            const chunk = decoder.decode(value, { stream: true });
+            const lines = chunk.split('\n').filter(line => line.trim() !== '');
+            for (const line of lines) {
+              if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+                try {
+                  const data = JSON.parse(line.substring(6));
+                  const content = data.choices?.[0]?.delta?.content;
+                  if (content) {
+                    accumulatedText += content;
+                    setMessages((current) => {
+                      const newMessages = [...current];
+                      const lastMsg = newMessages[newMessages.length - 1];
+                      if (lastMsg && lastMsg.role === 'assistant') {
+                        newMessages[newMessages.length - 1] = {
+                          ...lastMsg,
+                          text: accumulatedText
+                        };
+                      }
+                      return newMessages;
+                    });
+                  }
+                } catch (e) {
+                  console.error("Error parsing stream chunk", e);
+                }
+              }
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error("AI Chat Error:", error);
       setMessages((current) => [
         ...current,
-        {
-          role: "assistant",
-          text: "Dari pola Mei 2026, area paling bisa ditekan adalah makanan ringan dan transportasi harian. Target realistis: kurangi Rp 35 ribu per hari selama 10 hari.",
-        },
+        { role: "assistant", text: "Maaf, sistem Taka AI sedang mengalami gangguan koneksi." }
       ]);
+    } finally {
       setIsTyping(false);
-    }, 1500);
+    }
   }
 
   return (
@@ -2818,8 +3338,9 @@ function ChatView() {
             <button
               key={question}
               type="button"
+              disabled={isTyping}
               onClick={() => sendMessage(question)}
-              className="w-full rounded-lg bg-slate-50 px-3 py-3 text-left text-sm font-bold leading-5 text-slate-700 transition hover:bg-emerald-50 hover:text-emerald-700"
+              className="w-full rounded-lg bg-slate-50 px-3 py-3 text-left text-sm font-bold leading-5 text-slate-700 transition hover:bg-emerald-50 hover:text-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {question}
             </button>
@@ -2868,7 +3389,26 @@ function ChatView() {
                     : "bg-slate-100 text-slate-700",
                 )}
               >
-                {message.text}
+                {(() => {
+                  const parts = message.text.split(/(\*\*.*?\*\*)/g);
+                  return (
+                    <>
+                      {parts.map((part, i) => {
+                        if (part.startsWith('**') && part.endsWith('**')) {
+                          return <strong key={i} className="font-black text-slate-900">{part.slice(2, -2)}</strong>;
+                        }
+                        return (
+                          <span key={i}>
+                            {part.split('\n').map((line, j, arr) => [
+                              line,
+                              j < arr.length - 1 ? <br key={`br-${j}`} /> : null
+                            ])}
+                          </span>
+                        );
+                      })}
+                    </>
+                  );
+                })()}
               </div>
             </div>
           ))}
@@ -2918,11 +3458,16 @@ function ChatView() {
         >
           <input
             value={draft}
+            disabled={isTyping}
             onChange={(event) => setDraft(event.target.value)}
-            className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-semibold outline-none transition focus:border-emerald-300 focus:bg-white"
+            className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-semibold outline-none transition focus:border-emerald-300 focus:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
             placeholder="Tanya kondisi keuanganmu"
           />
-          <button type="submit" className="rounded-lg bg-taka-navy px-4 py-3 text-sm font-black text-white">
+          <button 
+            type="submit" 
+            disabled={isTyping || !draft.trim()} 
+            className="rounded-lg bg-taka-navy px-4 py-3 text-sm font-black text-white transition disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-800"
+          >
             Kirim
           </button>
         </form>

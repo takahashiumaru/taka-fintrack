@@ -39,16 +39,31 @@ export async function ensureUserCategories(userId: number) {
 
   if (defaultCategories.length === 0) return;
 
-  const placeholders = defaultCategories.map(() => "(?, ?, ?, ?)").join(", ");
-  const values = defaultCategories.flatMap((c) => [userId, c.name, c.type, c.color]);
+  try {
+    // Check if categories already exist to avoid unnecessary INSERT IGNORE locks
+    const [existing] = await pool.execute<RowDataPacket[]>(
+      "SELECT 1 FROM categories WHERE user_id = ? LIMIT 1",
+      [userId]
+    );
 
-  await pool.execute<ResultSetHeader>(
-    `
-      INSERT IGNORE INTO categories (user_id, name, type, color)
-      VALUES ${placeholders}
-    `,
-    values,
-  );
+    if (existing.length > 0) {
+      return;
+    }
+
+    const placeholders = defaultCategories.map(() => "(?, ?, ?, ?)").join(", ");
+    const values = defaultCategories.flatMap((c) => [userId, c.name, c.type, c.color]);
+
+    await pool.execute<ResultSetHeader>(
+      `
+        INSERT IGNORE INTO categories (user_id, name, type, color)
+        VALUES ${placeholders}
+      `,
+      values,
+    );
+  } catch (error) {
+    // Log error but don't crash, let the caller fetch whatever categories are there
+    console.error("ensureUserCategories error:", error);
+  }
 }
 
 export function toApiCategory(row: CategoryRow) {
