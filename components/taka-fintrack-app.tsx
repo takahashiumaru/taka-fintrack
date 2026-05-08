@@ -10,9 +10,11 @@ import {
   ArrowUpRight,
   Bell,
   Bot,
+  CalendarDays,
   Camera,
   ChartNoAxesColumnIncreasing,
   Check,
+  ChevronLeft,
   ChevronRight,
   CircleDollarSign,
   CreditCard,
@@ -323,6 +325,10 @@ function getMonthLabel(date: Date) {
 
 function getDayLabel(date: Date) {
   return new Intl.DateTimeFormat("id-ID", { weekday: "short" }).format(date);
+}
+
+function getFullMonthLabel(date: Date) {
+  return new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric" }).format(date);
 }
 
 function getSoftColor(color: string) {
@@ -1990,6 +1996,10 @@ function TransactionsView({
   onRefresh: () => Promise<void>;
 }) {
   const [filter, setFilter] = useState<"Semua" | "Income" | "Expense" | "Scan">("Semua");
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
   const [transactionType, setTransactionType] = useState<"expense" | "income">("expense");
   const [amount, setAmount] = useState("");
   const [merchant, setMerchant] = useState("");
@@ -2006,13 +2016,38 @@ function TransactionsView({
     () => categories.filter((category) => category.type === "both" || category.type === transactionType),
     [categories, transactionType],
   );
-  const filteredTransactions = transactions.filter((transaction) => {
+
+  const monthTransactions = useMemo(() => {
+    return transactions.filter((transaction) => {
+      const date = getTransactionDate(transaction);
+      return isSameMonth(date, selectedMonth);
+    });
+  }, [transactions, selectedMonth]);
+
+  const filteredTransactions = monthTransactions.filter((transaction) => {
     if (filter === "Income") return transaction.type === "income";
     if (filter === "Expense") return transaction.type === "expense";
     if (filter === "Scan") return transaction.source === "Scan";
-
     return true;
   });
+
+  const monthIncome = monthTransactions
+    .filter((t) => t.type === "income")
+    .reduce((s, t) => s + t.amount, 0);
+  const monthExpense = monthTransactions
+    .filter((t) => t.type === "expense")
+    .reduce((s, t) => s + t.amount, 0);
+
+  function prevMonth() {
+    setSelectedMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1));
+  }
+  function nextMonth() {
+    setSelectedMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1));
+  }
+  function goToCurrentMonth() {
+    const now = new Date();
+    setSelectedMonth(new Date(now.getFullYear(), now.getMonth(), 1));
+  }
 
   useEffect(() => {
     if (availableCategories.length === 0) {
@@ -2100,41 +2135,85 @@ function TransactionsView({
     }
   }
 
+  const isCurrentMonth = isSameMonth(selectedMonth, new Date());
+
   return (
     <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
       <section className="min-w-0 overflow-hidden rounded-xl border border-white/70 bg-white/86 p-3 shadow-soft backdrop-blur sm:p-4">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <SectionTitle title="Daftar Transaksi" eyebrow={`${transactions.length} transaksi real`} />
-          <div className="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
-            {(["Semua", "Income", "Expense", "Scan"] as const).map((filterOption) => (
-              <button
-                key={filterOption}
-                type="button"
-                onClick={() => setFilter(filterOption)}
-                className={clsx(
-                  "shrink-0 rounded-lg px-3 py-2 text-sm font-black transition",
-                  filter === filterOption ? "bg-taka-navy text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200",
-                )}
-              >
-                {filterOption}
-              </button>
-            ))}
-            <button
-              type="button"
-              onClick={() => void onRefresh()}
-              className="shrink-0 rounded-lg bg-emerald-50 px-3 py-2 text-sm font-black text-emerald-700 transition hover:bg-emerald-100"
-            >
-              Refresh
+        {/* Month picker */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={prevMonth} className="grid h-9 w-9 place-items-center rounded-lg bg-slate-100 text-slate-500 transition hover:bg-slate-200">
+              <ChevronLeft size={18} />
             </button>
+            <button type="button" onClick={goToCurrentMonth} className="flex items-center gap-2 rounded-lg bg-slate-50 px-4 py-2 text-sm font-black text-taka-ink transition hover:bg-slate-100">
+              <CalendarDays size={15} className="text-emerald-600" />
+              {getFullMonthLabel(selectedMonth)}
+            </button>
+            <button type="button" onClick={nextMonth} className="grid h-9 w-9 place-items-center rounded-lg bg-slate-100 text-slate-500 transition hover:bg-slate-200">
+              <ChevronRight size={18} />
+            </button>
+            {!isCurrentMonth && (
+              <button type="button" onClick={goToCurrentMonth} className="rounded-lg bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700 transition hover:bg-emerald-100">
+                Hari ini
+              </button>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => void onRefresh()}
+            className="shrink-0 rounded-lg bg-emerald-50 px-3 py-2 text-sm font-black text-emerald-700 transition hover:bg-emerald-100"
+          >
+            Refresh
+          </button>
+        </div>
+
+        {/* Monthly summary */}
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          <div className="rounded-lg bg-emerald-50 px-3 py-2.5">
+            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-emerald-600">Income</p>
+            <p className="mt-1 text-sm font-black text-emerald-700">{currency.format(monthIncome)}</p>
+          </div>
+          <div className="rounded-lg bg-rose-50 px-3 py-2.5">
+            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-rose-500">Expense</p>
+            <p className="mt-1 text-sm font-black text-rose-600">{currency.format(monthExpense)}</p>
+          </div>
+          <div className="rounded-lg bg-violet-50 px-3 py-2.5">
+            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-violet-500">Balance</p>
+            <p className={clsx("mt-1 text-sm font-black", monthIncome - monthExpense >= 0 ? "text-violet-700" : "text-rose-600")}>
+              {currency.format(monthIncome - monthExpense)}
+            </p>
           </div>
         </div>
-        <div className="mt-4 space-y-2">
+
+        {/* Type filter */}
+        <div className="no-scrollbar mt-3 -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+          {(["Semua", "Income", "Expense", "Scan"] as const).map((filterOption) => (
+            <button
+              key={filterOption}
+              type="button"
+              onClick={() => setFilter(filterOption)}
+              className={clsx(
+                "shrink-0 rounded-lg px-3 py-2 text-sm font-black transition",
+                filter === filterOption ? "bg-taka-navy text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200",
+              )}
+            >
+              {filterOption}
+            </button>
+          ))}
+        </div>
+
+        {/* Transaction count */}
+        <p className="mt-3 text-xs font-bold text-slate-400">{filteredTransactions.length} transaksi</p>
+
+        {/* Transaction list */}
+        <div className="mt-2 space-y-2">
           {filteredTransactions.map((item) => (
             <TransactionRow key={item.id} item={item} onDelete={onDeleteTransaction} />
           ))}
           {filteredTransactions.length === 0 && (
             <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-bold text-slate-400">
-              {dataStatus === "loading" ? "Memuat transaksi dari database..." : "Belum ada transaksi untuk filter ini."}
+              {dataStatus === "loading" ? "Memuat transaksi dari database..." : "Belum ada transaksi untuk periode ini."}
             </div>
           )}
         </div>
