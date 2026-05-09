@@ -1,11 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getAuthenticatedUser } from "@/lib/server/auth";
+import { apiError, readJson, tooManyRequests } from "@/lib/server/http";
+import { checkRateLimit, getClientIp } from "@/lib/server/rate-limit";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const maxRawTextLength = 12_000;
+const maxRequestsPerMinute = 10;
 
 export async function POST(req: NextRequest) {
   try {
-    const { rawText } = await req.json();
+    const user = await getAuthenticatedUser(req);
+    if (!user) return apiError("Sesi tidak valid. Login ulang.", 401);
+
+    const rateLimit = checkRateLimit(`scan-ai:${user.id}:${getClientIp(req)}`, maxRequestsPerMinute, 60_000);
+    if (!rateLimit.ok) return tooManyRequests(rateLimit.resetAt);
+
+    const body = await readJson(req);
+    const rawText = typeof body?.rawText === "string" ? body.rawText.trim() : "";
 
     if (!rawText) {
-      return NextResponse.json({ error: "rawText is required" }, { status: 400 });
+      return apiError("rawText wajib diisi.");
+    }
+
+    if (rawText.length > maxRawTextLength) {
+      return apiError(`rawText terlalu panjang. Maksimal ${maxRawTextLength} karakter.`);
+    }
+
+    if (!process.env.AI_API_URL || !process.env.AI_API_KEY) {
+      return apiError("Konfigurasi AI belum tersedia.", 503);
     }
 
     const prompt = `Kamu adalah sistem ekstraksi data struk transaksi.
@@ -64,19 +88,19 @@ Teks OCR:
 ${rawText}
 """`;
 
-    const aiResponse = await fetch(process.env.AI_API_URL || '', {
-      method: 'POST',
+    const aiResponse = await fetch(process.env.AI_API_URL, {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.AI_API_KEY}`
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.AI_API_KEY}`,
       },
       body: JSON.stringify({
         model: "full-support",
         messages: [
-          { role: "user", content: prompt }
+          { role: "user", content: prompt },
         ],
-        stream: false
-      })
+        stream: false,
+      }),
     });
 
     if (!aiResponse.ok) {
@@ -86,14 +110,12 @@ ${rawText}
 
     const aiData = await aiResponse.json();
     const textResult = aiData.choices?.[0]?.message?.content || "";
-    
-    // Clean up markdown block if present
     const cleanedText = textResult.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
-    
+
     try {
       const jsonParsed = JSON.parse(cleanedText);
       return NextResponse.json(jsonParsed);
-    } catch (parseError) {
+    } catch {
       console.error("Failed to parse AI response as JSON:", cleanedText);
       return NextResponse.json({ error: "Invalid JSON from AI" }, { status: 500 });
     }

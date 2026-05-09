@@ -20,6 +20,7 @@ import {
   CreditCard,
   Eye,
   EyeOff,
+  FileDown,
   FileText,
   Home,
   LayoutDashboard,
@@ -1036,7 +1037,7 @@ export function TakaFinTrackApp() {
   }
 
   return (
-    <main className="min-h-screen px-3 pb-24 pt-3 sm:px-4 lg:p-6">
+    <main className="min-h-screen w-full max-w-full overflow-x-hidden px-3 pb-24 pt-3 sm:px-4 lg:p-6">
       <div className="mx-auto grid w-full max-w-[1500px] gap-4 lg:grid-cols-[278px_minmax(0,1fr)]">
         <Sidebar
           activeView={activeView}
@@ -1072,9 +1073,9 @@ export function TakaFinTrackApp() {
               onRefresh={refreshFinanceData}
             />
           )}
-          {activeView === "scan" && <ScanView categories={categories} onCreateTransaction={createTransaction} onNavigate={changeView} />}
-          {activeView === "chat" && <ChatView transactions={transactions} />}
-          {activeView === "reports" && <ReportsView analytics={analytics} />}
+          {activeView === "scan" && <ScanView categories={categories} token={authToken} onCreateTransaction={createTransaction} onNavigate={changeView} />}
+          {activeView === "chat" && <ChatView transactions={transactions} token={authToken} />}
+          {activeView === "reports" && <ReportsView analytics={analytics} transactions={transactions} />}
         </section>
       </div>
       <MobileNav activeView={activeView} onChange={changeView} />
@@ -1566,7 +1567,7 @@ function TopBar({
   onLogout: () => void;
 }) {
   return (
-    <header className="flex items-start justify-between gap-3 rounded-xl border border-white/70 bg-white/82 p-3 shadow-soft backdrop-blur sm:items-center sm:p-4">
+    <header className="relative z-[1200] flex items-start justify-between gap-3 rounded-xl border border-white/70 bg-white/82 p-3 shadow-soft backdrop-blur sm:items-center sm:p-4">
       <div className="min-w-0">
         <div className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-[0.12em] text-emerald-600 sm:gap-2 sm:text-xs">
           <Sparkles size={13} />
@@ -1731,7 +1732,14 @@ function ProfileMenu({
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 top-[calc(100%+0.5rem)] z-[200] w-72 max-w-[calc(100vw-1.5rem)] rounded-xl border border-white/80 bg-white p-4 text-left shadow-[0_8px_32px_rgba(0,0,0,0.14)] backdrop-blur">
+        <>
+          <button
+            type="button"
+            aria-label="Tutup menu profil"
+            className="fixed inset-0 z-[900] cursor-default bg-transparent"
+            onClick={() => setIsOpen(false)}
+          />
+          <div className="fixed right-3 top-24 z-[1300] max-h-[calc(100vh-8rem)] w-72 max-w-[calc(100vw-1.5rem)] overflow-y-auto rounded-xl border border-white/80 bg-white p-4 text-left shadow-[0_18px_60px_rgba(15,23,42,0.25)] backdrop-blur">
           <div className="flex items-center gap-3">
             <AvatarCircle user={user} size="lg" />
             <div className="min-w-0">
@@ -1825,7 +1833,8 @@ function ProfileMenu({
               Keluar dari Taka
             </button>
           </div>
-        </div>
+          </div>
+        </>
       )}
     </div>
   );
@@ -2606,10 +2615,12 @@ function TransactionsView({
 
 function ScanView({
   categories,
+  token,
   onCreateTransaction,
   onNavigate,
 }: {
   categories: Category[];
+  token: string;
   onCreateTransaction: (input: TransactionInput) => Promise<Transaction>;
   onNavigate: (view: ViewKey) => void;
 }) {
@@ -2720,11 +2731,7 @@ function ScanView({
         },
       });
 
-      // Debug: log raw OCR text
-      console.log("=== RAW OCR TEXT ===");
       const rawText = result.data.text;
-      console.log(rawText);
-      console.log("===================");
 
       let parsedReceipt: ScannedReceipt | null = null;
       let usedAi = false;
@@ -2733,7 +2740,10 @@ function ScanView({
       try {
         const aiResponse = await fetch("/api/scan-ai", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...authHeaders(token),
+          },
           body: JSON.stringify({ rawText }),
         });
 
@@ -2797,7 +2807,7 @@ function ScanView({
       setScanStatus("done");
       setCameraMessage("OCR gagal dimuat. Dipakai hasil demo dari contoh struk Indomaret.");
     }
-  }, []);
+  }, [token]);
 
   function stopCamera() {
     clearCameraStream();
@@ -3185,13 +3195,15 @@ const defaultChatMessages: ChatMessage[] = [
   },
 ];
 
-function ChatView({ transactions }: { transactions: Transaction[] }) {
+function ChatView({ transactions, token }: { transactions: Transaction[]; token: string }) {
   const [messages, setMessages] = useState<ChatMessage[]>(defaultChatMessages);
   const [draft, setDraft] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [typingPreview, setTypingPreview] = useState("");
   const [confirmClear, setConfirmClear] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const isInitialized = useRef(false);
+  const typingTimerRef = useRef<number | null>(null);
 
   // Load from localStorage on mount (client-side only)
   useEffect(() => {
@@ -3202,7 +3214,15 @@ function ChatView({ transactions }: { transactions: Transaction[] }) {
       if (stored) {
         const parsed: unknown = JSON.parse(stored);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          setMessages(parsed as ChatMessage[]);
+          const safeMessages = parsed
+            .filter((message): message is ChatMessage => {
+              if (!message || typeof message !== "object") return false;
+              const candidate = message as Partial<ChatMessage>;
+              return (candidate.role === "user" || candidate.role === "assistant") && typeof candidate.text === "string";
+            })
+            .slice(-30);
+
+          setMessages(safeMessages.length > 0 ? safeMessages : defaultChatMessages);
         }
       }
     } catch {
@@ -3224,7 +3244,42 @@ function ChatView({ transactions }: { transactions: Transaction[] }) {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, isTyping]);
+  }, [messages, isTyping, typingPreview]);
+
+  useEffect(() => {
+    return () => {
+      if (typingTimerRef.current) {
+        window.clearInterval(typingTimerRef.current);
+      }
+    };
+  }, []);
+
+  function revealAssistantMessage(fullText: string) {
+    if (typingTimerRef.current) {
+      window.clearInterval(typingTimerRef.current);
+    }
+
+    const safeText = fullText.trim() || "Maaf, Taka AI belum mendapatkan jawaban. Coba tanya ulang ya.";
+    const step = Math.max(1, Math.ceil(safeText.length / 120));
+    let index = 0;
+    setTypingPreview("");
+    setIsTyping(true);
+
+    typingTimerRef.current = window.setInterval(() => {
+      index = Math.min(index + step, safeText.length);
+      setTypingPreview(safeText.slice(0, index));
+
+      if (index >= safeText.length) {
+        if (typingTimerRef.current) {
+          window.clearInterval(typingTimerRef.current);
+          typingTimerRef.current = null;
+        }
+        setMessages((current) => [...current, { role: "assistant", text: safeText }]);
+        setTypingPreview("");
+        setIsTyping(false);
+      }
+    }, 18);
+  }
 
   function clearChat() {
     setMessages(defaultChatMessages);
@@ -3253,7 +3308,7 @@ function ChatView({ transactions }: { transactions: Transaction[] }) {
       
       const systemPrompt = {
         role: "system",
-        content: `Anda adalah Taka AI, asisten keuangan pribadi. Hari ini adalah ${currentDate}. Berikut adalah data transaksi riil pengguna (total ${transactions.length} transaksi):\n\n${formattedTransactions || 'Belum ada transaksi.'}\n\nGunakan data di atas untuk menjawab pertanyaan pengguna dengan akurat dan singkat.`
+        content: `Anda adalah Taka AI, asisten keuangan pribadi. Hari ini adalah ${currentDate}. Berikut adalah data transaksi riil pengguna (total ${transactions.length} transaksi):\n\n${formattedTransactions || 'Belum ada transaksi.'}\n\nGunakan data di atas untuk menjawab pertanyaan pengguna dengan akurat, singkat, dan tuntas. Format rupiah harus rapi, contoh: Rp35.000. Jangan pernah mengakhiri jawaban dengan angka yang terpotong seperti Rp45.. atau kalimat menggantung. Jika membuat rincian, gunakan baris pendek agar mudah dibaca di layar HP.`
       };
 
       // Create chat history for API (last 5 messages)
@@ -3265,7 +3320,8 @@ function ChatView({ transactions }: { transactions: Transaction[] }) {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          ...authHeaders(token),
         },
         body: JSON.stringify({
           messages: chatHistory
@@ -3276,56 +3332,47 @@ function ChatView({ transactions }: { transactions: Transaction[] }) {
         throw new Error("Failed to fetch AI response");
       }
 
-      // Add empty assistant message placeholder
-      setMessages((current) => [...current, { role: "assistant", text: "" }]);
-      
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
+      let accumulatedText = "";
+      let streamBuffer = "";
       
       if (reader) {
-        let accumulatedText = "";
         let done = false;
         while (!done) {
           const { value, done: readerDone } = await reader.read();
           done = readerDone;
           if (value) {
-            const chunk = decoder.decode(value, { stream: true });
-            const lines = chunk.split('\n').filter(line => line.trim() !== '');
+            streamBuffer += decoder.decode(value, { stream: true });
+            const lines = streamBuffer.split('\n');
+            streamBuffer = lines.pop() ?? "";
+
             for (const line of lines) {
-              if (line.startsWith('data: ') && line !== 'data: [DONE]') {
-                try {
-                  const data = JSON.parse(line.substring(6));
-                  const content = data.choices?.[0]?.delta?.content;
-                  if (content) {
-                    accumulatedText += content;
-                    setMessages((current) => {
-                      const newMessages = [...current];
-                      const lastMsg = newMessages[newMessages.length - 1];
-                      if (lastMsg && lastMsg.role === 'assistant') {
-                        newMessages[newMessages.length - 1] = {
-                          ...lastMsg,
-                          text: accumulatedText
-                        };
-                      }
-                      return newMessages;
-                    });
-                  }
-                } catch (e) {
-                  console.error("Error parsing stream chunk", e);
+              const trimmedLine = line.trim();
+              if (!trimmedLine.startsWith('data: ') || trimmedLine === 'data: [DONE]') continue;
+              try {
+                const data = JSON.parse(trimmedLine.substring(6));
+                const content = data.choices?.[0]?.delta?.content;
+                if (content) {
+                  accumulatedText += content;
                 }
+              } catch (e) {
+                console.error("Error parsing stream chunk", e);
               }
             }
           }
         }
+      } else {
+        const data = await response.json();
+        accumulatedText = data.choices?.[0]?.message?.content ?? "";
       }
+
+      setIsTyping(false);
+      revealAssistantMessage(accumulatedText);
     } catch (error) {
       console.error("AI Chat Error:", error);
-      setMessages((current) => [
-        ...current,
-        { role: "assistant", text: "Maaf, sistem Taka AI sedang mengalami gangguan koneksi." }
-      ]);
-    } finally {
       setIsTyping(false);
+      revealAssistantMessage("Maaf, sistem Taka AI sedang mengalami gangguan koneksi.");
     }
   }
 
@@ -3414,10 +3461,22 @@ function ChatView({ transactions }: { transactions: Transaction[] }) {
           ))}
           {isTyping && (
             <div className="flex justify-start">
-              <div className="flex max-w-[86%] items-center gap-1.5 rounded-xl bg-slate-100 px-4 py-4 text-sm font-semibold leading-6 text-slate-700">
-                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400" style={{ animationDelay: "0ms" }} />
-                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400" style={{ animationDelay: "150ms" }} />
-                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400" style={{ animationDelay: "300ms" }} />
+              <div className="max-w-[86%] rounded-xl bg-slate-100 px-4 py-3 text-sm font-semibold leading-6 text-slate-700">
+                {typingPreview ? (
+                  <span>
+                    {typingPreview.split('\n').map((line, j, arr) => [
+                      line,
+                      j < arr.length - 1 ? <br key={`typing-br-${j}`} /> : null,
+                    ])}
+                    <span className="ml-0.5 inline-block h-4 w-1 animate-pulse rounded-full bg-slate-400 align-[-2px]" />
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1.5 py-1">
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400" style={{ animationDelay: "0ms" }} />
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400" style={{ animationDelay: "150ms" }} />
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400" style={{ animationDelay: "300ms" }} />
+                  </span>
+                )}
               </div>
             </div>
           )}
@@ -3477,11 +3536,58 @@ function ChatView({ transactions }: { transactions: Transaction[] }) {
 }
 
 
-function ReportsView({ analytics }: { analytics: ReturnType<typeof getFinanceAnalytics> }) {
+function escapeCsvCell(value: string | number) {
+  const text = String(value).replace(/"/g, '""');
+  return `"${text}"`;
+}
+
+function ReportsView({ analytics, transactions }: { analytics: ReturnType<typeof getFinanceAnalytics>; transactions: Transaction[] }) {
   const totalExpense = analytics.categoryBreakdown.reduce((total, item) => total + item.amount, 0);
+
+  function exportExcel() {
+    const rows = [
+      ["Tanggal", "Tipe", "Kategori", "Merchant", "Nominal", "Sumber"],
+      ...transactions.map((transaction) => [
+        transaction.transactionDate ?? transaction.createdAt,
+        transaction.type === "income" ? "Pemasukan" : "Pengeluaran",
+        transaction.category,
+        transaction.merchant,
+        transaction.amount,
+        transaction.source,
+      ]),
+    ];
+    const csvContent = rows.map((row) => row.map(escapeCsvCell).join(",")).join("\n");
+    const blob = new Blob([`\uFEFF${csvContent}`], { type: "application/vnd.ms-excel;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `taka-fintrack-laporan-${getDateInputValue()}.xls`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
 
   return (
     <div className="space-y-4">
+      <section className="rounded-xl border border-white/70 bg-white/86 p-4 shadow-soft backdrop-blur">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.24em] text-taka-emerald">Export laporan</p>
+            <h3 className="mt-1 text-xl font-black text-taka-ink">Download data transaksi</h3>
+            <p className="mt-1 text-sm font-semibold text-slate-500">Export semua transaksi ke file Excel untuk rekap atau arsip.</p>
+          </div>
+          <button
+            type="button"
+            onClick={exportExcel}
+            disabled={transactions.length === 0}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-taka-navy px-4 py-3 text-sm font-black text-white shadow-soft transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:hover:translate-y-0"
+          >
+            <FileDown size={18} />
+            Export Excel
+          </button>
+        </div>
+      </section>
       <section className="grid gap-3 md:grid-cols-3">
         <ReportStat label="Income Mei" value={currency.format(analytics.income)} icon={TrendingUp} tone="emerald" />
         <ReportStat label="Expense Mei" value={currency.format(analytics.expense)} icon={TrendingDown} tone="rose" />

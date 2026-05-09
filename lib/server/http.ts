@@ -13,3 +13,26 @@ export async function readJson(request: Request): Promise<Record<string, unknown
     return null;
   }
 }
+
+export function isEnabled(value: string | undefined) {
+  return value === "1" || value?.toLowerCase() === "true";
+}
+
+export function getBearerToken(request: Request) {
+  const authorization = request.headers.get("authorization") ?? "";
+  return authorization.startsWith("Bearer ") ? authorization.slice("Bearer ".length) : "";
+}
+
+export function tooManyRequests(resetAt: number) {
+  const retryAfter = Math.max(1, Math.ceil((resetAt - Date.now()) / 1000));
+
+  return NextResponse.json(
+    { error: "Terlalu banyak request. Coba lagi sebentar." },
+    {
+      status: 429,
+      headers: {
+        "Retry-After": String(retryAfter),
+      },
+    },
+  );
+}

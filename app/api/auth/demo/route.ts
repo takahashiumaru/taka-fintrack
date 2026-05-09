@@ -1,11 +1,16 @@
 import { NextResponse } from "next/server";
 import { hashPassword, signAuthToken, toApiUser, type UserRow } from "@/lib/server/auth";
 import { ensureSchema, getPool } from "@/lib/server/db";
+import { apiError, isEnabled } from "@/lib/server/http";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST() {
+  if (!isEnabled(process.env.ENABLE_DEMO_LOGIN)) {
+    return apiError("Demo login dimatikan di production.", 404);
+  }
+
   await ensureSchema();
 
   const pool = getPool();
