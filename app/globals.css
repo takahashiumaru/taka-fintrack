@@ -463,6 +463,26 @@ button {
   min-height: 0;
 }
 
+.chat-suggestions-row {
+  position: relative;
+  isolation: isolate;
+}
+
+.chat-suggestions-row::after {
+  content: "";
+  position: sticky;
+  right: -1px;
+  width: 18px;
+  flex: 0 0 18px;
+  margin-left: -18px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(239, 248, 255, 0.92));
+}
+
+:root[data-theme="dark"] .chat-suggestions-row::after {
+  background: linear-gradient(90deg, transparent, rgba(9, 20, 38, 0.92));
+}
+
 .chat-suggestion-button,
 .chat-suggestion-pill {
   background: linear-gradient(135deg, rgba(37, 99, 235, 0.95), rgba(14, 165, 233, 0.86)) !important;

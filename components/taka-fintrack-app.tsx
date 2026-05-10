@@ -4000,7 +4000,7 @@ function ChatView({ transactions, sessionReady }: { transactions: Transaction[];
         </div>
 
         {/* Mobile inline suggested questions — horizontal scroll pills */}
-        <div className="no-scrollbar -mx-3 flex gap-2 overflow-x-auto px-3 py-1.5 xl:hidden">
+        <div className="no-scrollbar chat-suggestions-row relative z-10 -mx-3 mb-2 flex shrink-0 gap-2 overflow-x-auto px-3 py-2 xl:hidden">
           {suggestedQuestions.map((question) => (
             <button
               key={question}
@@ -4014,7 +4014,7 @@ function ChatView({ transactions, sessionReady }: { transactions: Transaction[];
           ))}
         </div>
 
-        <div ref={scrollRef} className="no-scrollbar chat-messages-scroll flex-1 space-y-2 overflow-y-auto py-2 scroll-smooth xl:py-4">
+        <div ref={scrollRef} className="no-scrollbar chat-messages-scroll min-h-0 flex-1 space-y-2 overflow-y-auto py-2 scroll-smooth xl:py-4">
           {messages.map((message, index) => (
             <div
               key={`${message.role}-${index}`}
