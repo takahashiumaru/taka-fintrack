@@ -1261,7 +1261,9 @@ export function TakaFinTrackApp() {
           <div className={activeView === "scan" ? "block" : "hidden"} aria-hidden={activeView !== "scan"}>
             <ScanView categories={categories} sessionReady={sessionReady} onCreateTransaction={createTransaction} onNavigate={changeView} />
           </div>
-          {activeView === "chat" && <ChatView transactions={transactions} sessionReady={sessionReady} />}
+          <div className={activeView === "chat" ? "block" : "hidden"} aria-hidden={activeView !== "chat"}>
+            <ChatView transactions={transactions} sessionReady={sessionReady} />
+          </div>
           {activeView === "reports" && <ReportsView analytics={analytics} transactions={transactions} />}
         </section>
       </div>
