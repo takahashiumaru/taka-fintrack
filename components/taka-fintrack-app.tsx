@@ -60,7 +60,7 @@ import {
 } from "recharts";
 
 type ViewKey = "dashboard" | "transactions" | "scan" | "chat" | "reports";
-type AuthMode = "login" | "register";
+type AuthMode = "login" | "register" | "forgot";
 
 type AuthUser = {
   id: number;
@@ -1182,6 +1182,7 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (session: AuthSessio
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isRegister = mode === "register";
+  const isForgot = mode === "forgot";
 
   function switchMode(nextMode: AuthMode) {
     setMode(nextMode);
@@ -1194,8 +1195,13 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (session: AuthSessio
     const normalizedEmail = email.trim().toLowerCase();
     const trimmedName = name.trim();
 
-    if (!normalizedEmail || !password.trim()) {
-      setError("Email dan password wajib diisi.");
+    if (!normalizedEmail) {
+      setError("Email wajib diisi.");
+      return;
+    }
+
+    if (!isForgot && !password.trim()) {
+      setError("Password wajib diisi.");
       return;
     }
 
@@ -1225,6 +1231,15 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (session: AuthSessio
     setError("");
 
     try {
+      if (isForgot) {
+        await apiRequest<{ success: boolean }>("/api/auth/forgot-password", {
+          method: "POST",
+          body: JSON.stringify({ email: normalizedEmail }),
+        });
+        setError("Link reset password sudah dikirim jika email terdaftar. Cek inbox/spam ya.");
+        return;
+      }
+
       const session = await apiRequest<AuthSession>(isRegister ? "/api/auth/register" : "/api/auth/login", {
         method: "POST",
         body: JSON.stringify({
@@ -1280,15 +1295,17 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (session: AuthSessio
 
           <div className="mt-7">
             <p className="text-[11px] font-black uppercase tracking-[0.12em] text-emerald-600">
-              {isRegister ? "Akun baru" : "Selamat datang"}
+              {isForgot ? "Reset akses" : isRegister ? "Akun baru" : "Selamat datang"}
             </p>
             <h1 className="mt-1 text-3xl font-black leading-tight text-taka-ink sm:text-4xl">
-              {isRegister ? "Buat akun Taka" : "Masuk ke akunmu"}
+              {isForgot ? "Lupa password?" : isRegister ? "Buat akun Taka" : "Masuk ke akunmu"}
             </h1>
             <p className="mt-3 text-sm font-semibold leading-6 text-slate-500">
-              {isRegister
-                ? "Daftar untuk mulai mencatat transaksi, scan struk, dan melihat laporan."
-                : "Lanjutkan ke dashboard keuangan, transaksi, scan struk, dan AI chat."}
+              {isForgot
+                ? "Masukkan email akunmu. Kami akan mengirim instruksi reset password dengan tampilan email profesional."
+                : isRegister
+                  ? "Daftar untuk mulai mencatat transaksi, scan struk, dan melihat laporan."
+                  : "Lanjutkan ke dashboard keuangan, transaksi, scan struk, dan AI chat."}
             </p>
           </div>
 
@@ -1312,15 +1329,17 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (session: AuthSessio
               autoComplete="email"
               onChange={setEmail}
             />
-            <AuthField
-              id="password"
-              label="Password"
-              type="password"
-              value={password}
-              placeholder="Minimal 6 karakter"
-              autoComplete={isRegister ? "new-password" : "current-password"}
-              onChange={setPassword}
-            />
+            {!isForgot && (
+              <AuthField
+                id="password"
+                label="Password"
+                type="password"
+                value={password}
+                placeholder="Minimal 6 karakter"
+                autoComplete={isRegister ? "new-password" : "current-password"}
+                onChange={setPassword}
+              />
+            )}
             {isRegister && (
               <AuthField
                 id="confirm-password"
@@ -1345,8 +1364,17 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (session: AuthSessio
               className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-taka-navy px-4 py-3 text-sm font-black text-white shadow-float transition hover:bg-slate-800"
             >
               {isRegister ? <Check size={18} /> : <ChevronRight size={18} />}
-              {isSubmitting ? "Memproses..." : isRegister ? "Register & Masuk" : "Login"}
+              {isSubmitting ? "Memproses..." : isForgot ? "Kirim Email Reset" : isRegister ? "Register & Masuk" : "Login"}
             </button>
+            {!isRegister && (
+              <button
+                type="button"
+                onClick={() => switchMode(isForgot ? "login" : "forgot")}
+                className="w-full rounded-lg px-3 py-2 text-sm font-black text-emerald-700 transition hover:bg-emerald-50"
+              >
+                {isForgot ? "Kembali ke Login" : "Lupa Password?"}
+              </button>
+            )}
           </form>
         </section>
 
