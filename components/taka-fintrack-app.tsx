@@ -16,7 +16,6 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
-  CircleDollarSign,
   CreditCard,
   Eye,
   EyeOff,
@@ -1261,9 +1260,7 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (session: AuthSessio
       <div className="mx-auto grid min-h-[calc(100vh-24px)] w-full max-w-[1180px] gap-4 lg:min-h-[calc(100vh-48px)] lg:grid-cols-[minmax(0,0.96fr)_minmax(0,1.04fr)]">
         <section className="flex min-w-0 flex-col rounded-xl border border-white/70 bg-white/86 p-4 shadow-soft backdrop-blur sm:p-6 lg:p-8">
           <div className="flex items-center gap-3">
-            <div className="grid h-12 w-12 place-items-center rounded-xl bg-taka-navy text-white shadow-float">
-              <CircleDollarSign size={25} />
-            </div>
+            <AppLogo size={48} />
             <div>
               <p className="text-lg font-black text-taka-ink">Taka FinTrack</p>
               <p className="text-sm font-semibold text-slate-500">Personal finance AI</p>
@@ -1510,6 +1507,17 @@ function AuthFeature({
   );
 }
 
+function AppLogo({ size = 44 }: { size?: number }) {
+  return (
+    <div
+      className="grid shrink-0 place-items-center overflow-hidden rounded-xl border border-white/80 bg-white p-1 shadow-float"
+      style={{ width: size, height: size }}
+    >
+      <Image src="/images/taka-logo.jpg" alt="Taka FinTrack" width={size - 8} height={size - 8} priority className="h-full w-full rounded-lg object-contain" />
+    </div>
+  );
+}
+
 function AvatarCircle({
   user,
   size = "md",
@@ -1556,12 +1564,10 @@ function Sidebar({
   healthScore?: number;
 }) {
   return (
-    <aside className="sticky top-6 hidden h-[calc(100vh-48px)] self-start overflow-hidden rounded-xl border border-white/70 bg-white/86 p-3 shadow-soft backdrop-blur lg:block">
+    <aside className="hidden h-[calc(100vh-48px)] self-start overflow-hidden rounded-xl border border-white/70 bg-white/86 p-3 shadow-soft backdrop-blur lg:block">
       <div className="flex h-full flex-col">
         <div className="flex items-center gap-3 px-2 py-1">
-          <div className="grid h-11 w-11 place-items-center rounded-xl bg-taka-navy text-white shadow-float">
-            <CircleDollarSign size={24} />
-          </div>
+          <AppLogo size={44} />
           <div>
             <p className="text-base font-black text-taka-ink">Taka FinTrack</p>
             <p className="text-xs font-semibold text-slate-500">Personal finance AI</p>

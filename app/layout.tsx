@@ -7,6 +7,10 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 export const metadata: Metadata = {
   title: "Taka FinTrack",
   description: "Personal finance tracker with receipt scanner and AI assistant.",
+  icons: {
+    icon: "/icon.jpg",
+    apple: "/apple-icon.jpg",
+  },
 };
 
 export const viewport: Viewport = {
