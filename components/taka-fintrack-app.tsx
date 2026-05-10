@@ -1256,8 +1256,8 @@ export function TakaFinTrackApp() {
 
   return (
     <main className={clsx(
-      "min-h-screen w-full max-w-full overflow-x-hidden px-3 pt-2 sm:px-4 lg:p-6",
-      activeView === "chat" ? "pb-24" : "pb-40",
+      "min-h-screen w-full max-w-full overflow-x-hidden px-3 pt-3 sm:px-4 lg:p-6",
+      activeView === "chat" ? "pb-28" : "pb-40",
     )}>
       <div className="mx-auto grid w-full max-w-[1500px] items-start gap-3 lg:grid-cols-[278px_minmax(0,1fr)] lg:gap-4">
         <Sidebar
