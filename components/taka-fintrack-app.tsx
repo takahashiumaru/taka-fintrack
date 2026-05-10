@@ -3923,7 +3923,7 @@ function ChatView({ transactions, sessionReady }: { transactions: Transaction[];
       </section>
 
       {/* Chat area — fills viewport on mobile, fixed height on desktop */}
-      <section className="relative flex h-[calc(100dvh-200px)] min-w-0 flex-col rounded-xl border border-white/70 bg-white/86 p-4 shadow-soft backdrop-blur xl:h-[620px]">
+      <section className="relative flex h-[calc(100svh-230px)] min-h-[430px] min-w-0 max-w-full flex-col overflow-hidden rounded-xl border border-white/70 bg-white/86 p-4 shadow-soft backdrop-blur xl:h-[620px] xl:min-h-0">
         <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
           <div className="flex items-center gap-3">
             <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-taka-navy text-white xl:h-11 xl:w-11">
@@ -4308,7 +4308,10 @@ function EditableField({
         value={value}
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-2 h-12 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-taka-ink outline-none transition placeholder:text-slate-400 focus:border-emerald-300 focus:bg-white"
+        className={clsx(
+          "mt-2 h-12 w-full min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-taka-ink outline-none transition placeholder:text-slate-400 focus:border-emerald-300 focus:bg-white",
+          type === "date" && "appearance-none overflow-hidden text-center [color-scheme:light] [&::-webkit-date-and-time-value]:m-0 [&::-webkit-date-and-time-value]:min-h-0 [&::-webkit-date-and-time-value]:text-center [&::-webkit-calendar-picker-indicator]:opacity-60",
+        )}
       />
     </label>
   );
