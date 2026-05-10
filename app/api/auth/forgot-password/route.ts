@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from "crypto";
+import * as nodemailer from "nodemailer";
 import type { RowDataPacket } from "mysql2";
 import { NextResponse } from "next/server";
 import { normalizeEmail } from "@/lib/server/auth";
@@ -114,20 +115,30 @@ function buildResetEmailHtml({ name, resetUrl }: { name: string; resetUrl: strin
 }
 
 async function sendPasswordResetEmail({ to, name, resetUrl, html }: { to: string; name: string; resetUrl: string; html: string }) {
-  // SMTP credentials will be wired here after they are provided.
-  // Until then, keep the API contract/UI ready and avoid exposing the reset token in responses.
-  if (!process.env.SMTP_HOST) {
-    console.info("[forgot-password] SMTP belum dikonfigurasi; reset email belum dikirim.", {
-      to,
-      name,
-      resetUrl,
-      htmlPreviewLength: html.length,
-    });
+  const host = process.env.SMTP_HOST;
+  const port = Number(process.env.SMTP_PORT || 465);
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  const from = process.env.SMTP_FROM || user;
+
+  if (!host || !user || !pass || !from) {
+    console.warn("[forgot-password] SMTP belum lengkap; reset email belum dikirim.", { to, configuredHost: Boolean(host), configuredUser: Boolean(user), configuredFrom: Boolean(from) });
     return;
   }
 
-  console.info("[forgot-password] SMTP_HOST tersedia, implementasi pengiriman SMTP siap disambungkan.", {
+  const transporter = nodemailer.createTransport({
+    host,
+    port,
+    secure: port === 465,
+    auth: { user, pass },
+  });
+
+  await transporter.sendMail({
+    from: `Taka FinTrack <${from}>`,
     to,
+    subject: "Reset Password Taka FinTrack",
+    text: `Halo ${name || "Taka FinTrack User"},\n\nKlik link berikut untuk reset password akunmu. Link berlaku 30 menit.\n\n${resetUrl}\n\nJika kamu tidak meminta reset password, abaikan email ini.`,
+    html,
   });
 }
 
