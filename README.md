@@ -9,9 +9,18 @@ Taka FinTrack is a premium, AI-powered personal finance management application. 
 - **🚀 Smart Dashboard**: Real-time overview of your financial status with beautiful charts (Recharts).
 - **📅 Month & Date Navigation**: Navigate through your financial history with a custom month picker and date-range filtering.
 - **📝 Seamless Transactions**: Log income and expenses with precise categorization and real-time balance updates.
-- **📸 AI Receipt Scanner**: Extract transaction details automatically from photos of your receipts (powered by Tesseract.js).
+  - **✏️ Edit Transactions**: Easily edit any transaction directly from the transaction list.
+- **📸 AI Receipt Scanner**: Extract transaction details automatically from photos of your receipts (powered by AI).
+  - **📷 Mobile Camera**: Dedicated camera button with fallback to native camera picker.
+  - **🖼️ Gallery Upload**: Upload existing receipt photos from your device.
+  - **🤖 Smart Category**: AI automatically suggests categories based on merchant and receipt content.
+  - **⏱️ Reliable Timeout**: 30-second timeout with fallback to default category (Makanan & Minuman).
 - **🤖 Taka AI Assistant**: A dedicated AI chat interface to get insights on your spending habits and financial health.
-- **🛡️ Secure & Private**: Built with JWT-based session management and personalized data access.
+- **🔐 Secure Authentication**:
+  - HTTP-only session cookies for enhanced security.
+  - **Forgot Password**: Request password reset via email with elegant email templates.
+  - Fallback token support for browsers with cookie restrictions.
+- **🛡️ Rate Limiting**: Built-in rate limiting with automatic cleanup to prevent abuse.
 - **📱 Responsive Excellence**: A "premium-feel" UI that adapts perfectly to desktop and mobile devices.
 
 ## 🛠️ Technology Stack
@@ -21,7 +30,7 @@ Taka FinTrack is a premium, AI-powered personal finance management application. 
 - **Database**: MySQL (via `mysql2`)
 - **Icons**: [Lucide React](https://lucide.dev/)
 - **Charts**: [Recharts](https://recharts.org/)
-- **AI/OCR**: [Tesseract.js](https://tesseract.projectnaptha.com/)
+- **AI/OCR**: AI-powered receipt scanning via 9Router/OpenAI
 
 ## 🏁 Getting Started
 
@@ -48,6 +57,16 @@ Taka FinTrack is a premium, AI-powered personal finance management application. 
    ```env
    DATABASE_URL="mysql://user:password@localhost:3306/taka_fintrack"
    AUTH_SECRET="your-random-secret-key"
+   
+   # Optional: 9Router/OpenAI for AI scanning and chat
+   # OPENAI_API_KEY="sk-..."
+   # NINE_ROUTER_API_KEY="..."
+   
+   # Optional: SMTP for password reset emails
+   # SMTP_HOST="smtp.example.com"
+   # SMTP_PORT="587"
+   # SMTP_USER="user@example.com"
+   # SMTP_PASS="password"
    ```
 
 4. **Run Development Server**
