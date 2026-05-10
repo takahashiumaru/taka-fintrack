@@ -1188,22 +1188,6 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (session: AuthSessio
     setError("");
   }
 
-  async function handleDemoLogin() {
-    setIsSubmitting(true);
-    setError("");
-
-    try {
-      const session = await apiRequest<AuthSession>("/api/auth/demo", {
-        method: "POST",
-      });
-      onAuthenticated(session);
-    } catch (error) {
-      setError(error instanceof Error ? error.message : "Demo login gagal.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -1362,15 +1346,6 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (session: AuthSessio
             >
               {isRegister ? <Check size={18} /> : <ChevronRight size={18} />}
               {isSubmitting ? "Memproses..." : isRegister ? "Register & Masuk" : "Login"}
-            </button>
-            <button
-              type="button"
-              onClick={handleDemoLogin}
-              disabled={isSubmitting}
-              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 transition hover:border-emerald-300 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <Sparkles size={18} />
-              Masuk Demo
             </button>
           </form>
         </section>
