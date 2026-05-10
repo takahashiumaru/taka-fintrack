@@ -2393,7 +2393,7 @@ function TransactionRow({
             event.stopPropagation();
             onEdit(item);
           }}
-          className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-600"
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-sky-100 bg-sky-50 text-sky-600 shadow-sm transition hover:bg-sky-100 hover:text-sky-700 active:scale-95"
           aria-label="Edit transaksi"
         >
           <Pencil size={15} />
@@ -2407,7 +2407,7 @@ function TransactionRow({
             event.stopPropagation();
             setShowConfirmDelete(true);
           }}
-          className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-slate-300 transition hover:bg-rose-50 hover:text-rose-500 disabled:opacity-40"
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-rose-100 bg-rose-50 text-rose-500 shadow-sm transition hover:bg-rose-100 hover:text-rose-600 active:scale-95 disabled:opacity-50"
           aria-label="Hapus transaksi"
         >
           <Trash2 size={16} />
