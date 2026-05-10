@@ -1513,7 +1513,7 @@ function AppLogo({ size = 44 }: { size?: number }) {
       className="grid shrink-0 place-items-center overflow-hidden rounded-xl border border-white/80 bg-white p-1 shadow-float"
       style={{ width: size, height: size }}
     >
-      <Image src="/images/taka-logo.jpg" alt="Taka FinTrack" width={size - 8} height={size - 8} priority className="h-full w-full rounded-lg object-contain" />
+      <Image src="/images/taka-logo.png" alt="Taka FinTrack" width={size - 8} height={size - 8} priority className="h-full w-full rounded-lg object-contain" />
     </div>
   );
 }
