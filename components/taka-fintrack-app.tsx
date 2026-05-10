@@ -3601,8 +3601,9 @@ function ChatView({ transactions, sessionReady }: { transactions: Transaction[];
   }
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[330px_minmax(0,1fr)]">
-      <section className="rounded-xl border border-white/70 bg-white/86 p-4 shadow-soft backdrop-blur">
+    <div className="grid min-w-0 gap-4 xl:grid-cols-[330px_minmax(0,1fr)]">
+      {/* Desktop sidebar — hidden on mobile */}
+      <section className="hidden rounded-xl border border-white/70 bg-white/86 p-4 shadow-soft backdrop-blur xl:block">
         <SectionTitle title="Taka AI" eyebrow="Financial assistant" />
         <div className="mt-4 space-y-2">
           {suggestedQuestions.map((question) => (
@@ -3623,27 +3624,44 @@ function ChatView({ transactions, sessionReady }: { transactions: Transaction[];
         </div>
       </section>
 
-      <section className="relative flex h-[620px] flex-col rounded-xl border border-white/70 bg-white/86 p-4 shadow-soft backdrop-blur">
-        <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-4">
+      {/* Chat area — fills viewport on mobile, fixed height on desktop */}
+      <section className="relative flex h-[calc(100dvh-200px)] min-w-0 flex-col rounded-xl border border-white/70 bg-white/86 p-4 shadow-soft backdrop-blur xl:h-[620px]">
+        <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
           <div className="flex items-center gap-3">
-            <div className="grid h-11 w-11 place-items-center rounded-lg bg-taka-navy text-white">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-taka-navy text-white xl:h-11 xl:w-11">
               <Bot size={20} />
             </div>
             <div>
-              <p className="font-black text-taka-ink">Sesi Mei 2026</p>
-              <p className="text-xs font-bold text-emerald-600">Streaming ready</p>
+              <p className="text-sm font-black text-taka-ink xl:text-base">Sesi Mei 2026</p>
+              <p className="text-[11px] font-bold text-emerald-600 xl:text-xs">Streaming ready</p>
             </div>
           </div>
           <button
             type="button"
             onClick={() => setConfirmClear(true)}
             title="Hapus riwayat chat"
-            className="grid h-10 w-10 place-items-center rounded-lg bg-slate-100 text-slate-400 transition hover:bg-rose-50 hover:text-rose-500"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-slate-100 text-slate-400 transition hover:bg-rose-50 hover:text-rose-500 xl:h-10 xl:w-10"
           >
             <Trash2 size={16} />
           </button>
         </div>
-        <div ref={scrollRef} className="no-scrollbar flex-1 space-y-3 overflow-y-auto py-4 scroll-smooth">
+
+        {/* Mobile inline suggested questions — horizontal scroll pills */}
+        <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 py-3 xl:hidden">
+          {suggestedQuestions.map((question) => (
+            <button
+              key={question}
+              type="button"
+              disabled={isTyping}
+              onClick={() => sendMessage(question)}
+              className="shrink-0 rounded-full border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-xs font-bold text-emerald-700 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {question}
+            </button>
+          ))}
+        </div>
+
+        <div ref={scrollRef} className="no-scrollbar flex-1 space-y-3 overflow-y-auto py-3 scroll-smooth xl:py-4">
           {messages.map((message, index) => (
             <div
               key={`${message.role}-${index}`}
@@ -3733,7 +3751,7 @@ function ChatView({ transactions, sessionReady }: { transactions: Transaction[];
           </div>
         )}
         <form
-          className="flex gap-2 border-t border-slate-100 pt-4"
+          className="flex gap-2 border-t border-slate-100 pt-3 xl:pt-4"
           onSubmit={(event) => {
             event.preventDefault();
             sendMessage(draft);
@@ -3743,13 +3761,13 @@ function ChatView({ transactions, sessionReady }: { transactions: Transaction[];
             value={draft}
             disabled={isTyping}
             onChange={(event) => setDraft(event.target.value)}
-            className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-semibold outline-none transition focus:border-emerald-300 focus:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
+            className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold outline-none transition focus:border-emerald-300 focus:bg-white disabled:opacity-50 disabled:cursor-not-allowed xl:py-3"
             placeholder="Tanya kondisi keuanganmu"
           />
           <button 
             type="submit" 
             disabled={isTyping || !draft.trim()} 
-            className="rounded-lg bg-taka-navy px-4 py-3 text-sm font-black text-white transition disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-800"
+            className="rounded-lg bg-taka-navy px-4 py-2.5 text-sm font-black text-white transition disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-800 xl:py-3"
           >
             Kirim
           </button>
