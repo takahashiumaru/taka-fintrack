@@ -3942,7 +3942,7 @@ function ChatView({ transactions, sessionReady }: { transactions: Transaction[];
             type="button"
             onClick={() => setConfirmClear(true)}
             title="Hapus riwayat chat"
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-slate-100 text-slate-400 transition hover:bg-rose-50 hover:text-rose-500 xl:h-10 xl:w-10"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-rose-100 bg-rose-50 text-rose-500 shadow-sm transition hover:bg-rose-100 hover:text-rose-600 active:scale-95 xl:h-10 xl:w-10"
           >
             <Trash2 size={16} />
           </button>
