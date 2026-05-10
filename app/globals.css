@@ -455,8 +455,8 @@ button {
 }
 
 .chat-shell {
-  height: calc(100svh - 260px);
-  min-height: 430px;
+  height: calc(100svh - 188px) !important;
+  min-height: 480px;
 }
 
 .chat-messages-scroll {
@@ -505,9 +505,9 @@ button {
 
 @media (max-width: 767px) {
   .chat-shell {
-    height: calc(100svh - 248px) !important;
-    min-height: 420px !important;
-    max-height: calc(100svh - 168px) !important;
+    height: calc(100svh - 160px) !important;
+    min-height: 480px !important;
+    max-height: calc(100svh - 120px) !important;
   }
 
   .chat-messages-scroll {
