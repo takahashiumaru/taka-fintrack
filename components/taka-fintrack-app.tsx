@@ -1256,8 +1256,8 @@ export function TakaFinTrackApp() {
 
   return (
     <main className={clsx(
-      "min-h-screen w-full max-w-full overflow-x-hidden px-3 pt-3 sm:px-4 lg:p-6",
-      activeView === "chat" ? "pb-28" : "pb-40",
+      "min-h-screen w-full max-w-full overflow-x-hidden px-3 pt-2 sm:px-4 lg:p-6",
+      activeView === "chat" ? "pb-20" : "pb-40",
     )}>
       <div className="mx-auto grid w-full max-w-[1500px] items-start gap-3 lg:grid-cols-[278px_minmax(0,1fr)] lg:gap-4">
         <Sidebar
@@ -4000,7 +4000,7 @@ function ChatView({ transactions, sessionReady }: { transactions: Transaction[];
         </div>
 
         {/* Mobile inline suggested questions — horizontal scroll pills */}
-        <div className="no-scrollbar chat-suggestions-row relative z-10 -mx-3 mb-2 flex shrink-0 gap-2 overflow-x-auto px-3 py-2 xl:hidden">
+        <div className="no-scrollbar chat-suggestions-row relative z-10 -mx-3 mb-2 flex shrink-0 gap-2 overflow-x-auto px-3 py-1.5 xl:hidden">
           {suggestedQuestions.map((question) => (
             <button
               key={question}
