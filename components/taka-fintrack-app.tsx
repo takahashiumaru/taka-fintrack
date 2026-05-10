@@ -1114,7 +1114,7 @@ export function TakaFinTrackApp() {
 
   return (
     <main className="min-h-screen w-full max-w-full overflow-x-hidden px-3 pb-24 pt-3 sm:px-4 lg:p-6">
-      <div className="mx-auto grid w-full max-w-[1500px] gap-4 lg:grid-cols-[278px_minmax(0,1fr)]">
+      <div className="mx-auto grid w-full max-w-[1500px] items-start gap-4 lg:grid-cols-[278px_minmax(0,1fr)]">
         <Sidebar
           activeView={activeView}
           onChange={changeView}
@@ -1556,9 +1556,9 @@ function Sidebar({
   healthScore?: number;
 }) {
   return (
-    <aside className="sticky top-6 hidden h-[calc(100vh-48px)] overflow-hidden rounded-xl border border-white/70 bg-white/86 p-4 shadow-soft backdrop-blur lg:block">
+    <aside className="sticky top-6 hidden h-[calc(100vh-48px)] self-start overflow-hidden rounded-xl border border-white/70 bg-white/86 p-3 shadow-soft backdrop-blur lg:block">
       <div className="flex h-full flex-col">
-        <div className="flex items-center gap-3 px-2 py-2">
+        <div className="flex items-center gap-3 px-2 py-1">
           <div className="grid h-11 w-11 place-items-center rounded-xl bg-taka-navy text-white shadow-float">
             <CircleDollarSign size={24} />
           </div>
@@ -1568,7 +1568,7 @@ function Sidebar({
           </div>
         </div>
 
-        <div className="mt-6 rounded-xl bg-gradient-to-br from-taka-violet via-white to-taka-mint p-4">
+        <div className="mt-4 rounded-xl bg-gradient-to-br from-taka-violet via-white to-taka-mint p-4">
           <div className="flex items-center gap-3">
             <AvatarCircle user={user} />
             <div className="min-w-0">
@@ -1588,7 +1588,7 @@ function Sidebar({
           </div>
         </div>
 
-        <nav className="mt-6 space-y-2">
+        <nav className="mt-4 space-y-2">
           {navItems.map((item) => (
             <button
               key={item.key}
