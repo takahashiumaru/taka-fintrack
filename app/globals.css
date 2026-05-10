@@ -449,13 +449,18 @@ button {
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.52), 0 0 35px rgba(37, 99, 235, 0.14) !important;
 }
 
-.chat-shell {
+.chat-view-frame,
+.chat-layout {
   min-height: 0;
 }
 
+.chat-shell {
+  height: calc(100svh - 260px);
+  min-height: 430px;
+}
+
 .chat-messages-scroll {
-  max-height: 24svh;
-  min-height: auto;
+  min-height: 0;
 }
 
 .chat-suggestion-button,
@@ -480,16 +485,15 @@ button {
 
 @media (max-width: 767px) {
   .chat-shell {
-    height: auto !important;
-    min-height: 0 !important;
-    max-height: none !important;
+    height: calc(100svh - 248px) !important;
+    min-height: 420px !important;
+    max-height: calc(100svh - 168px) !important;
   }
 
   .chat-messages-scroll {
-    flex: 0 1 auto !important;
-    max-height: 22svh;
+    flex: 1 1 auto !important;
     min-height: 0;
-    padding-bottom: 0.25rem;
+    padding-bottom: 0.5rem;
     overscroll-behavior: contain;
   }
 }

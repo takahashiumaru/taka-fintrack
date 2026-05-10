@@ -1257,7 +1257,7 @@ export function TakaFinTrackApp() {
   return (
     <main className={clsx(
       "min-h-screen w-full max-w-full overflow-x-hidden px-3 pt-3 sm:px-4 lg:p-6",
-      activeView === "chat" ? "pb-20" : "pb-40",
+      activeView === "chat" ? "pb-28" : "pb-40",
     )}>
       <div className="mx-auto grid w-full max-w-[1500px] items-start gap-3 lg:grid-cols-[278px_minmax(0,1fr)] lg:gap-4">
         <Sidebar
@@ -1300,7 +1300,7 @@ export function TakaFinTrackApp() {
           <div className={activeView === "scan" ? "block" : "hidden"} aria-hidden={activeView !== "scan"}>
             <ScanView categories={categories} sessionReady={sessionReady} onCreateTransaction={createTransaction} onNavigate={changeView} />
           </div>
-          <div className={activeView === "chat" ? "block" : "hidden"} aria-hidden={activeView !== "chat"}>
+          <div className={activeView === "chat" ? "chat-view-frame block" : "hidden"} aria-hidden={activeView !== "chat"}>
             <ChatView transactions={transactions} sessionReady={sessionReady} />
           </div>
           {activeView === "reports" && <ReportsView analytics={analytics} transactions={transactions} />}
@@ -3954,7 +3954,7 @@ function ChatView({ transactions, sessionReady }: { transactions: Transaction[];
   }
 
   return (
-    <div className="grid min-w-0 gap-4 xl:grid-cols-[330px_minmax(0,1fr)]">
+    <div className="chat-layout grid min-w-0 gap-3 xl:grid-cols-[330px_minmax(0,1fr)] xl:gap-4">
       {/* Desktop sidebar — hidden on mobile */}
       <section className="hidden rounded-xl border border-white/70 bg-white/86 p-4 shadow-soft backdrop-blur xl:block">
         <SectionTitle title="Taka AI" eyebrow="Financial assistant" />
@@ -3978,7 +3978,7 @@ function ChatView({ transactions, sessionReady }: { transactions: Transaction[];
       </section>
 
       {/* Chat area — fills viewport on mobile, fixed height on desktop */}
-      <section className="chat-shell relative flex h-auto min-h-0 min-w-0 max-w-full flex-col overflow-hidden rounded-xl border border-white/70 bg-white/86 p-3 shadow-soft backdrop-blur sm:p-4 xl:h-[620px] xl:min-h-0">
+      <section className="chat-shell relative flex min-h-0 min-w-0 max-w-full flex-col overflow-hidden rounded-xl border border-white/70 bg-white/86 p-3 shadow-soft backdrop-blur sm:p-4 xl:h-[620px] xl:min-h-0">
         <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-2.5">
           <div className="flex items-center gap-3">
             <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-taka-navy text-white xl:h-11 xl:w-11">
@@ -4014,7 +4014,7 @@ function ChatView({ transactions, sessionReady }: { transactions: Transaction[];
           ))}
         </div>
 
-        <div ref={scrollRef} className="no-scrollbar chat-messages-scroll space-y-2 overflow-y-auto py-1.5 scroll-smooth xl:flex-1 xl:py-4">
+        <div ref={scrollRef} className="no-scrollbar chat-messages-scroll flex-1 space-y-2 overflow-y-auto py-2 scroll-smooth xl:py-4">
           {messages.map((message, index) => (
             <div
               key={`${message.role}-${index}`}
