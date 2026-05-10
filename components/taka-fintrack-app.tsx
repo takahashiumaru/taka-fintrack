@@ -1219,8 +1219,16 @@ export function TakaFinTrackApp() {
   }
 
   return (
-    <main className="min-h-screen w-full max-w-full overflow-x-hidden px-3 pb-24 pt-3 sm:px-4 lg:p-6">
-      <div className="mx-auto grid w-full max-w-[1500px] items-start gap-4 lg:grid-cols-[278px_minmax(0,1fr)]">
+    <main
+      className={clsx(
+        "w-full max-w-full overflow-x-hidden px-3 pt-3 sm:px-4 lg:p-6",
+        activeView === "chat" ? "h-[100svh] overflow-hidden pb-20 lg:h-auto lg:min-h-screen lg:overflow-visible" : "min-h-screen pb-24",
+      )}
+    >
+      <div className={clsx(
+        "mx-auto grid w-full max-w-[1500px] items-start gap-4 lg:grid-cols-[278px_minmax(0,1fr)]",
+        activeView === "chat" && "h-full min-h-0 lg:h-auto",
+      )}>
         <Sidebar
           activeView={activeView}
           onChange={changeView}
@@ -1229,7 +1237,7 @@ export function TakaFinTrackApp() {
           scanCount={analytics.scanCount}
           healthScore={analytics.savingsRatio}
         />
-        <section className="min-w-0 space-y-4">
+        <section className={clsx("min-w-0 space-y-4", activeView === "chat" && "flex h-full min-h-0 flex-col overflow-hidden lg:block lg:h-auto lg:overflow-visible")}>
           <TopBar
             title={activeMeta.label}
             user={currentUser}
@@ -3899,7 +3907,7 @@ function ChatView({ transactions, sessionReady }: { transactions: Transaction[];
   }
 
   return (
-    <div className="grid min-w-0 gap-4 xl:grid-cols-[330px_minmax(0,1fr)]">
+    <div className="grid h-full min-h-0 min-w-0 gap-3 xl:h-auto xl:gap-4 xl:grid-cols-[330px_minmax(0,1fr)]">
       {/* Desktop sidebar — hidden on mobile */}
       <section className="hidden rounded-xl border border-white/70 bg-white/86 p-4 shadow-soft backdrop-blur xl:block">
         <SectionTitle title="Taka AI" eyebrow="Financial assistant" />
@@ -3923,7 +3931,7 @@ function ChatView({ transactions, sessionReady }: { transactions: Transaction[];
       </section>
 
       {/* Chat area — fills viewport on mobile, fixed height on desktop */}
-      <section className="relative flex h-[calc(100svh-230px)] min-h-[430px] min-w-0 max-w-full flex-col overflow-hidden rounded-xl border border-white/70 bg-white/86 p-4 shadow-soft backdrop-blur xl:h-[620px] xl:min-h-0">
+      <section className="relative flex h-full min-h-0 min-w-0 max-w-full flex-col overflow-hidden rounded-xl border border-white/70 bg-white/86 p-4 shadow-soft backdrop-blur xl:h-[620px]">
         <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
           <div className="flex items-center gap-3">
             <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-taka-navy text-white xl:h-11 xl:w-11">
