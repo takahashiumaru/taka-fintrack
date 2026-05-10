@@ -450,7 +450,12 @@ button {
 }
 
 .chat-shell {
-  min-height: min(430px, calc(100svh - 210px));
+  min-height: 0;
+}
+
+.chat-messages-scroll {
+  max-height: 36svh;
+  min-height: 132px;
 }
 
 .chat-suggestion-button,
@@ -480,11 +485,11 @@ button {
     max-height: none !important;
   }
 
-  .chat-shell > .no-scrollbar.flex-1 {
+  .chat-messages-scroll {
     flex: 0 1 auto !important;
-    max-height: 42svh;
-    min-height: 180px;
-    padding-bottom: 1rem;
+    max-height: 32svh;
+    min-height: 132px;
+    padding-bottom: 0.75rem;
     overscroll-behavior: contain;
   }
 }

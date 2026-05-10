@@ -3975,7 +3975,7 @@ function ChatView({ transactions, sessionReady }: { transactions: Transaction[];
       </section>
 
       {/* Chat area — fills viewport on mobile, fixed height on desktop */}
-      <section className="chat-shell relative flex h-[calc(100svh-220px)] min-h-[430px] min-w-0 max-w-full flex-col overflow-hidden rounded-xl border border-white/70 bg-white/86 p-4 shadow-soft backdrop-blur xl:h-[620px] xl:min-h-0">
+      <section className="chat-shell relative flex h-auto min-h-0 min-w-0 max-w-full flex-col overflow-hidden rounded-xl border border-white/70 bg-white/86 p-3.5 shadow-soft backdrop-blur sm:p-4 xl:h-[620px] xl:min-h-0">
         <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
           <div className="flex items-center gap-3">
             <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-taka-navy text-white xl:h-11 xl:w-11">
@@ -4011,7 +4011,7 @@ function ChatView({ transactions, sessionReady }: { transactions: Transaction[];
           ))}
         </div>
 
-        <div ref={scrollRef} className="no-scrollbar flex-1 space-y-3 overflow-y-auto py-3 scroll-smooth xl:py-4">
+        <div ref={scrollRef} className="no-scrollbar chat-messages-scroll space-y-3 overflow-y-auto py-3 scroll-smooth xl:flex-1 xl:py-4">
           {messages.map((message, index) => (
             <div
               key={`${message.role}-${index}`}
