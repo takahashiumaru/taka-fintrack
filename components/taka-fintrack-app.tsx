@@ -1147,7 +1147,7 @@ export function TakaFinTrackApp() {
       setIsAuthChecking(true);
 
       try {
-        const response = await apiRequest<{ user: AuthUser }>("/api/auth/me");
+        const response = await apiRequest<{ user: AuthUser; token?: string }>("/api/auth/me");
 
         if (isCancelled) return;
 
@@ -1155,6 +1155,7 @@ export function TakaFinTrackApp() {
 
         try {
           window.localStorage.setItem(authStorageKey, JSON.stringify(response.user));
+          if (response.token) window.localStorage.setItem(authTokenStorageKey, response.token);
         } catch {
           // Ignore private browsing/storage restrictions.
         }
@@ -3924,7 +3925,7 @@ function ChatView({ transactions, sessionReady }: { transactions: Transaction[];
       </section>
 
       {/* Chat area — fills viewport on mobile, fixed height on desktop */}
-      <section className="relative flex h-[calc(100svh-230px)] min-h-[430px] min-w-0 max-w-full flex-col overflow-hidden rounded-xl border border-white/70 bg-white/86 p-4 shadow-soft backdrop-blur xl:h-[620px] xl:min-h-0">
+      <section className="relative flex h-[calc(100svh-190px)] min-h-[430px] min-w-0 max-w-full flex-col overflow-hidden rounded-xl border border-white/70 bg-white/86 p-4 shadow-soft backdrop-blur xl:h-[620px] xl:min-h-0">
         <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
           <div className="flex items-center gap-3">
             <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-taka-navy text-white xl:h-11 xl:w-11">

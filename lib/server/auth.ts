@@ -30,7 +30,7 @@ type TokenPayload = {
   exp: number;
 };
 
-const tokenTtlSeconds = 60 * 60 * 24 * 7;
+const tokenTtlSeconds = 60 * 60 * 24 * 30;
 
 export function toApiUser(row: UserRow): ApiUser {
   return {
@@ -106,16 +106,18 @@ export function verifyAuthToken(token: string) {
 }
 
 export function getAuthTokenFromRequest(request: Request) {
-  const authorization = request.headers.get("authorization") ?? "";
-  if (authorization.startsWith("Bearer ")) return authorization.slice("Bearer ".length);
-
   const cookieHeader = request.headers.get("cookie") ?? "";
   const cookie = cookieHeader
     .split(";")
     .map((part) => part.trim())
     .find((part) => part.startsWith(`${authCookieName}=`));
 
-  return cookie ? decodeURIComponent(cookie.slice(authCookieName.length + 1)) : "";
+  if (cookie) return decodeURIComponent(cookie.slice(authCookieName.length + 1));
+
+  const authorization = request.headers.get("authorization") ?? "";
+  if (authorization.startsWith("Bearer ")) return authorization.slice("Bearer ".length);
+
+  return "";
 }
 
 export function attachAuthCookie(response: NextResponse, token: string) {

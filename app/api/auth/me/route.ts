@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAuthenticatedUser } from "@/lib/server/auth";
+import { attachAuthCookie, getAuthenticatedUser, signAuthToken } from "@/lib/server/auth";
 import { apiError } from "@/lib/server/http";
 
 export const runtime = "nodejs";
@@ -10,5 +10,8 @@ export async function GET(request: Request) {
 
   if (!user) return apiError("Sesi tidak valid. Login ulang.", 401);
 
-  return NextResponse.json({ user });
+  const token = signAuthToken(user);
+  const response = NextResponse.json({ user, token, authenticated: true });
+
+  return attachAuthCookie(response, token);
 }
