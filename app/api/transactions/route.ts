@@ -153,7 +153,11 @@ function normalizeTransactionDate(value: unknown) {
   if (!rawDate) return null;
 
   if (/^\d{4}-\d{2}-\d{2}$/.test(rawDate)) {
-    return `${rawDate} 12:00:00`;
+    const now = new Date();
+    const hours = String(now.getHours()).padStart(2, "0");
+    const minutes = String(now.getMinutes()).padStart(2, "0");
+    const seconds = String(now.getSeconds()).padStart(2, "0");
+    return `${rawDate} ${hours}:${minutes}:${seconds}`;
   }
 
   const parsedDate = new Date(rawDate);

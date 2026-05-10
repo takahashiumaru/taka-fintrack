@@ -27,6 +27,8 @@ import {
   LogOut,
   MessageCircle,
   MoreHorizontal,
+  Paperclip,
+  Pencil,
   Plus,
   ReceiptText,
   ScanLine,
@@ -992,6 +994,19 @@ export function TakaFinTrackApp() {
 
     return nextTransaction;
   }, [sessionReady]);
+  const updateTransaction = useCallback(async (rawId: number, input: TransactionInput) => {
+    if (!sessionReady) throw new Error("Sesi belum siap.");
+
+    const response = await apiRequest<{ transaction: ApiTransaction }>(`/api/transactions/${rawId}`, {
+      method: "PUT",
+      body: JSON.stringify(input),
+    });
+    const updatedTransaction = normalizeApiTransaction(response.transaction);
+
+    setTransactions((current) => current.map((transaction) => transaction.rawId === rawId ? updatedTransaction : transaction));
+
+    return updatedTransaction;
+  }, [sessionReady]);
   const deleteTransaction = useCallback(async (rawId: number) => {
     if (!sessionReady) throw new Error("Sesi belum siap.");
 
@@ -1129,6 +1144,7 @@ export function TakaFinTrackApp() {
               categories={categories}
               dataStatus={dataStatus}
               onCreateTransaction={createTransaction}
+              onUpdateTransaction={updateTransaction}
               onCreateCategory={createCategory}
               onDeleteTransaction={deleteTransaction}
               onRefresh={refreshFinanceData}
@@ -2163,9 +2179,11 @@ function RecentTransactions({
 
 function TransactionRow({
   item,
+  onEdit,
   onDelete,
 }: {
   item: Transaction;
+  onEdit?: ((transaction: Transaction) => void) | undefined;
   onDelete?: ((rawId: number) => void) | undefined;
 }) {
   const isIncome = item.type === "income";
@@ -2175,34 +2193,46 @@ function TransactionRow({
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
 
   return (
-    <div className="grid min-w-0 grid-cols-[44px_minmax(0,1fr)] gap-3 rounded-xl border border-slate-100 bg-white p-3 transition hover:border-emerald-200 hover:shadow-sm sm:flex sm:items-center">
-      <div className="grid h-11 w-11 shrink-0 place-items-center rounded-lg" style={{ backgroundColor: getSoftColor(item.categoryColor), color: item.categoryColor }}>
-        {isIncome ? <TrendingUp size={19} /> : <CreditCard size={19} />}
+    <div className="grid min-w-0 grid-cols-[36px_minmax(0,1fr)_auto] gap-2 rounded-lg border border-slate-100 bg-white p-2.5 transition hover:border-emerald-200 hover:shadow-sm sm:flex sm:items-center sm:p-3">
+      <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg sm:h-10 sm:w-10" style={{ backgroundColor: getSoftColor(item.categoryColor), color: item.categoryColor }}>
+        {isIncome ? <TrendingUp size={17} /> : <CreditCard size={17} />}
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-          <p className="truncate text-sm font-black text-taka-ink">{item.merchant}</p>
+          <p className="truncate text-[13px] font-black text-taka-ink sm:text-sm">{item.merchant}</p>
           <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-black text-slate-500">{item.source}</span>
         </div>
-        <p className="mt-1 truncate text-xs font-semibold text-slate-500">{item.category} • {item.date}</p>
-        <p className={clsx("mt-2 text-sm font-black sm:hidden", amountClass)}>
+        <p className="mt-0.5 truncate text-[11px] font-semibold text-slate-500 sm:text-xs">{item.category} • {item.date}</p>
+        <p className={clsx("mt-1 text-[13px] font-black sm:hidden", amountClass)}>
           {amount}
         </p>
       </div>
       <p className={clsx("hidden shrink-0 text-right text-sm font-black sm:block", amountClass)}>
         {amount}
       </p>
+      <div className="flex shrink-0 items-center gap-1 self-start sm:self-center">
+      {onEdit && (
+        <button
+          type="button"
+          onClick={() => onEdit(item)}
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-600"
+          aria-label="Edit transaksi"
+        >
+          <Pencil size={15} />
+        </button>
+      )}
       {onDelete && (
         <button
           type="button"
           disabled={isDeleting}
           onClick={() => setShowConfirmDelete(true)}
-          className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-slate-300 transition hover:bg-rose-50 hover:text-rose-500 disabled:opacity-40"
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-slate-300 transition hover:bg-rose-50 hover:text-rose-500 disabled:opacity-40"
           aria-label="Hapus transaksi"
         >
           <Trash2 size={16} />
         </button>
       )}
+      </div>
 
       {showConfirmDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
@@ -2351,6 +2381,7 @@ function TransactionsView({
   categories,
   dataStatus,
   onCreateTransaction,
+  onUpdateTransaction,
   onCreateCategory,
   onDeleteTransaction,
   onRefresh,
@@ -2359,6 +2390,7 @@ function TransactionsView({
   categories: Category[];
   dataStatus: "idle" | "loading" | "ready" | "error";
   onCreateTransaction: (input: TransactionInput) => Promise<Transaction>;
+  onUpdateTransaction: (rawId: number, input: TransactionInput) => Promise<Transaction>;
   onCreateCategory: (input: CategoryInput) => Promise<Category>;
   onDeleteTransaction: (rawId: number) => Promise<void>;
   onRefresh: () => Promise<void>;
@@ -2373,6 +2405,7 @@ function TransactionsView({
   const [merchant, setMerchant] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [transactionDate, setTransactionDate] = useState(getDateInputValue());
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [categoryName, setCategoryName] = useState("");
   const [categoryType, setCategoryType] = useState<CategoryType>("expense");
   const [categoryColor, setCategoryColor] = useState("#22C55E");
@@ -2428,6 +2461,27 @@ function TransactionsView({
     }
   }, [availableCategories, categoryId]);
 
+  function startEditTransaction(transaction: Transaction) {
+    setEditingTransaction(transaction);
+    setTransactionType(transaction.type);
+    setAmount(String(transaction.amount));
+    setMerchant(transaction.merchant);
+    setTransactionDate(getDateInputValue(getTransactionDate(transaction)));
+    const matchingCategory = categories.find((category) => category.id === transaction.categoryId || category.name === transaction.category);
+    setCategoryId(matchingCategory ? String(matchingCategory.id) : "");
+    setMessage("Mode edit aktif. Ubah data lalu simpan.");
+    setError("");
+  }
+
+  function cancelEditTransaction() {
+    setEditingTransaction(null);
+    setMerchant("");
+    setAmount("");
+    setTransactionDate(getDateInputValue());
+    setMessage("");
+    setError("");
+  }
+
   async function submitTransaction(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -2452,17 +2506,25 @@ function TransactionsView({
     setError("");
 
     try {
-      await onCreateTransaction({
+      const payload = {
         merchant: finalMerchant,
         amount: parsedAmount,
         type: transactionType,
         categoryId: selectedCategory.id,
         transactionDate,
-        source: "Manual",
-      });
+        source: editingTransaction?.source ?? "Manual",
+      } satisfies TransactionInput;
+
+      if (editingTransaction) {
+        await onUpdateTransaction(editingTransaction.rawId, payload);
+      } else {
+        await onCreateTransaction(payload);
+      }
+      setEditingTransaction(null);
       setMerchant("");
       setAmount("");
-      setMessage("Transaksi berhasil disimpan ke database.");
+      setTransactionDate(getDateInputValue());
+      setMessage(editingTransaction ? "Transaksi berhasil diperbarui." : "Transaksi berhasil disimpan ke database.");
     } catch (error) {
       setMessage("");
       setError(error instanceof Error ? error.message : "Transaksi gagal disimpan.");
@@ -2577,7 +2639,7 @@ function TransactionsView({
         {/* Transaction list */}
         <div className="mt-2 space-y-2">
           {filteredTransactions.map((item) => (
-            <TransactionRow key={item.id} item={item} onDelete={onDeleteTransaction} />
+            <TransactionRow key={item.id} item={item} onEdit={startEditTransaction} onDelete={onDeleteTransaction} />
           ))}
           {filteredTransactions.length === 0 && (
             <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-bold text-slate-400">
@@ -2588,7 +2650,14 @@ function TransactionsView({
       </section>
 
       <section className="min-w-0 rounded-xl border border-white/70 bg-white/86 p-3 shadow-soft backdrop-blur sm:p-4">
-        <SectionTitle title="Tambah Manual" eyebrow="data real DB" />
+        <div className="flex items-start justify-between gap-3">
+          <SectionTitle title={editingTransaction ? "Edit Transaksi" : "Tambah Manual"} eyebrow={editingTransaction ? "ubah data" : "data real DB"} />
+          {editingTransaction && (
+            <button type="button" onClick={cancelEditTransaction} className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-black text-slate-600 transition hover:bg-slate-200">
+              Batal
+            </button>
+          )}
+        </div>
         <form className="mt-4 space-y-3" onSubmit={submitTransaction}>
           <SegmentedControl
             options={["Expense", "Income"]}
@@ -2623,7 +2692,7 @@ function TransactionsView({
             className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-500 px-4 py-3 text-sm font-black text-white transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <Plus size={18} />
-            {isSavingTransaction ? "Menyimpan..." : "Simpan Transaksi"}
+            {isSavingTransaction ? "Menyimpan..." : editingTransaction ? "Update Transaksi" : "Simpan Transaksi"}
           </button>
         </form>
 
