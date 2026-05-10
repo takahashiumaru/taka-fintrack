@@ -39,7 +39,15 @@ export async function POST(request: Request) {
   );
 
   const row = rows[0];
-  if (!row || row.used_at || new Date(row.expires_at).getTime() < Date.now()) {
+  if (!row || row.used_at) {
+    return apiError("Link reset tidak valid atau sudah kedaluwarsa.", 400);
+  }
+
+  const [[expiryStatus]] = await pool.query<Array<RowDataPacket & { is_expired: 0 | 1 }>>(
+    "SELECT ? < NOW() AS is_expired",
+    [row.expires_at],
+  );
+  if (expiryStatus?.is_expired) {
     return apiError("Link reset tidak valid atau sudah kedaluwarsa.", 400);
   }
 

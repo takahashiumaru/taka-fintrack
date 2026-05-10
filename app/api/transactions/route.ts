@@ -18,6 +18,7 @@ type TransactionRow = RowDataPacket & {
   type: "income" | "expense";
   transaction_date: string | null;
   source: "Manual" | "Scan";
+  payment_account: string;
   created_at: string;
 };
 
@@ -41,6 +42,7 @@ export async function GET(request: Request) {
         t.type,
         t.transaction_date,
         t.source,
+        t.payment_account,
         t.created_at
       FROM transactions t
       LEFT JOIN categories c
@@ -67,6 +69,7 @@ export async function POST(request: Request) {
   const amount = Number(body?.amount);
   const type = body?.type === "income" ? "income" : body?.type === "expense" ? "expense" : "";
   const source = body?.source === "Scan" ? "Scan" : "Manual";
+  const paymentAccount = normalizePaymentAccount(body?.paymentAccount);
   const transactionDate = normalizeTransactionDate(body?.transactionDate);
 
   if (!merchant) return apiError("Merchant wajib diisi.");
@@ -101,10 +104,10 @@ export async function POST(request: Request) {
 
   const [result] = await pool.execute<ResultSetHeader>(
     `
-      INSERT INTO transactions (user_id, category_id, merchant, category, amount, type, transaction_date, source)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO transactions (user_id, category_id, merchant, category, amount, type, transaction_date, source, payment_account)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
-    [user.id, resolvedCategoryId, merchant, categoryName, Math.round(amount), type, transactionDate, source],
+    [user.id, resolvedCategoryId, merchant, categoryName, Math.round(amount), type, transactionDate, source, paymentAccount],
   );
   const [rows] = await pool.execute<TransactionRow[]>(
     `
@@ -118,6 +121,7 @@ export async function POST(request: Request) {
         t.type,
         t.transaction_date,
         t.source,
+        t.payment_account,
         t.created_at
       FROM transactions t
       LEFT JOIN categories c
@@ -143,8 +147,14 @@ function toTransaction(row: TransactionRow) {
     type: row.type,
     transactionDate: row.transaction_date,
     source: row.source,
+    paymentAccount: row.payment_account || "Cash",
     createdAt: row.created_at,
   };
+}
+
+function normalizePaymentAccount(value: unknown) {
+  const account = normalizeString(value) || "Cash";
+  return account.slice(0, 80);
 }
 
 function normalizeTransactionDate(value: unknown) {

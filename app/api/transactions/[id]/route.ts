@@ -43,6 +43,7 @@ type TransactionRow = RowDataPacket & {
   type: "income" | "expense";
   transaction_date: string | null;
   source: "Manual" | "Scan";
+  payment_account: string;
   created_at: string;
 };
 
@@ -63,6 +64,7 @@ export async function PUT(
   const amount = Number(body?.amount);
   const type = body?.type === "income" ? "income" : body?.type === "expense" ? "expense" : "";
   const source = body?.source === "Scan" ? "Scan" : "Manual";
+  const paymentAccount = normalizePaymentAccount(body?.paymentAccount);
   const transactionDate = normalizeTransactionDate(body?.transactionDate);
 
   if (!merchant) return apiError("Merchant wajib diisi.");
@@ -92,10 +94,10 @@ export async function PUT(
 
   const [result] = await pool.execute<ResultSetHeader>(
     `UPDATE transactions
-     SET category_id = ?, merchant = ?, category = ?, amount = ?, type = ?, transaction_date = ?, source = ?
+     SET category_id = ?, merchant = ?, category = ?, amount = ?, type = ?, transaction_date = ?, source = ?, payment_account = ?
      WHERE id = ? AND user_id = ?
      LIMIT 1`,
-    [resolvedCategoryId, merchant, categoryName, Math.round(amount), type, transactionDate, source, id, user.id],
+    [resolvedCategoryId, merchant, categoryName, Math.round(amount), type, transactionDate, source, paymentAccount, id, user.id],
   );
 
   if (result.affectedRows === 0) return apiError("Transaksi tidak ditemukan.", 404);
@@ -103,7 +105,7 @@ export async function PUT(
   const [rows] = await pool.execute<TransactionRow[]>(
     `SELECT t.id, t.category_id, t.merchant, COALESCE(c.name, t.category) AS category,
             COALESCE(c.color, '#64748B') AS category_color, t.amount, t.type,
-            t.transaction_date, t.source, t.created_at
+            t.transaction_date, t.source, t.payment_account, t.created_at
      FROM transactions t
      LEFT JOIN categories c ON c.id = t.category_id AND c.user_id = t.user_id
      WHERE t.id = ? AND t.user_id = ? LIMIT 1`,
@@ -111,6 +113,11 @@ export async function PUT(
   );
 
   return NextResponse.json({ transaction: toTransaction(rows[0]) });
+}
+
+function normalizePaymentAccount(value: unknown) {
+  const account = normalizeString(value) || "Cash";
+  return account.slice(0, 80);
 }
 
 function normalizeTransactionDate(value: unknown) {
@@ -145,6 +152,7 @@ function toTransaction(row: TransactionRow) {
     type: row.type,
     transactionDate: row.transaction_date,
     source: row.source,
+    paymentAccount: row.payment_account || "Cash",
     createdAt: row.created_at,
   };
 }

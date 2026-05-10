@@ -36,11 +36,9 @@ export async function POST(request: Request) {
 
   const rawToken = randomBytes(32).toString("hex");
   const tokenHash = hashResetToken(rawToken);
-  const expiresAt = new Date(Date.now() + 1000 * 60 * 30);
-
   await pool.execute(
-    "INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES (?, ?, ?)",
-    [user.id, tokenHash, toMysqlDateTime(expiresAt)],
+    "INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 30 MINUTE))",
+    [user.id, tokenHash],
   );
 
   const resetUrl = buildResetUrl(request, rawToken, user.email);
@@ -53,10 +51,6 @@ export async function POST(request: Request) {
 
 function hashResetToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
-}
-
-function toMysqlDateTime(date: Date) {
-  return date.toISOString().slice(0, 19).replace("T", " ");
 }
 
 function buildResetUrl(request: Request, token: string, email: string) {

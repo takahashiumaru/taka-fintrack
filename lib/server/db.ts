@@ -78,6 +78,7 @@ async function createSchema() {
       type ENUM('income','expense') NOT NULL,
       transaction_date DATETIME NULL,
       source ENUM('Manual','Scan') NOT NULL DEFAULT 'Manual',
+      payment_account VARCHAR(80) NOT NULL DEFAULT 'Cash',
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       PRIMARY KEY (id),
@@ -90,6 +91,7 @@ async function createSchema() {
   `);
 
   await addColumnIfMissing("transactions", "category_id", "ADD COLUMN category_id BIGINT UNSIGNED NULL AFTER user_id");
+  await addColumnIfMissing("transactions", "payment_account", "ADD COLUMN payment_account VARCHAR(80) NOT NULL DEFAULT 'Cash' AFTER source");
   await addIndexIfMissing("transactions", "transactions_category_id_idx", "ADD INDEX transactions_category_id_idx (category_id)");
 
   await pool.query(`

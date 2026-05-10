@@ -29,6 +29,7 @@ type ScanResult = {
   tax: number | null;
   grand_total: number | null;
   payment_method: string | null;
+  payment_account: string | null;
   currency: string;
   confidence: number;
   raw_text: string | null;
@@ -79,6 +80,7 @@ function normalizeScanResult(value: unknown, rawText: string): ScanResult | null
     tax: asNullableNumber(input.tax),
     grand_total: asNullableNumber(input.grand_total),
     payment_method: asNullableString(input.payment_method),
+    payment_account: asNullableString(input.payment_account),
     currency: asNullableString(input.currency) || "IDR",
     confidence: Math.max(0, Math.min(1, confidence ?? 0)),
     raw_text: asNullableString(input.raw_text) || rawText,
@@ -120,7 +122,7 @@ export async function POST(req: NextRequest) {
 
 Analisis teks hasil OCR dan/atau gambar struk berikut. Jika gambar tersedia, prioritaskan gambar karena OCR bisa salah atau kosong. Tentukan apakah ini struk transaksi atau bukan.
 
-Jika ini struk transaksi, ambil data penting seperti nama toko, tanggal, waktu, daftar barang, jumlah, harga, subtotal, diskon, pajak, total akhir, dan metode pembayaran.
+Jika ini struk transaksi, ambil data penting seperti nama toko, tanggal, waktu, daftar barang, jumlah, harga, subtotal, diskon, pajak, total akhir, metode pembayaran, dan akun/dompet pembayaran yang dipakai.
 
 Jika data tidak tersedia, isi dengan null. Jangan mengarang data. Harga harus berupa angka integer tanpa titik atau koma. Kembalikan hanya JSON valid tanpa penjelasan tambahan.
 
@@ -144,11 +146,15 @@ Format output wajib:
   "tax": null,
   "grand_total": null,
   "payment_method": null,
+  "payment_account": null,
   "currency": "IDR",
   "confidence": 0,
   "raw_text": null,
   "category_suggestion": null
 }
+
+payment_account wajib dinormalisasi jika bisa ke salah satu: "Cash", "QRIS", "BCA", "BNI", "BRI", "Mandiri", "BSI", "CIMB Niaga", "PermataBank", "Danamon", "Bank Jago", "Krom Bank", "Jenius", "SeaBank", "blu by BCA Digital", "Bank Neo Commerce", "Allo Bank", "Bank Saqu", "LINE Bank", "Superbank", "GoPay", "OVO", "DANA", "ShopeePay", "LinkAja", "AstraPay", "Sakuku", "i.saku", "Kartu Kredit", "Kartu Debit", "Transfer Bank", "Lainnya".
+Contoh: tunai/cash -> "Cash", qris/qr -> "QRIS", BCA -> "BCA", BNI -> "BNI", BRI -> "BRI", Mandiri/Livin -> "Mandiri", BSI -> "BSI", Krom/Krom Bank -> "Krom Bank", ShopeePay/SPay -> "ShopeePay", debit tanpa bank jelas -> "Kartu Debit", transfer bank tanpa nama bank jelas -> "Transfer Bank".
 
 Kategori wajib dipilih dari salah satu nama ini jika memungkinkan: "Makanan & Minuman", "Belanja Bulanan", "Transportasi", "Tagihan & Utilitas", "Hiburan", "Kesehatan", "Gaji / Pendapatan", "Bonus", "Investasi".
 Jika merchant/item terlihat seperti makanan/minuman/warung/resto/cafe/supermarket belanja makanan, isi category_suggestion "Makanan & Minuman".
@@ -168,6 +174,7 @@ Jika bukan struk transaksi, output wajib:
   "tax": null,
   "grand_total": null,
   "payment_method": null,
+  "payment_account": null,
   "currency": "IDR",
   "confidence": 0,
   "raw_text": null,

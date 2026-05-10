@@ -85,6 +85,7 @@ type Transaction = {
   type: "income" | "expense";
   date: string;
   source: "Manual" | "Scan";
+  paymentAccount: string;
   transactionDate: string | null;
   createdAt: string;
 };
@@ -99,6 +100,7 @@ type ApiTransaction = {
   type: "income" | "expense";
   transactionDate: string | null;
   source: "Manual" | "Scan";
+  paymentAccount: string;
   createdAt: string;
 };
 
@@ -120,6 +122,7 @@ type TransactionInput = {
   category?: string;
   transactionDate?: string;
   source?: "Manual" | "Scan";
+  paymentAccount?: string;
 };
 
 type CategoryInput = {
@@ -150,6 +153,7 @@ type ScannedReceipt = {
   items: ReceiptItem[];
   source: "ocr" | "demo" | "ai";
   categorySuggestion?: string | null;
+  paymentAccount?: string | null;
 };
 
 type CategorySuggestion = {
@@ -175,6 +179,108 @@ const viewStorageKey = "taka-fintrack.active-view";
 const authStorageKey = "taka-fintrack.auth-user";
 const authTokenStorageKey = "taka-fintrack.auth-token-fallback";
 const chatHistoryStorageKey = "taka-fintrack.chat-history";
+const forgotPasswordCooldownStorageKey = "taka-fintrack.forgot-password-cooldown-until";
+const forgotPasswordCooldownSeconds = 60;
+const paymentAccountOptions = [
+  "Cash",
+  "QRIS",
+  "BCA",
+  "BNI",
+  "BRI",
+  "Mandiri",
+  "BSI",
+  "CIMB Niaga",
+  "PermataBank",
+  "Danamon",
+  "Bank Jago",
+  "Krom Bank",
+  "Jenius",
+  "SeaBank",
+  "blu by BCA Digital",
+  "Bank Neo Commerce",
+  "Allo Bank",
+  "Bank Saqu",
+  "LINE Bank",
+  "Superbank",
+  "GoPay",
+  "OVO",
+  "DANA",
+  "ShopeePay",
+  "LinkAja",
+  "AstraPay",
+  "Sakuku",
+  "i.saku",
+  "Kartu Kredit",
+  "Kartu Debit",
+  "Transfer Bank",
+  "Lainnya",
+];
+
+function normalizePaymentAccount(value: string | null | undefined) {
+  const normalized = (value || "").trim().toLowerCase();
+
+  if (!normalized) return "Cash";
+  if (/bca digital|blu/.test(normalized)) return "blu by BCA Digital";
+  if (/bca/.test(normalized)) return "BCA";
+  if (/bni/.test(normalized)) return "BNI";
+  if (/bri/.test(normalized)) return "BRI";
+  if (/mandiri|livin/.test(normalized)) return "Mandiri";
+  if (/bsi|syariah indonesia/.test(normalized)) return "BSI";
+  if (/cimb|octo/.test(normalized)) return "CIMB Niaga";
+  if (/permata/.test(normalized)) return "PermataBank";
+  if (/danamon/.test(normalized)) return "Danamon";
+  if (/jago/.test(normalized)) return "Bank Jago";
+  if (/krom/.test(normalized)) return "Krom Bank";
+  if (/jenius|btpn/.test(normalized)) return "Jenius";
+  if (/sea ?bank|seabank/.test(normalized)) return "SeaBank";
+  if (/neo|bank neo|bnc/.test(normalized)) return "Bank Neo Commerce";
+  if (/allo/.test(normalized)) return "Allo Bank";
+  if (/saqu/.test(normalized)) return "Bank Saqu";
+  if (/line bank|linebank/.test(normalized)) return "LINE Bank";
+  if (/superbank/.test(normalized)) return "Superbank";
+  if (/shopee|spay/.test(normalized)) return "ShopeePay";
+  if (/gopay|gojek/.test(normalized)) return "GoPay";
+  if (/ovo/.test(normalized)) return "OVO";
+  if (/dana/.test(normalized)) return "DANA";
+  if (/linkaja|link aja/.test(normalized)) return "LinkAja";
+  if (/astrapay|astra pay/.test(normalized)) return "AstraPay";
+  if (/sakuku/.test(normalized)) return "Sakuku";
+  if (/i\.saku|isaku/.test(normalized)) return "i.saku";
+  if (/qris|qr/.test(normalized)) return "QRIS";
+  if (/kredit|credit|cc|visa|mastercard|master card/.test(normalized)) return "Kartu Kredit";
+  if (/debit/.test(normalized)) return "Kartu Debit";
+  if (/transfer|bank/.test(normalized)) return "Transfer Bank";
+  if (/cash|tunai|uang tunai/.test(normalized)) return "Cash";
+
+  return value?.trim() || "Lainnya";
+}
+
+function getForgotPasswordCooldownRemaining() {
+  if (typeof window === "undefined") return 0;
+
+  const rawCooldownUntil = window.localStorage.getItem(forgotPasswordCooldownStorageKey);
+  const cooldownUntil = Number(rawCooldownUntil);
+
+  if (!Number.isFinite(cooldownUntil) || cooldownUntil <= Date.now()) {
+    window.localStorage.removeItem(forgotPasswordCooldownStorageKey);
+    return 0;
+  }
+
+  return Math.ceil((cooldownUntil - Date.now()) / 1000);
+}
+
+function formatCooldown(seconds: number) {
+  return `${Math.max(0, seconds)} detik`;
+}
+
+function startForgotPasswordCooldown() {
+  if (typeof window === "undefined") return forgotPasswordCooldownSeconds;
+
+  const cooldownUntil = Date.now() + forgotPasswordCooldownSeconds * 1000;
+  window.localStorage.setItem(forgotPasswordCooldownStorageKey, String(cooldownUntil));
+
+  return forgotPasswordCooldownSeconds;
+}
 
 function isViewKey(value: string | null | undefined): value is ViewKey {
   return Boolean(value && navItems.some((item) => item.key === value));
@@ -275,6 +381,7 @@ function normalizeApiTransaction(transaction: ApiTransaction): Transaction {
     type: transaction.type,
     date: formatTransactionDate(transaction.transactionDate ?? transaction.createdAt),
     source: transaction.source,
+    paymentAccount: transaction.paymentAccount || "Cash",
     transactionDate: transaction.transactionDate,
     createdAt: transaction.createdAt,
   };
@@ -1179,13 +1286,26 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (session: AuthSessio
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [forgotCooldown, setForgotCooldown] = useState(0);
   const isRegister = mode === "register";
   const isForgot = mode === "forgot";
+  const isForgotOnCooldown = isForgot && forgotCooldown > 0;
+
+  useEffect(() => {
+    const refreshCooldown = () => setForgotCooldown(getForgotPasswordCooldownRemaining());
+
+    refreshCooldown();
+    const intervalId = window.setInterval(refreshCooldown, 1000);
+
+    return () => window.clearInterval(intervalId);
+  }, []);
 
   function switchMode(nextMode: AuthMode) {
     setMode(nextMode);
     setError("");
+    setSuccessMessage("");
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -1226,8 +1346,14 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (session: AuthSessio
       }
     }
 
+    if (isForgot && forgotCooldown > 0) {
+      setError(`Tunggu ${formatCooldown(forgotCooldown)} sebelum meminta link reset lagi.`);
+      return;
+    }
+
     setIsSubmitting(true);
     setError("");
+    setSuccessMessage("");
 
     try {
       if (isForgot) {
@@ -1235,7 +1361,8 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (session: AuthSessio
           method: "POST",
           body: JSON.stringify({ email: normalizedEmail }),
         });
-        setError("Link reset password sudah dikirim jika email terdaftar. Cek inbox/spam ya.");
+        setForgotCooldown(startForgotPasswordCooldown());
+        setSuccessMessage("Link reset password sudah dikirim jika email terdaftar. Cek inbox/spam ya. Kamu bisa meminta link baru lagi setelah 1 menit.");
         return;
       }
 
@@ -1349,20 +1476,39 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (session: AuthSessio
               />
             )}
 
+            {successMessage && (
+              <div className="rounded-lg border border-sky-100 bg-sky-50 px-3 py-2 text-sm font-bold text-sky-700">
+                {successMessage}
+              </div>
+            )}
+
             {error && (
-              <div className="rounded-lg border border-rose-100 bg-rose-50 px-3 py-2 text-sm font-bold text-rose-600">
+              <div className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-700">
                 {error}
               </div>
             )}
 
             <button
               type="submit"
-              disabled={isSubmitting}
-              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-taka-navy px-4 py-3 text-sm font-black text-white shadow-float transition hover:bg-slate-800"
+              disabled={isSubmitting || isForgotOnCooldown}
+              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-taka-navy px-4 py-3 text-sm font-black text-white shadow-float transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isRegister ? <Check size={18} /> : <ChevronRight size={18} />}
-              {isSubmitting ? "Memproses..." : isForgot ? "Kirim Email Reset" : isRegister ? "Register & Masuk" : "Login"}
+              {isSubmitting
+                ? "Memproses..."
+                : isForgotOnCooldown
+                  ? `Kirim lagi dalam ${formatCooldown(forgotCooldown)}`
+                  : isForgot
+                    ? "Kirim Email Reset"
+                    : isRegister
+                      ? "Register & Masuk"
+                      : "Login"}
             </button>
+            {isForgotOnCooldown && (
+              <p className="text-center text-xs font-bold text-slate-500">
+                Demi keamanan, tunggu {formatCooldown(forgotCooldown)} sebelum meminta link reset lagi.
+              </p>
+            )}
             {!isRegister && (
               <button
                 type="button"
@@ -1509,12 +1655,16 @@ function AuthFeature({
 
 function AppLogo({ size = 44 }: { size?: number }) {
   return (
-    <div
-      className="grid shrink-0 place-items-center overflow-hidden rounded-xl border border-white/80 bg-white p-1 shadow-float"
+    <Image
+      src="/images/taka-logo-v2.png"
+      alt="Taka FinTrack"
+      width={size}
+      height={size}
+      priority
+      unoptimized
+      className="shrink-0 object-contain drop-shadow-[0_10px_22px_rgba(15,23,42,0.14)]"
       style={{ width: size, height: size }}
-    >
-      <Image src="/images/taka-logo-v2.png" alt="Taka FinTrack" width={size - 8} height={size - 8} priority unoptimized className="h-full w-full rounded-lg object-contain" />
-    </div>
+    />
   );
 }
 
@@ -2200,9 +2350,21 @@ function TransactionRow({
   const amountClass = isIncome ? "text-emerald-600" : "text-rose-500";
   const [isDeleting, setIsDeleting] = useState(false);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+  const [showDetail, setShowDetail] = useState(false);
 
   return (
-    <div className="grid min-w-0 grid-cols-[36px_minmax(0,1fr)_auto] gap-2 rounded-lg border border-slate-100 bg-white p-2.5 transition hover:border-emerald-200 hover:shadow-sm sm:flex sm:items-center sm:p-3">
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => setShowDetail(true)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          setShowDetail(true);
+        }
+      }}
+      className="grid min-w-0 cursor-pointer grid-cols-[36px_minmax(0,1fr)_auto] gap-2 rounded-lg border border-slate-100 bg-white p-2.5 transition hover:border-emerald-200 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-200 sm:flex sm:items-center sm:p-3"
+    >
       <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg sm:h-10 sm:w-10" style={{ backgroundColor: getSoftColor(item.categoryColor), color: item.categoryColor }}>
         {isIncome ? <TrendingUp size={17} /> : <CreditCard size={17} />}
       </div>
@@ -2211,7 +2373,7 @@ function TransactionRow({
           <p className="truncate text-[13px] font-black text-taka-ink sm:text-sm">{item.merchant}</p>
           <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-black text-slate-500">{item.source}</span>
         </div>
-        <p className="mt-0.5 truncate text-[11px] font-semibold text-slate-500 sm:text-xs">{item.category} • {item.date}</p>
+        <p className="mt-0.5 truncate text-[11px] font-semibold text-slate-500 sm:text-xs">{item.category} • {item.paymentAccount || "Cash"} • {item.date}</p>
         <p className={clsx("mt-1 text-[13px] font-black sm:hidden", amountClass)}>
           {amount}
         </p>
@@ -2223,7 +2385,10 @@ function TransactionRow({
       {onEdit && (
         <button
           type="button"
-          onClick={() => onEdit(item)}
+          onClick={(event) => {
+            event.stopPropagation();
+            onEdit(item);
+          }}
           className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-600"
           aria-label="Edit transaksi"
         >
@@ -2234,7 +2399,10 @@ function TransactionRow({
         <button
           type="button"
           disabled={isDeleting}
-          onClick={() => setShowConfirmDelete(true)}
+          onClick={(event) => {
+            event.stopPropagation();
+            setShowConfirmDelete(true);
+          }}
           className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-slate-300 transition hover:bg-rose-50 hover:text-rose-500 disabled:opacity-40"
           aria-label="Hapus transaksi"
         >
@@ -2243,9 +2411,88 @@ function TransactionRow({
       )}
       </div>
 
+      {showDetail && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setShowDetail(false);
+          }}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-[0_8px_32px_rgba(0,0,0,0.18)]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">Detail Transaksi</p>
+                <h3 className="mt-1 text-lg font-black text-taka-ink">{item.merchant}</h3>
+              </div>
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setShowDetail(false);
+                }}
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-500 transition hover:bg-slate-200"
+                aria-label="Tutup detail transaksi"
+              >
+                <X size={18} strokeWidth={3} />
+              </button>
+            </div>
+            <div className={clsx("mt-4 rounded-2xl p-4", isIncome ? "bg-emerald-50" : "bg-rose-50")}>
+              <p className="text-xs font-black uppercase tracking-[0.1em] text-slate-400">Nominal</p>
+              <p className={clsx("mt-1 text-2xl font-black", amountClass)}>{amount}</p>
+            </div>
+            <div className="mt-4 grid gap-2 text-sm font-bold text-slate-600">
+              <DetailLine label="Kategori" value={item.category} />
+              <DetailLine label="Akun / Dompet" value={item.paymentAccount || "Cash"} />
+              <DetailLine label="Tanggal" value={item.date} />
+              <DetailLine label="Jenis" value={isIncome ? "Income" : "Expense"} />
+              <DetailLine label="Sumber" value={item.source} />
+            </div>
+            <div className="mt-4 flex gap-2">
+              {onEdit && (
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setShowDetail(false);
+                    onEdit(item);
+                  }}
+                  className="flex-1 rounded-xl bg-taka-navy py-2.5 text-sm font-black text-white transition hover:bg-slate-800"
+                >
+                  Edit
+                </button>
+              )}
+              {onDelete && (
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setShowDetail(false);
+                    setShowConfirmDelete(true);
+                  }}
+                  className="flex-1 rounded-xl bg-rose-500 py-2.5 text-sm font-black text-white transition hover:bg-rose-600"
+                >
+                  Hapus
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {showConfirmDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="w-full max-w-xs rounded-2xl bg-white p-5 shadow-[0_8px_32px_rgba(0,0,0,0.18)]">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setShowConfirmDelete(false);
+          }}
+        >
+          <div
+            className="w-full max-w-xs rounded-2xl bg-white p-5 shadow-[0_8px_32px_rgba(0,0,0,0.18)]"
+            onClick={(event) => event.stopPropagation()}
+          >
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-rose-50">
               <Trash2 size={22} className="text-rose-500" />
             </div>
@@ -2256,7 +2503,10 @@ function TransactionRow({
             <div className="mt-4 flex gap-2">
               <button
                 type="button"
-                onClick={() => setShowConfirmDelete(false)}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setShowConfirmDelete(false);
+                }}
                 disabled={isDeleting}
                 className="flex-1 rounded-xl border border-slate-200 bg-slate-50 py-2.5 text-sm font-black text-slate-600 transition hover:bg-slate-100 disabled:opacity-50"
               >
@@ -2264,7 +2514,8 @@ function TransactionRow({
               </button>
               <button
                 type="button"
-                onClick={async () => {
+                onClick={async (event) => {
+                  event.stopPropagation();
                   setIsDeleting(true);
                   try {
                     if (onDelete) {
@@ -2284,6 +2535,15 @@ function TransactionRow({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function DetailLine({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2">
+      <span className="text-xs font-black uppercase tracking-[0.08em] text-slate-400">{label}</span>
+      <span className="truncate text-right text-sm font-black text-taka-ink">{value}</span>
     </div>
   );
 }
@@ -2413,6 +2673,7 @@ function TransactionsView({
   const [amount, setAmount] = useState("");
   const [merchant, setMerchant] = useState("");
   const [categoryId, setCategoryId] = useState("");
+  const [paymentAccount, setPaymentAccount] = useState("Cash");
   const [transactionDate, setTransactionDate] = useState(getDateInputValue());
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [categoryName, setCategoryName] = useState("");
@@ -2476,6 +2737,7 @@ function TransactionsView({
     setAmount(String(transaction.amount));
     setMerchant(transaction.merchant);
     setTransactionDate(getDateInputValue(getTransactionDate(transaction)));
+    setPaymentAccount(transaction.paymentAccount || "Cash");
     const matchingCategory = categories.find((category) => category.id === transaction.categoryId || category.name === transaction.category);
     setCategoryId(matchingCategory ? String(matchingCategory.id) : "");
     setMessage("Mode edit aktif. Ubah data lalu simpan.");
@@ -2486,6 +2748,7 @@ function TransactionsView({
     setEditingTransaction(null);
     setMerchant("");
     setAmount("");
+    setPaymentAccount("Cash");
     setTransactionDate(getDateInputValue());
     setMessage("");
     setError("");
@@ -2522,6 +2785,7 @@ function TransactionsView({
         categoryId: selectedCategory.id,
         transactionDate,
         source: editingTransaction?.source ?? "Manual",
+        paymentAccount,
       } satisfies TransactionInput;
 
       if (editingTransaction) {
@@ -2532,6 +2796,7 @@ function TransactionsView({
       setEditingTransaction(null);
       setMerchant("");
       setAmount("");
+      setPaymentAccount("Cash");
       setTransactionDate(getDateInputValue());
       setMessage(editingTransaction ? "Transaksi berhasil diperbarui." : "Transaksi berhasil disimpan ke database.");
     } catch (error) {
@@ -2689,6 +2954,18 @@ function TransactionsView({
             </select>
           </label>
           <EditableField label="Merchant" value={merchant} placeholder="Kopi Kenangan" onChange={setMerchant} />
+          <label className="block">
+            <span className="text-xs font-black uppercase tracking-[0.1em] text-slate-400">Akun / Dompet Pembayaran</span>
+            <select
+              value={paymentAccount}
+              onChange={(event) => setPaymentAccount(event.target.value)}
+              className="mt-2 h-12 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-taka-ink outline-none transition focus:border-emerald-300 focus:bg-white"
+            >
+              {paymentAccountOptions.map((account) => (
+                <option key={account} value={account}>{account}</option>
+              ))}
+            </select>
+          </label>
           <EditableField label="Tanggal" type="date" value={transactionDate} placeholder="" onChange={setTransactionDate} />
           {(message || error) && (
             <div className={clsx("rounded-lg px-3 py-2 text-sm font-bold", error ? "bg-rose-50 text-rose-600" : "bg-emerald-50 text-emerald-700")}>
@@ -2775,6 +3052,7 @@ function ScanView({
   const [isSavingReceipt, setIsSavingReceipt] = useState(false);
   const [scanType, setScanType] = useState<"expense" | "income">("expense");
   const [selectedScanCategoryId, setSelectedScanCategoryId] = useState("");
+  const [scanPaymentAccount, setScanPaymentAccount] = useState("Cash");
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const hasReceiptPreview = Boolean(receiptPreviewUrl);
   const hasScannedReceipt = scanStatus === "done";
@@ -2809,6 +3087,7 @@ function ScanView({
     setReceiptPreviewUrl(url);
     setScannedReceipt(null);
     setSelectedScanCategoryId("");
+    setScanPaymentAccount("Cash");
     setScanStatus("ready");
   }, [releaseReceiptPreview]);
 
@@ -2908,6 +3187,7 @@ function ScanView({
               merchant: aiData.merchant || "Struk Belanja",
               date: aiData.transaction_date ? `${aiData.transaction_date} ${aiData.transaction_time || ""}`.trim() : "Tanggal tidak terbaca",
               payment: aiData.payment_method || "Tunai",
+              paymentAccount: normalizePaymentAccount(aiData.payment_account || aiData.payment_method),
               subtotal: aiData.subtotal || 0,
               discount: aiData.discount || 0,
               total: finalTotal,
@@ -2935,6 +3215,7 @@ function ScanView({
       }
 
       setScannedReceipt(parsedReceipt);
+      setScanPaymentAccount(normalizePaymentAccount(parsedReceipt.paymentAccount || parsedReceipt.payment));
       const suggestedCategory = suggestReceiptCategory(parsedReceipt, categories, scanType).category;
       setSelectedScanCategoryId(suggestedCategory ? String(suggestedCategory.id) : "");
       setScanStatus("done");
@@ -2969,6 +3250,7 @@ function ScanView({
     setReceiptPreviewUrl(null);
     setScannedReceipt(null);
     setSelectedScanCategoryId("");
+    setScanPaymentAccount("Cash");
     setScanStatus("empty");
     setCameraStatus("idle");
     if (scanTimerRef.current) {
@@ -3087,6 +3369,7 @@ function ScanView({
         categoryId: selectedCategory.id,
         transactionDate: getDateInputValue(),
         source: "Scan",
+        paymentAccount: scanPaymentAccount,
       });
       setShowSuccessModal(true);
     } catch (error) {
@@ -3363,6 +3646,21 @@ function ScanView({
                 ))}
               </select>
             </label>
+            <label className="mt-3 block">
+              <span className="text-xs font-black uppercase tracking-[0.1em] text-slate-400">Akun / Dompet Pembayaran</span>
+              <select
+                value={scanPaymentAccount}
+                onChange={(e) => setScanPaymentAccount(e.target.value)}
+                className="mt-2 h-12 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-taka-ink outline-none"
+              >
+                {paymentAccountOptions.map((account) => (
+                  <option key={account} value={account}>{account}</option>
+                ))}
+              </select>
+            </label>
+            <p className="mt-2 rounded-lg bg-sky-50 px-3 py-2 text-xs font-bold leading-5 text-sky-700">
+              AI membaca pembayaran: {scannedReceipt?.payment || "tidak terbaca"}. Dompet tersimpan: {scanPaymentAccount}.
+            </p>
             {selectedScanCategory && (
               <p className="mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-bold leading-5 text-emerald-700">
                 Disarankan: {selectedScanCategory.name}. {categorySuggestion.reason}
