@@ -1257,7 +1257,7 @@ export function TakaFinTrackApp() {
   return (
     <main className={clsx(
       "min-h-screen w-full max-w-full overflow-x-hidden px-3 pt-3 sm:px-4 lg:p-6",
-      activeView === "chat" ? "pb-24" : "pb-40",
+      activeView === "chat" ? "pb-20" : "pb-40",
     )}>
       <div className="mx-auto grid w-full max-w-[1500px] items-start gap-3 lg:grid-cols-[278px_minmax(0,1fr)] lg:gap-4">
         <Sidebar
@@ -3978,7 +3978,7 @@ function ChatView({ transactions, sessionReady }: { transactions: Transaction[];
       </section>
 
       {/* Chat area — fills viewport on mobile, fixed height on desktop */}
-      <section className="chat-shell relative flex h-auto min-h-0 min-w-0 max-w-full flex-col overflow-hidden rounded-xl border border-white/70 bg-white/86 p-3.5 shadow-soft backdrop-blur sm:p-4 xl:h-[620px] xl:min-h-0">
+      <section className="chat-shell relative flex h-auto min-h-0 min-w-0 max-w-full flex-col overflow-hidden rounded-xl border border-white/70 bg-white/86 p-3 shadow-soft backdrop-blur sm:p-4 xl:h-[620px] xl:min-h-0">
         <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-2.5">
           <div className="flex items-center gap-3">
             <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-taka-navy text-white xl:h-11 xl:w-11">
@@ -4000,7 +4000,7 @@ function ChatView({ transactions, sessionReady }: { transactions: Transaction[];
         </div>
 
         {/* Mobile inline suggested questions — horizontal scroll pills */}
-        <div className="no-scrollbar -mx-3.5 flex gap-2 overflow-x-auto px-3.5 py-2 xl:hidden">
+        <div className="no-scrollbar -mx-3 flex gap-2 overflow-x-auto px-3 py-1.5 xl:hidden">
           {suggestedQuestions.map((question) => (
             <button
               key={question}
@@ -4014,7 +4014,7 @@ function ChatView({ transactions, sessionReady }: { transactions: Transaction[];
           ))}
         </div>
 
-        <div ref={scrollRef} className="no-scrollbar chat-messages-scroll space-y-3 overflow-y-auto py-3 scroll-smooth xl:flex-1 xl:py-4">
+        <div ref={scrollRef} className="no-scrollbar chat-messages-scroll space-y-2 overflow-y-auto py-1.5 scroll-smooth xl:flex-1 xl:py-4">
           {messages.map((message, index) => (
             <div
               key={`${message.role}-${index}`}
@@ -4025,7 +4025,7 @@ function ChatView({ transactions, sessionReady }: { transactions: Transaction[];
             >
               <div
                 className={clsx(
-                  "max-w-[86%] rounded-xl px-4 py-3 text-sm font-semibold leading-6",
+                  "max-w-[86%] rounded-xl px-3.5 py-2.5 text-sm font-semibold leading-5",
                   message.role === "user"
                     ? "bg-sky-600 text-white"
                     : "bg-slate-100 text-slate-700",
@@ -4104,7 +4104,7 @@ function ChatView({ transactions, sessionReady }: { transactions: Transaction[];
           </div>
         )}
         <form
-          className="flex gap-2 border-t border-slate-100 pt-3 xl:pt-4"
+          className="flex gap-2 border-t border-slate-100 pt-2 xl:pt-4"
           onSubmit={(event) => {
             event.preventDefault();
             sendMessage(draft);
