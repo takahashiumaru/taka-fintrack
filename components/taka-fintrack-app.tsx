@@ -1255,8 +1255,11 @@ export function TakaFinTrackApp() {
   }
 
   return (
-    <main className="min-h-screen w-full max-w-full overflow-x-hidden px-3 pb-40 pt-3 sm:px-4 lg:p-6">
-      <div className="mx-auto grid w-full max-w-[1500px] items-start gap-4 lg:grid-cols-[278px_minmax(0,1fr)]">
+    <main className={clsx(
+      "min-h-screen w-full max-w-full overflow-x-hidden px-3 pt-3 sm:px-4 lg:p-6",
+      activeView === "chat" ? "pb-24" : "pb-40",
+    )}>
+      <div className="mx-auto grid w-full max-w-[1500px] items-start gap-3 lg:grid-cols-[278px_minmax(0,1fr)] lg:gap-4">
         <Sidebar
           activeView={activeView}
           onChange={changeView}
@@ -1265,7 +1268,7 @@ export function TakaFinTrackApp() {
           scanCount={analytics.scanCount}
           healthScore={analytics.savingsRatio}
         />
-        <section className="min-w-0 space-y-4">
+        <section className="min-w-0 space-y-3 lg:space-y-4">
           <TopBar
             title={activeMeta.label}
             user={currentUser}
@@ -3976,7 +3979,7 @@ function ChatView({ transactions, sessionReady }: { transactions: Transaction[];
 
       {/* Chat area — fills viewport on mobile, fixed height on desktop */}
       <section className="chat-shell relative flex h-auto min-h-0 min-w-0 max-w-full flex-col overflow-hidden rounded-xl border border-white/70 bg-white/86 p-3.5 shadow-soft backdrop-blur sm:p-4 xl:h-[620px] xl:min-h-0">
-        <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
+        <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-2.5">
           <div className="flex items-center gap-3">
             <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-taka-navy text-white xl:h-11 xl:w-11">
               <Bot size={20} />
@@ -3997,7 +4000,7 @@ function ChatView({ transactions, sessionReady }: { transactions: Transaction[];
         </div>
 
         {/* Mobile inline suggested questions — horizontal scroll pills */}
-        <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 py-3 xl:hidden">
+        <div className="no-scrollbar -mx-3.5 flex gap-2 overflow-x-auto px-3.5 py-2 xl:hidden">
           {suggestedQuestions.map((question) => (
             <button
               key={question}
