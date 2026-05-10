@@ -25,6 +25,7 @@ import {
   LayoutDashboard,
   LogOut,
   MessageCircle,
+  Moon,
   MoreHorizontal,
   Paperclip,
   Pencil,
@@ -35,6 +36,7 @@ import {
   Settings,
   ShieldCheck,
   Sparkles,
+  Sun,
   Trash2,
   TrendingDown,
   TrendingUp,
@@ -175,7 +177,10 @@ const navItems: Array<{ key: ViewKey; label: string; icon: LucideIcon }> = [
   { key: "reports", label: "Laporan", icon: ChartNoAxesColumnIncreasing },
 ];
 
+type ThemeMode = "light" | "dark";
+
 const viewStorageKey = "taka-fintrack.active-view";
+const themeStorageKey = "taka-fintrack.theme";
 const authStorageKey = "taka-fintrack.auth-user";
 const authTokenStorageKey = "taka-fintrack.auth-token-fallback";
 const chatHistoryStorageKey = "taka-fintrack.chat-history";
@@ -317,6 +322,20 @@ function getInitialView() {
   }
 
   return "dashboard";
+}
+
+function getInitialTheme(): ThemeMode {
+  if (typeof window === "undefined") return "light";
+
+  try {
+    const savedTheme = window.localStorage.getItem(themeStorageKey);
+    if (savedTheme === "light" || savedTheme === "dark") return savedTheme;
+    if (window.matchMedia?.("(prefers-color-scheme: dark)").matches) return "dark";
+  } catch {
+    return "light";
+  }
+
+  return "light";
 }
 
 function getStoredUser() {
@@ -1013,6 +1032,7 @@ function parseReceiptText(rawText: string): ScannedReceipt {
 export function TakaFinTrackApp() {
   const [activeView, setActiveView] = useState<ViewKey>(getInitialView);
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(getStoredUser);
+  const [theme, setTheme] = useState<ThemeMode>(getInitialTheme);
   const [sessionReady, setSessionReady] = useState(Boolean(getStoredUser()));
   const [isAuthChecking, setIsAuthChecking] = useState(Boolean(getStoredUser()));
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -1023,6 +1043,9 @@ export function TakaFinTrackApp() {
   const analytics = useMemo(() => getFinanceAnalytics(transactions), [transactions]);
   const changeView = useCallback((view: ViewKey) => {
     setActiveView(view);
+  }, []);
+  const toggleTheme = useCallback(() => {
+    setTheme((currentTheme) => (currentTheme === "dark" ? "light" : "dark"));
   }, []);
   const handleAuthenticated = useCallback((session: AuthSession) => {
     try {
@@ -1211,6 +1234,17 @@ export function TakaFinTrackApp() {
     return () => window.removeEventListener("hashchange", syncViewFromHash);
   }, []);
 
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.style.colorScheme = theme;
+
+    try {
+      window.localStorage.setItem(themeStorageKey, theme);
+    } catch {
+      // Ignore private browsing/storage restrictions.
+    }
+  }, [theme]);
+
 
   if (isAuthChecking && !currentUser) {
     return <AuthLoadingScreen />;
@@ -1221,7 +1255,7 @@ export function TakaFinTrackApp() {
   }
 
   return (
-    <main className="min-h-screen w-full max-w-full overflow-x-hidden px-3 pb-24 pt-3 sm:px-4 lg:p-6">
+    <main className="min-h-screen w-full max-w-full overflow-x-hidden px-3 pb-40 pt-3 sm:px-4 lg:p-6">
       <div className="mx-auto grid w-full max-w-[1500px] items-start gap-4 lg:grid-cols-[278px_minmax(0,1fr)]">
         <Sidebar
           activeView={activeView}
@@ -1239,6 +1273,8 @@ export function TakaFinTrackApp() {
             onUserUpdate={handleUserUpdate}
             onAddTransaction={() => changeView("transactions")}
             onLogout={handleLogout}
+            theme={theme}
+            onToggleTheme={toggleTheme}
           />
           {dataStatus === "error" && (
             <div className="rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-600">
@@ -1690,7 +1726,7 @@ function AvatarCircle({
   return (
     <div
       className={clsx(
-        "grid shrink-0 place-items-center rounded-full bg-[linear-gradient(135deg,#1E293B,#22C55E)] bg-cover bg-center font-black text-white ring-4 ring-white",
+        "avatar-circle grid shrink-0 place-items-center rounded-full bg-[linear-gradient(135deg,#1E3A8A,#0EA5E9)] bg-cover bg-center font-black text-white ring-4 ring-white",
         sizeClass,
         className,
       )}
@@ -1799,6 +1835,8 @@ function TopBar({
   onUserUpdate,
   onAddTransaction,
   onLogout,
+  theme,
+  onToggleTheme,
 }: {
   title: string;
   user: AuthUser;
@@ -1806,9 +1844,11 @@ function TopBar({
   onUserUpdate: (updates: Partial<AuthUser>) => void;
   onAddTransaction: () => void;
   onLogout: () => void;
+  theme: ThemeMode;
+  onToggleTheme: () => void;
 }) {
   return (
-    <header className="relative z-[1200] flex items-start justify-between gap-3 rounded-xl border border-white/70 bg-white/82 p-3 shadow-soft backdrop-blur sm:items-center sm:p-4">
+    <header className="topbar-glass relative z-[1200] flex items-start justify-between gap-3 rounded-xl border border-white/70 bg-white/82 p-3 shadow-soft backdrop-blur sm:items-center sm:p-4">
       <div className="min-w-0">
         <div className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-[0.12em] text-emerald-600 sm:gap-2 sm:text-xs">
           <Sparkles size={13} />
@@ -1825,6 +1865,14 @@ function TopBar({
             placeholder="Cari transaksi"
           />
         </label>
+        <button
+          type="button"
+          onClick={onToggleTheme}
+          className="theme-icon-button grid h-10 w-10 place-items-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:border-sky-300 hover:text-sky-600 sm:h-11 sm:w-11"
+          aria-label={theme === "dark" ? "Aktifkan light mode" : "Aktifkan dark mode"}
+        >
+          {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+        </button>
         <button type="button" className="grid h-10 w-10 place-items-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:border-emerald-300 hover:text-emerald-600 sm:h-11 sm:w-11" aria-label="Notifikasi">
           <Bell size={18} />
         </button>
@@ -1962,7 +2010,7 @@ function ProfileMenu({
       <button
         type="button"
         onClick={() => setIsOpen((current) => !current)}
-        className="grid h-10 w-10 place-items-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:border-emerald-300 hover:text-emerald-600 sm:h-11 sm:w-11"
+        className="profile-trigger grid h-10 w-10 place-items-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:border-sky-300 hover:text-sky-600 sm:h-11 sm:w-11"
         aria-label="Profil"
       >
         <AvatarCircle user={user} size="sm" className="ring-0" />
@@ -1976,7 +2024,7 @@ function ProfileMenu({
             className="fixed inset-0 z-[900] cursor-default bg-transparent"
             onClick={() => setIsOpen(false)}
           />
-          <div className="fixed right-3 top-24 z-[1300] max-h-[calc(100vh-8rem)] w-72 max-w-[calc(100vw-1.5rem)] overflow-y-auto rounded-xl border border-white/80 bg-white p-4 text-left shadow-[0_18px_60px_rgba(15,23,42,0.25)] backdrop-blur">
+          <div className="profile-modal fixed right-3 top-24 z-[1300] max-h-[calc(100vh-8rem)] w-72 max-w-[calc(100vw-1.5rem)] overflow-y-auto rounded-xl border border-white/80 bg-white p-4 text-left shadow-[0_18px_60px_rgba(15,23,42,0.25)] backdrop-blur">
           <div className="flex items-center gap-3">
             <AvatarCircle user={user} size="lg" />
             <div className="min-w-0">
@@ -2367,7 +2415,7 @@ function TransactionRow({
           setShowDetail(true);
         }
       }}
-      className="grid min-w-0 cursor-pointer grid-cols-[36px_minmax(0,1fr)_auto] gap-2 rounded-lg border border-slate-100 bg-white p-2.5 transition hover:border-emerald-200 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-200 sm:flex sm:items-center sm:p-3"
+      className="transaction-row-card grid min-w-0 cursor-pointer grid-cols-[36px_minmax(0,1fr)_auto] gap-2 rounded-lg border border-slate-100 bg-white p-2.5 transition hover:border-sky-200 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-300 sm:flex sm:items-center sm:p-3"
     >
       <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg sm:h-10 sm:w-10" style={{ backgroundColor: getSoftColor(item.categoryColor), color: item.categoryColor }}>
         {isIncome ? <TrendingUp size={17} /> : <CreditCard size={17} />}
@@ -2393,7 +2441,7 @@ function TransactionRow({
             event.stopPropagation();
             onEdit(item);
           }}
-          className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-sky-100 bg-sky-50 text-sky-600 shadow-sm transition hover:bg-sky-100 hover:text-sky-700 active:scale-95"
+          className="transaction-action-edit grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-sky-100 bg-sky-50 text-sky-600 shadow-sm transition hover:bg-sky-100 hover:text-sky-700 active:scale-95"
           aria-label="Edit transaksi"
         >
           <Pencil size={15} />
@@ -2407,7 +2455,7 @@ function TransactionRow({
             event.stopPropagation();
             setShowConfirmDelete(true);
           }}
-          className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-rose-100 bg-rose-50 text-rose-500 shadow-sm transition hover:bg-rose-100 hover:text-rose-600 active:scale-95 disabled:opacity-50"
+          className="transaction-action-delete grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-rose-100 bg-rose-50 text-rose-500 shadow-sm transition hover:bg-rose-100 hover:text-rose-600 active:scale-95 disabled:opacity-50"
           aria-label="Hapus transaksi"
         >
           <Trash2 size={16} />
@@ -2417,13 +2465,13 @@ function TransactionRow({
 
       {showDetail && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+          className="transaction-detail-backdrop fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-md"
           onClick={(event) => {
             if (event.target === event.currentTarget) setShowDetail(false);
           }}
         >
           <div
-            className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-[0_8px_32px_rgba(0,0,0,0.18)]"
+            className="transaction-detail-modal w-full max-w-sm rounded-[1.65rem] bg-white p-5 shadow-[0_8px_32px_rgba(0,0,0,0.18)]"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-3">
@@ -3516,10 +3564,10 @@ function ScanView({
                 onClick={cameraStatus === "active" ? stopCamera : scanReceipt}
                 disabled={cameraStatus !== "active" && (!hasReceiptPreview || scanStatus === "scanning")}
                 className={clsx(
-                  "inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-55",
+                  "scan-retry-button inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-55",
                   cameraStatus === "active"
                     ? "bg-white text-slate-700 hover:bg-slate-50"
-                    : "bg-emerald-500 text-white hover:bg-emerald-600",
+                    : "bg-sky-600 text-white hover:bg-sky-700",
                 )}
               >
                 {cameraStatus === "active" ? <ScanLine size={18} /> : hasScannedReceipt ? <Check size={18} /> : <ScanLine size={18} />}
@@ -3530,7 +3578,7 @@ function ScanView({
                   type="button"
                   onClick={clearReceiptScan}
                   disabled={scanStatus === "scanning"}
-                  className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-rose-500 px-4 py-3 text-sm font-black text-white shadow-[0_8px_24px_rgba(225,29,72,0.3)] transition hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="scan-delete-image-button inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-rose-500 px-4 py-3 text-sm font-black text-white shadow-[0_8px_24px_rgba(225,29,72,0.3)] transition hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <X size={18} strokeWidth={3} />
                   Hapus Gambar
@@ -3662,11 +3710,11 @@ function ScanView({
                 ))}
               </select>
             </label>
-            <p className="mt-2 rounded-lg bg-sky-50 px-3 py-2 text-xs font-bold leading-5 text-sky-700">
+            <p className="scan-info-panel mt-2 rounded-lg bg-sky-50 px-3 py-2 text-xs font-bold leading-5 text-sky-700">
               AI membaca pembayaran: {scannedReceipt?.payment || "tidak terbaca"}. Dompet tersimpan: {scanPaymentAccount}.
             </p>
             {selectedScanCategory && (
-              <p className="mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-bold leading-5 text-emerald-700">
+              <p className="scan-category-panel mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-bold leading-5 text-emerald-700">
                 Disarankan: {selectedScanCategory.name}. {categorySuggestion.reason}
               </p>
             )}
@@ -3679,7 +3727,7 @@ function ScanView({
           disabled={!hasScannedReceipt || isSavingReceipt}
           className={clsx(
             "mt-4 flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-black transition disabled:cursor-not-allowed",
-            hasScannedReceipt && !isSavingReceipt ? "bg-emerald-500 text-white hover:bg-emerald-600" : "bg-slate-200 text-slate-400",
+            hasScannedReceipt && !isSavingReceipt ? "bg-sky-600 text-white hover:bg-sky-700" : "scan-save-disabled bg-slate-200 text-slate-400",
           )}
         >
           <Check size={18} />
@@ -3927,7 +3975,7 @@ function ChatView({ transactions, sessionReady }: { transactions: Transaction[];
       </section>
 
       {/* Chat area — fills viewport on mobile, fixed height on desktop */}
-      <section className="relative flex h-[calc(100svh-190px)] min-h-[430px] min-w-0 max-w-full flex-col overflow-hidden rounded-xl border border-white/70 bg-white/86 p-4 shadow-soft backdrop-blur xl:h-[620px] xl:min-h-0">
+      <section className="chat-shell relative flex h-[calc(100svh-220px)] min-h-[430px] min-w-0 max-w-full flex-col overflow-hidden rounded-xl border border-white/70 bg-white/86 p-4 shadow-soft backdrop-blur xl:h-[620px] xl:min-h-0">
         <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
           <div className="flex items-center gap-3">
             <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-taka-navy text-white xl:h-11 xl:w-11">
@@ -3942,7 +3990,7 @@ function ChatView({ transactions, sessionReady }: { transactions: Transaction[];
             type="button"
             onClick={() => setConfirmClear(true)}
             title="Hapus riwayat chat"
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-rose-100 bg-rose-50 text-rose-500 shadow-sm transition hover:bg-rose-100 hover:text-rose-600 active:scale-95 xl:h-10 xl:w-10"
+            className="chat-clear-button grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-rose-100 bg-rose-50 text-rose-500 shadow-sm transition hover:bg-rose-100 hover:text-rose-600 active:scale-95 xl:h-10 xl:w-10"
           >
             <Trash2 size={16} />
           </button>
@@ -3956,7 +4004,7 @@ function ChatView({ transactions, sessionReady }: { transactions: Transaction[];
               type="button"
               disabled={isTyping}
               onClick={() => sendMessage(question)}
-              className="shrink-0 rounded-full border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-xs font-bold text-emerald-700 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="chat-suggestion-pill shrink-0 rounded-full border border-sky-200 bg-sky-50 px-3.5 py-2 text-xs font-bold text-sky-700 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {question}
             </button>
@@ -3976,7 +4024,7 @@ function ChatView({ transactions, sessionReady }: { transactions: Transaction[];
                 className={clsx(
                   "max-w-[86%] rounded-xl px-4 py-3 text-sm font-semibold leading-6",
                   message.role === "user"
-                    ? "bg-emerald-500 text-white"
+                    ? "bg-sky-600 text-white"
                     : "bg-slate-100 text-slate-700",
                 )}
               >
