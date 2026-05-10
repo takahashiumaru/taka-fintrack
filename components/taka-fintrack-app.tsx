@@ -1210,6 +1210,27 @@ export function TakaFinTrackApp() {
     return () => window.removeEventListener("hashchange", syncViewFromHash);
   }, []);
 
+  useEffect(() => {
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    const previousBodyHeight = document.body.style.height;
+    const previousHtmlHeight = document.documentElement.style.height;
+
+    if (activeView === "chat") {
+      document.body.style.overflow = "hidden";
+      document.documentElement.style.overflow = "hidden";
+      document.body.style.height = "100svh";
+      document.documentElement.style.height = "100svh";
+    }
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+      document.body.style.height = previousBodyHeight;
+      document.documentElement.style.height = previousHtmlHeight;
+    };
+  }, [activeView]);
+
   if (isAuthChecking && !currentUser) {
     return <AuthLoadingScreen />;
   }
