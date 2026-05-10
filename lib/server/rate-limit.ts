@@ -1,6 +1,17 @@
 type Bucket = { count: number; resetAt: number };
 
 const buckets = new Map<string, Bucket>();
+let lastCleanupAt = 0;
+const cleanupIntervalMs = 60_000;
+
+function cleanupExpiredBuckets(now: number) {
+  if (now - lastCleanupAt < cleanupIntervalMs) return;
+  lastCleanupAt = now;
+
+  buckets.forEach((bucket, key) => {
+    if (bucket.resetAt <= now) buckets.delete(key);
+  });
+}
 
 export function getClientIp(request: Request) {
   return (
@@ -12,6 +23,8 @@ export function getClientIp(request: Request) {
 
 export function checkRateLimit(key: string, limit: number, windowMs: number) {
   const now = Date.now();
+  cleanupExpiredBuckets(now);
+
   const bucket = buckets.get(key);
 
   if (!bucket || bucket.resetAt <= now) {

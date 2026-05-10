@@ -1,6 +1,13 @@
 import { createHmac, randomBytes, scryptSync, timingSafeEqual } from "crypto";
+import { NextResponse } from "next/server";
 import type { RowDataPacket } from "mysql2";
 import { ensureSchema, getPool } from "./db";
+
+export const authCookieName = "taka_fintrack_session";
+
+function shouldUseSecureCookie() {
+  return Boolean(process.env.AUTH_COOKIE_SECURE === "1" || process.env.AUTH_COOKIE_SECURE?.toLowerCase() === "true");
+}
 
 export type ApiUser = {
   id: number;
@@ -98,9 +105,45 @@ export function verifyAuthToken(token: string) {
   }
 }
 
-export async function getAuthenticatedUser(request: Request) {
+export function getAuthTokenFromRequest(request: Request) {
   const authorization = request.headers.get("authorization") ?? "";
-  const token = authorization.startsWith("Bearer ") ? authorization.slice("Bearer ".length) : "";
+  if (authorization.startsWith("Bearer ")) return authorization.slice("Bearer ".length);
+
+  const cookieHeader = request.headers.get("cookie") ?? "";
+  const cookie = cookieHeader
+    .split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(`${authCookieName}=`));
+
+  return cookie ? decodeURIComponent(cookie.slice(authCookieName.length + 1)) : "";
+}
+
+export function attachAuthCookie(response: NextResponse, token: string) {
+  response.cookies.set(authCookieName, token, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: shouldUseSecureCookie(),
+    path: "/",
+    maxAge: tokenTtlSeconds,
+  });
+
+  return response;
+}
+
+export function clearAuthCookie(response: NextResponse) {
+  response.cookies.set(authCookieName, "", {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: shouldUseSecureCookie(),
+    path: "/",
+    maxAge: 0,
+  });
+
+  return response;
+}
+
+export async function getAuthenticatedUser(request: Request) {
+  const token = getAuthTokenFromRequest(request);
   const payload = verifyAuthToken(token);
 
   if (!payload) return null;

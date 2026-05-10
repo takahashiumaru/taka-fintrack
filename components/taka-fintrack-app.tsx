@@ -38,6 +38,7 @@ import {
   TrendingDown,
   TrendingUp,
   WalletCards,
+  X,
 } from "lucide-react";
 import {
   Area,
@@ -68,7 +69,8 @@ type AuthUser = {
 
 type AuthSession = {
   user: AuthUser;
-  token: string;
+  token?: string;
+  authenticated?: boolean;
 };
 
 type Transaction = {
@@ -146,6 +148,12 @@ type ScannedReceipt = {
   confidence: number;
   items: ReceiptItem[];
   source: "ocr" | "demo" | "ai";
+  categorySuggestion?: string | null;
+};
+
+type CategorySuggestion = {
+  category: Category | null;
+  reason: string;
 };
 
 const currency = new Intl.NumberFormat("id-ID", {
@@ -164,7 +172,7 @@ const navItems: Array<{ key: ViewKey; label: string; icon: LucideIcon }> = [
 
 const viewStorageKey = "taka-fintrack.active-view";
 const authStorageKey = "taka-fintrack.auth-user";
-const authTokenStorageKey = "taka-fintrack.auth-token";
+const authTokenStorageKey = "taka-fintrack.auth-token-fallback";
 const chatHistoryStorageKey = "taka-fintrack.chat-history";
 
 function isViewKey(value: string | null | undefined): value is ViewKey {
@@ -218,24 +226,24 @@ function getStoredUser() {
   }
 }
 
-function getStoredToken() {
-  if (typeof window === "undefined") return "";
-
-  try {
-    return window.localStorage.getItem(authTokenStorageKey) ?? "";
-  } catch {
-    return "";
-  }
-}
-
 async function apiRequest<T>(url: string, init: RequestInit = {}) {
   const headers = new Headers(init.headers);
+
+  if (!headers.has("Authorization") && typeof window !== "undefined") {
+    try {
+      const token = window.localStorage.getItem(authTokenStorageKey);
+      if (token) headers.set("Authorization", `Bearer ${token}`);
+    } catch {
+      // Ignore private browsing/storage restrictions.
+    }
+  }
 
   if (!headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
 
   const response = await fetch(url, {
+    credentials: "include",
     ...init,
     headers,
   });
@@ -252,12 +260,6 @@ async function apiRequest<T>(url: string, init: RequestInit = {}) {
   }
 
   return payload as T;
-}
-
-function authHeaders(token: string) {
-  return {
-    Authorization: `Bearer ${token}`,
-  };
 }
 
 function normalizeApiTransaction(transaction: ApiTransaction): Transaction {
@@ -661,6 +663,71 @@ function extractPaymentMethod(text: string): string {
   return "Tunai";
 }
 
+function suggestReceiptCategory(receipt: ScannedReceipt | null, categories: Category[], type: "income" | "expense"): CategorySuggestion {
+  const availableCategories = categories.filter((category) => category.type === type || category.type === "both");
+  if (!receipt || availableCategories.length === 0) {
+    return { category: null, reason: "Belum ada kategori yang cocok." };
+  }
+
+  const text = [receipt.merchant, receipt.payment, receipt.categorySuggestion ?? "", ...receipt.items.map((item) => item.name)]
+    .join(" ")
+    .toLowerCase();
+  const findByName = (...needles: string[]) => availableCategories.find((category) => {
+    const name = category.name.toLowerCase();
+    return needles.some((needle) => name.includes(needle));
+  }) ?? null;
+
+  if (receipt.categorySuggestion) {
+    const aiSuggestion = receipt.categorySuggestion.toLowerCase();
+    const aiCategory = availableCategories.find((category) => {
+      const name = category.name.toLowerCase();
+      return name === aiSuggestion || name.includes(aiSuggestion) || aiSuggestion.includes(name);
+    });
+    if (aiCategory) return { category: aiCategory, reason: "Kategori ditentukan oleh AI dari isi struk." };
+  }
+
+  const rules: Array<{ keywords: string[]; names: string[]; reason: string }> = [
+    {
+      keywords: ["pln", "listrik", "pdam", "pulsa", "token listrik", "internet", "wifi", "telkom", "indihome", "virtual account", "tagihan", "utility", "utilities", "bill"],
+      names: ["tagihan", "utilitas", "utility"],
+      reason: "Terdeteksi pola pembayaran/tagihan dari teks struk.",
+    },
+    {
+      keywords: ["accessories", "accesories", "aksesoris", "fashion", "baju", "sepatu", "tas", "kosmetik", "store", "shop", "mart", "mall"],
+      names: ["belanja", "fashion"],
+      reason: "Terdeteksi merchant/item belanja non-makanan.",
+    },
+    {
+      keywords: ["restaurant", "resto", "cafe", "coffee", "kopi", "bakso", "ayam", "makan", "minum", "food", "indomaret", "alfamart"],
+      names: ["makanan", "minuman"],
+      reason: "Terdeteksi merchant/item makanan atau minuman.",
+    },
+    {
+      keywords: ["grab", "gojek", "gocar", "goride", "taxi", "tol", "parkir", "pertamina", "shell", "transport"],
+      names: ["transport"],
+      reason: "Terdeteksi biaya transportasi.",
+    },
+    {
+      keywords: ["rs", "klinik", "apotek", "pharmacy", "obat", "health"],
+      names: ["kesehatan"],
+      reason: "Terdeteksi biaya kesehatan.",
+    },
+  ];
+
+  for (const rule of rules) {
+    if (rule.keywords.some((keyword) => text.includes(keyword))) {
+      const category = findByName(...rule.names);
+      if (category) return { category, reason: rule.reason };
+    }
+  }
+
+  const fallback = findByName("makanan", "minuman") ?? availableCategories[0] ?? null;
+  return {
+    category: fallback,
+    reason: fallback ? "AI/kata kunci belum yakin dalam 30 detik; default dipilih Makanan & Minuman sesuai aturan fallback." : "Belum ada kategori yang cocok.",
+  };
+}
+
 function parseReceiptText(rawText: string): ScannedReceipt {
   const text = rawText.replace(/[|]/g, "I").replace(/\r/g, "");
   const lines = text
@@ -838,8 +905,8 @@ function parseReceiptText(rawText: string): ScannedReceipt {
 export function TakaFinTrackApp() {
   const [activeView, setActiveView] = useState<ViewKey>(getInitialView);
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(getStoredUser);
-  const [authToken, setAuthToken] = useState(getStoredToken);
-  const [isAuthChecking, setIsAuthChecking] = useState(Boolean(getStoredToken()));
+  const [sessionReady, setSessionReady] = useState(Boolean(getStoredUser()));
+  const [isAuthChecking, setIsAuthChecking] = useState(Boolean(getStoredUser()));
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [dataStatus, setDataStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
@@ -852,13 +919,13 @@ export function TakaFinTrackApp() {
   const handleAuthenticated = useCallback((session: AuthSession) => {
     try {
       window.localStorage.setItem(authStorageKey, JSON.stringify(session.user));
-      window.localStorage.setItem(authTokenStorageKey, session.token);
+      if (session.token) window.localStorage.setItem(authTokenStorageKey, session.token);
     } catch {
       // Ignore private browsing/storage restrictions.
     }
 
     setCurrentUser(session.user);
-    setAuthToken(session.token);
+    setSessionReady(true);
   }, []);
   const handleUserUpdate = useCallback((updates: Partial<AuthUser>) => {
     setCurrentUser((currentUserValue) => {
@@ -884,13 +951,14 @@ export function TakaFinTrackApp() {
     }
 
     setCurrentUser(null);
-    setAuthToken("");
+    setSessionReady(false);
+    void fetch("/api/auth/logout", { method: "POST", credentials: "include" }).catch(() => undefined);
     setTransactions([]);
     setCategories([]);
     setDataStatus("idle");
   }, []);
   const refreshFinanceData = useCallback(async () => {
-    if (!authToken) return;
+    if (!sessionReady) return;
 
     setDataStatus("loading");
     setDataError("");
@@ -898,10 +966,8 @@ export function TakaFinTrackApp() {
     try {
       const [transactionResponse, categoryResponse] = await Promise.all([
         apiRequest<{ transactions: ApiTransaction[] }>("/api/transactions", {
-          headers: authHeaders(authToken),
         }),
         apiRequest<{ categories: Category[] }>("/api/categories", {
-          headers: authHeaders(authToken),
         }),
       ]);
 
@@ -912,13 +978,12 @@ export function TakaFinTrackApp() {
       setDataStatus("error");
       setDataError(error instanceof Error ? error.message : "Data gagal dimuat.");
     }
-  }, [authToken]);
+  }, [sessionReady]);
   const createTransaction = useCallback(async (input: TransactionInput) => {
-    if (!authToken) throw new Error("Sesi belum siap.");
+    if (!sessionReady) throw new Error("Sesi belum siap.");
 
     const response = await apiRequest<{ transaction: ApiTransaction }>("/api/transactions", {
       method: "POST",
-      headers: authHeaders(authToken),
       body: JSON.stringify(input),
     });
     const nextTransaction = normalizeApiTransaction(response.transaction);
@@ -926,33 +991,31 @@ export function TakaFinTrackApp() {
     setTransactions((current) => [nextTransaction, ...current]);
 
     return nextTransaction;
-  }, [authToken]);
+  }, [sessionReady]);
   const deleteTransaction = useCallback(async (rawId: number) => {
-    if (!authToken) throw new Error("Sesi belum siap.");
+    if (!sessionReady) throw new Error("Sesi belum siap.");
 
     await apiRequest<{ success: boolean }>(`/api/transactions/${rawId}`, {
       method: "DELETE",
-      headers: authHeaders(authToken),
     });
 
     setTransactions((current) => current.filter((t) => t.rawId !== rawId));
-  }, [authToken]);
+  }, [sessionReady]);
   const createCategory = useCallback(async (input: CategoryInput) => {
-    if (!authToken) throw new Error("Sesi belum siap.");
+    if (!sessionReady) throw new Error("Sesi belum siap.");
 
     const response = await apiRequest<{ category: Category }>("/api/categories", {
       method: "POST",
-      headers: authHeaders(authToken),
       body: JSON.stringify(input),
     });
 
     setCategories((current) => [...current, response.category]);
 
     return response.category;
-  }, [authToken]);
+  }, [sessionReady]);
 
   useEffect(() => {
-    if (!authToken) {
+    if (!sessionReady) {
       setIsAuthChecking(false);
       return;
     }
@@ -963,9 +1026,7 @@ export function TakaFinTrackApp() {
       setIsAuthChecking(true);
 
       try {
-        const response = await apiRequest<{ user: AuthUser }>("/api/auth/me", {
-          headers: authHeaders(authToken),
-        });
+        const response = await apiRequest<{ user: AuthUser }>("/api/auth/me");
 
         if (isCancelled) return;
 
@@ -993,13 +1054,13 @@ export function TakaFinTrackApp() {
     return () => {
       isCancelled = true;
     };
-  }, [authToken, handleLogout]);
+  }, [sessionReady, handleLogout]);
 
   useEffect(() => {
-    if (currentUser && authToken) {
+    if (currentUser && sessionReady) {
       void refreshFinanceData();
     }
-  }, [authToken, currentUser, refreshFinanceData]);
+  }, [sessionReady, currentUser, refreshFinanceData]);
 
   useEffect(() => {
     try {
@@ -1051,7 +1112,7 @@ export function TakaFinTrackApp() {
           <TopBar
             title={activeMeta.label}
             user={currentUser}
-            token={authToken}
+            sessionReady={sessionReady}
             onUserUpdate={handleUserUpdate}
             onAddTransaction={() => changeView("transactions")}
             onLogout={handleLogout}
@@ -1073,8 +1134,10 @@ export function TakaFinTrackApp() {
               onRefresh={refreshFinanceData}
             />
           )}
-          {activeView === "scan" && <ScanView categories={categories} token={authToken} onCreateTransaction={createTransaction} onNavigate={changeView} />}
-          {activeView === "chat" && <ChatView transactions={transactions} token={authToken} />}
+          <div className={activeView === "scan" ? "block" : "hidden"} aria-hidden={activeView !== "scan"}>
+            <ScanView categories={categories} sessionReady={sessionReady} onCreateTransaction={createTransaction} onNavigate={changeView} />
+          </div>
+          {activeView === "chat" && <ChatView transactions={transactions} sessionReady={sessionReady} />}
           {activeView === "reports" && <ReportsView analytics={analytics} transactions={transactions} />}
         </section>
       </div>
@@ -1554,14 +1617,13 @@ function Sidebar({
 function TopBar({
   title,
   user,
-  token,
   onUserUpdate,
   onAddTransaction,
   onLogout,
 }: {
   title: string;
   user: AuthUser;
-  token: string;
+  sessionReady: boolean;
   onUserUpdate: (updates: Partial<AuthUser>) => void;
   onAddTransaction: () => void;
   onLogout: () => void;
@@ -1587,7 +1649,7 @@ function TopBar({
         <button type="button" className="grid h-10 w-10 place-items-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:border-emerald-300 hover:text-emerald-600 sm:h-11 sm:w-11" aria-label="Notifikasi">
           <Bell size={18} />
         </button>
-        <ProfileMenu user={user} token={token} onUserUpdate={onUserUpdate} onLogout={onLogout} />
+        <ProfileMenu user={user} onUserUpdate={onUserUpdate} onLogout={onLogout} />
         <button type="button" onClick={onAddTransaction} className="hidden items-center gap-2 rounded-lg bg-taka-navy px-4 py-3 text-sm font-extrabold text-white shadow-float transition hover:bg-slate-800 sm:flex">
           <Plus size={18} />
           Tambah
@@ -1599,12 +1661,10 @@ function TopBar({
 
 function ProfileMenu({
   user,
-  token,
   onUserUpdate,
   onLogout,
 }: {
   user: AuthUser;
-  token: string;
   onUserUpdate: (updates: Partial<AuthUser>) => void;
   onLogout: () => void;
 }) {
@@ -1623,7 +1683,6 @@ function ProfileMenu({
     try {
       const response = await apiRequest<{ user: AuthUser }>("/api/users/profile", {
         method: "PATCH",
-        headers: authHeaders(token),
         body: JSON.stringify(updates),
       });
 
@@ -1704,7 +1763,6 @@ function ProfileMenu({
     try {
       await apiRequest<{ ok: true }>("/api/users/password", {
         method: "PATCH",
-        headers: authHeaders(token),
         body: JSON.stringify({ password: newPassword }),
       });
 
@@ -2615,17 +2673,19 @@ function TransactionsView({
 
 function ScanView({
   categories,
-  token,
+  sessionReady,
   onCreateTransaction,
   onNavigate,
 }: {
   categories: Category[];
-  token: string;
+  sessionReady: boolean;
   onCreateTransaction: (input: TransactionInput) => Promise<Transaction>;
   onNavigate: (view: ViewKey) => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const uploadInputRef = useRef<HTMLInputElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const receiptObjectUrlRef = useRef<string | null>(null);
   const scanTimerRef = useRef<number | null>(null);
@@ -2636,6 +2696,7 @@ function ScanView({
   const [scannedReceipt, setScannedReceipt] = useState<ScannedReceipt | null>(null);
   const [isSavingReceipt, setIsSavingReceipt] = useState(false);
   const [scanType, setScanType] = useState<"expense" | "income">("expense");
+  const [selectedScanCategoryId, setSelectedScanCategoryId] = useState("");
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const hasReceiptPreview = Boolean(receiptPreviewUrl);
   const hasScannedReceipt = scanStatus === "done";
@@ -2644,6 +2705,9 @@ function ScanView({
   const discount = scannedReceipt?.discount ?? 0;
   const total = scannedReceipt?.total ?? 0;
   const confidence = scannedReceipt?.confidence ?? 0;
+  const availableScanCategories = categories.filter((category) => category.type === scanType || category.type === "both");
+  const categorySuggestion = suggestReceiptCategory(scannedReceipt, categories, scanType);
+  const selectedScanCategory = availableScanCategories.find((category) => String(category.id) === selectedScanCategoryId) ?? categorySuggestion.category;
 
   const clearCameraStream = useCallback(() => {
     streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -2666,6 +2730,7 @@ function ScanView({
     receiptObjectUrlRef.current = isObjectUrl ? url : null;
     setReceiptPreviewUrl(url);
     setScannedReceipt(null);
+    setSelectedScanCategoryId("");
     setScanStatus("ready");
   }, [releaseReceiptPreview]);
 
@@ -2740,11 +2805,11 @@ function ScanView({
       try {
         const aiResponse = await fetch("/api/scan-ai", {
           method: "POST",
+          credentials: "include",
           headers: {
             "Content-Type": "application/json",
-            ...authHeaders(token),
           },
-          body: JSON.stringify({ rawText }),
+          body: JSON.stringify({ rawText, imageData: preprocessed }),
         });
 
         if (aiResponse.ok) {
@@ -2770,6 +2835,7 @@ function ScanView({
               total: finalTotal,
               confidence: aiData.confidence || 95,
               source: "ai",
+              categorySuggestion: aiData.category_suggestion || null,
               items: itemsData,
             };
             usedAi = true;
@@ -2791,6 +2857,8 @@ function ScanView({
       }
 
       setScannedReceipt(parsedReceipt);
+      const suggestedCategory = suggestReceiptCategory(parsedReceipt, categories, scanType).category;
+      setSelectedScanCategoryId(suggestedCategory ? String(suggestedCategory.id) : "");
       setScanStatus("done");
 
       if (parsedReceipt.source === "ocr" || parsedReceipt.source === "ai") {
@@ -2804,10 +2872,12 @@ function ScanView({
     } catch (err) {
       console.error("OCR Error:", err);
       setScannedReceipt(indomaretExampleReceipt);
+      const suggestedCategory = suggestReceiptCategory(indomaretExampleReceipt, categories, scanType).category;
+      setSelectedScanCategoryId(suggestedCategory ? String(suggestedCategory.id) : "");
       setScanStatus("done");
       setCameraMessage("OCR gagal dimuat. Dipakai hasil demo dari contoh struk Indomaret.");
     }
-  }, [token]);
+  }, [categories, scanType]);
 
   function stopCamera() {
     clearCameraStream();
@@ -2815,10 +2885,26 @@ function ScanView({
     setCameraMessage("Kamera dimatikan. Tap Buka Kamera untuk scan lagi.");
   }
 
+  function clearReceiptScan() {
+    clearCameraStream();
+    releaseReceiptPreview();
+    setReceiptPreviewUrl(null);
+    setScannedReceipt(null);
+    setSelectedScanCategoryId("");
+    setScanStatus("empty");
+    setCameraStatus("idle");
+    if (scanTimerRef.current) {
+      window.clearTimeout(scanTimerRef.current);
+      scanTimerRef.current = null;
+    }
+    setCameraMessage("Gambar dihapus. Ambil atau upload struk baru.");
+  }
+
   async function startCamera() {
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setCameraStatus("error");
-      setCameraMessage("Browser ini belum mendukung kamera langsung. Pakai Upload Struk sebagai cadangan.");
+    if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+      cameraInputRef.current?.click();
+      setCameraStatus("idle");
+      setCameraMessage("Browser ini tidak mengizinkan kamera live di HTTP/in-app browser. Pakai kamera bawaan HP untuk ambil foto struk.");
       return;
     }
 
@@ -2887,21 +2973,26 @@ function ScanView({
     void startReceiptScan(receiptPreviewUrl, hasScannedReceipt ? "Memindai ulang struk..." : "Memindai struk...");
   }
 
-  function handleReceiptUpload(event: ChangeEvent<HTMLInputElement>) {
+  function handleReceiptUpload(event: ChangeEvent<HTMLInputElement>, source: "camera" | "upload" = "upload") {
     const file = event.target.files?.[0];
+    event.target.value = "";
 
     if (!file) return;
 
     clearCameraStream();
     replaceReceiptPreview(URL.createObjectURL(file), true);
     setCameraStatus("idle");
-    setCameraMessage("Foto struk diupload. Scan otomatis berjalan...");
+    setCameraMessage(source === "camera" ? "Foto struk dari kamera tersimpan. Scan otomatis berjalan..." : "Foto struk diupload. Scan otomatis berjalan...");
+  }
+
+  function openUploadPicker() {
+    if (scanStatus !== "scanning") uploadInputRef.current?.click();
   }
 
   async function saveScannedReceipt() {
     if (!scannedReceipt) return;
 
-    const selectedCategory = categories.find((category) => category.type === scanType || category.type === "both");
+    const selectedCategory = selectedScanCategory;
 
     if (!selectedCategory) {
       setCameraMessage(`Belum ada kategori ${scanType}. Tambah kategori dulu di menu Transaksi.`);
@@ -2945,7 +3036,7 @@ function ScanView({
   }, [receiptPreviewUrl, scanStatus, startReceiptScan]);
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_460px]">
+    <div className="relative grid gap-4 xl:grid-cols-[minmax(0,1fr)_460px]">
       <section className="rounded-xl border border-white/70 bg-white/86 p-3 shadow-soft backdrop-blur sm:p-4">
         <SectionTitle title="Scan Struk" eyebrow="JPEG / PNG • max 10MB" />
         <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px] 2xl:grid-cols-[minmax(0,1fr)_380px]">
@@ -3026,6 +3117,23 @@ function ScanView({
               </div>
             </div>
             <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="sr-only"
+                onChange={(event) => handleReceiptUpload(event, "camera")}
+                disabled={scanStatus === "scanning"}
+              />
+              <input
+                ref={uploadInputRef}
+                type="file"
+                accept="image/*"
+                className="sr-only"
+                onChange={(event) => handleReceiptUpload(event, "upload")}
+                disabled={scanStatus === "scanning"}
+              />
               <button
                 type="button"
                 onClick={cameraStatus === "active" ? capturePhoto : startCamera}
@@ -3052,11 +3160,26 @@ function ScanView({
                 {cameraStatus === "active" ? <ScanLine size={18} /> : hasScannedReceipt ? <Check size={18} /> : <ScanLine size={18} />}
                 {cameraStatus === "active" ? "Matikan" : scanStatus === "scanning" ? "Scanning..." : hasScannedReceipt ? "Scan Ulang" : "Scan Struk"}
               </button>
-              <label className="inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-white px-4 py-3 text-sm font-black text-slate-700 transition hover:bg-slate-50">
+              {receiptPreviewUrl && (
+                <button
+                  type="button"
+                  onClick={clearReceiptScan}
+                  disabled={scanStatus === "scanning"}
+                  className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-rose-500 px-4 py-3 text-sm font-black text-white shadow-[0_8px_24px_rgba(225,29,72,0.3)] transition hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <X size={18} strokeWidth={3} />
+                  Hapus Gambar
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={openUploadPicker}
+                disabled={scanStatus === "scanning"}
+                className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-white px-4 py-3 text-sm font-black text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-55"
+              >
                 <FileText size={18} />
-                Upload
-                <input type="file" accept="image/*" capture="environment" className="sr-only" onChange={handleReceiptUpload} disabled={scanStatus === "scanning"} />
-              </label>
+                Upload Galeri
+              </button>
               <button type="button" onClick={() => onNavigate("transactions")} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-white px-4 py-3 text-sm font-black text-slate-700 transition hover:bg-slate-50">
                 <Plus size={18} />
                 Manual
@@ -3137,13 +3260,36 @@ function ScanView({
               <span className="text-xs font-black uppercase tracking-[0.1em] text-slate-400">Jenis Transaksi</span>
               <select
                 value={scanType}
-                onChange={(e) => setScanType(e.target.value as "expense" | "income")}
+                onChange={(e) => {
+                  const nextType = e.target.value as "expense" | "income";
+                  setScanType(nextType);
+                  const suggestedCategory = suggestReceiptCategory(scannedReceipt, categories, nextType).category;
+                  setSelectedScanCategoryId(suggestedCategory ? String(suggestedCategory.id) : "");
+                }}
                 className="mt-2 h-12 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-taka-ink outline-none"
               >
                 <option value="expense">Pengeluaran (Expense)</option>
                 <option value="income">Pemasukan (Income)</option>
               </select>
             </label>
+            <label className="mt-3 block">
+              <span className="text-xs font-black uppercase tracking-[0.1em] text-slate-400">Kategori</span>
+              <select
+                value={selectedScanCategory ? String(selectedScanCategory.id) : ""}
+                onChange={(e) => setSelectedScanCategoryId(e.target.value)}
+                className="mt-2 h-12 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-taka-ink outline-none"
+              >
+                <option value="">Pilih kategori</option>
+                {availableScanCategories.map((category) => (
+                  <option key={category.id} value={category.id}>{category.name}</option>
+                ))}
+              </select>
+            </label>
+            {selectedScanCategory && (
+              <p className="mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-bold leading-5 text-emerald-700">
+                Disarankan: {selectedScanCategory.name}. {categorySuggestion.reason}
+              </p>
+            )}
           </div>
         )}
 
@@ -3195,7 +3341,7 @@ const defaultChatMessages: ChatMessage[] = [
   },
 ];
 
-function ChatView({ transactions, token }: { transactions: Transaction[]; token: string }) {
+function ChatView({ transactions, sessionReady }: { transactions: Transaction[]; sessionReady: boolean }) {
   const [messages, setMessages] = useState<ChatMessage[]>(defaultChatMessages);
   const [draft, setDraft] = useState("");
   const [isTyping, setIsTyping] = useState(false);
@@ -3319,9 +3465,9 @@ function ChatView({ transactions, token }: { transactions: Transaction[]; token:
 
       const response = await fetch('/api/chat', {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          ...authHeaders(token),
         },
         body: JSON.stringify({
           messages: chatHistory

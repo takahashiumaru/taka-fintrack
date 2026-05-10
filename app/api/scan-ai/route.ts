@@ -1,15 +1,94 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/server/auth";
-import { apiError, readJson, tooManyRequests } from "@/lib/server/http";
+import { apiError, isAbortError, readJson, tooManyRequests, withTimeout } from "@/lib/server/http";
 import { checkRateLimit, getClientIp } from "@/lib/server/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const maxRawTextLength = 12_000;
+const maxImageDataLength = 8_000_000;
 const maxRequestsPerMinute = 10;
+const aiTimeoutMs = 30_000;
+
+type ScanItem = {
+  name: string | null;
+  quantity: number | null;
+  unit_price: number | null;
+  total_price: number | null;
+};
+
+type ScanResult = {
+  is_transaction: boolean;
+  merchant: string | null;
+  transaction_date: string | null;
+  transaction_time: string | null;
+  items: ScanItem[];
+  subtotal: number | null;
+  discount: number | null;
+  tax: number | null;
+  grand_total: number | null;
+  payment_method: string | null;
+  currency: string;
+  confidence: number;
+  raw_text: string | null;
+  category_suggestion: string | null;
+};
+
+function asNullableString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function asNullableNumber(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value.replace(/[^0-9.-]/g, ""));
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
+function normalizeScanResult(value: unknown, rawText: string): ScanResult | null {
+  if (!value || typeof value !== "object") return null;
+
+  const input = value as Record<string, unknown>;
+  const isTransaction = input.is_transaction === true;
+  const items = Array.isArray(input.items)
+    ? input.items.slice(0, 40).map((item) => {
+        const row = item && typeof item === "object" ? item as Record<string, unknown> : {};
+
+        return {
+          name: asNullableString(row.name),
+          quantity: asNullableNumber(row.quantity),
+          unit_price: asNullableNumber(row.unit_price),
+          total_price: asNullableNumber(row.total_price),
+        };
+      }).filter((item) => item.name || item.quantity || item.unit_price || item.total_price)
+    : [];
+  const confidence = asNullableNumber(input.confidence);
+
+  return {
+    is_transaction: isTransaction,
+    merchant: asNullableString(input.merchant),
+    transaction_date: asNullableString(input.transaction_date),
+    transaction_time: asNullableString(input.transaction_time),
+    items: isTransaction ? items : [],
+    subtotal: asNullableNumber(input.subtotal),
+    discount: asNullableNumber(input.discount),
+    tax: asNullableNumber(input.tax),
+    grand_total: asNullableNumber(input.grand_total),
+    payment_method: asNullableString(input.payment_method),
+    currency: asNullableString(input.currency) || "IDR",
+    confidence: Math.max(0, Math.min(1, confidence ?? 0)),
+    raw_text: asNullableString(input.raw_text) || rawText,
+    category_suggestion: asNullableString(input.category_suggestion),
+  };
+}
 
 export async function POST(req: NextRequest) {
+  const timeout = withTimeout(aiTimeoutMs);
+
   try {
     const user = await getAuthenticatedUser(req);
     if (!user) return apiError("Sesi tidak valid. Login ulang.", 401);
@@ -19,9 +98,14 @@ export async function POST(req: NextRequest) {
 
     const body = await readJson(req);
     const rawText = typeof body?.rawText === "string" ? body.rawText.trim() : "";
+    const imageData = typeof body?.imageData === "string" && body.imageData.startsWith("data:image/") ? body.imageData : "";
 
-    if (!rawText) {
-      return apiError("rawText wajib diisi.");
+    if (!rawText && !imageData) {
+      return apiError("rawText atau imageData wajib diisi.");
+    }
+
+    if (imageData && imageData.length > maxImageDataLength) {
+      return apiError("Gambar terlalu besar. Maksimal sekitar 8MB.");
     }
 
     if (rawText.length > maxRawTextLength) {
@@ -34,7 +118,7 @@ export async function POST(req: NextRequest) {
 
     const prompt = `Kamu adalah sistem ekstraksi data struk transaksi.
 
-Analisis teks hasil OCR berikut dan tentukan apakah ini struk transaksi atau bukan.
+Analisis teks hasil OCR dan/atau gambar struk berikut. Jika gambar tersedia, prioritaskan gambar karena OCR bisa salah atau kosong. Tentukan apakah ini struk transaksi atau bukan.
 
 Jika ini struk transaksi, ambil data penting seperti nama toko, tanggal, waktu, daftar barang, jumlah, harga, subtotal, diskon, pajak, total akhir, dan metode pembayaran.
 
@@ -62,8 +146,14 @@ Format output wajib:
   "payment_method": null,
   "currency": "IDR",
   "confidence": 0,
-  "raw_text": null
+  "raw_text": null,
+  "category_suggestion": null
 }
+
+Kategori wajib dipilih dari salah satu nama ini jika memungkinkan: "Makanan & Minuman", "Belanja Bulanan", "Transportasi", "Tagihan & Utilitas", "Hiburan", "Kesehatan", "Gaji / Pendapatan", "Bonus", "Investasi".
+Jika merchant/item terlihat seperti makanan/minuman/warung/resto/cafe/supermarket belanja makanan, isi category_suggestion "Makanan & Minuman".
+Jika pembayaran tagihan listrik/air/internet/pulsa/VA/admin/PLN/PDAM, isi "Tagihan & Utilitas".
+Jika aksesoris/fashion/non-makanan, isi "Belanja Bulanan".
 
 Jika bukan struk transaksi, output wajib:
 
@@ -80,16 +170,18 @@ Jika bukan struk transaksi, output wajib:
   "payment_method": null,
   "currency": "IDR",
   "confidence": 0,
-  "raw_text": null
+  "raw_text": null,
+  "category_suggestion": null
 }
 
 Teks OCR:
 """
-${rawText}
+${rawText || "(OCR kosong/tidak terbaca; gunakan gambar jika tersedia)"}
 """`;
 
     const aiResponse = await fetch(process.env.AI_API_URL, {
       method: "POST",
+      signal: timeout.signal,
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${process.env.AI_API_KEY}`,
@@ -97,15 +189,23 @@ ${rawText}
       body: JSON.stringify({
         model: "full-support",
         messages: [
-          { role: "user", content: prompt },
+          {
+            role: "user",
+            content: imageData
+              ? [
+                  { type: "text", text: prompt },
+                  { type: "image_url", image_url: { url: imageData } },
+                ]
+              : prompt,
+          },
         ],
         stream: false,
       }),
     });
 
     if (!aiResponse.ok) {
-      console.error("AI Scan API Error:", await aiResponse.text());
-      return NextResponse.json({ error: "API Response Not OK" }, { status: 500 });
+      console.error("AI Scan API upstream error", { status: aiResponse.status });
+      return apiError("AI scan sedang bermasalah. Coba lagi sebentar.", 502);
     }
 
     const aiData = await aiResponse.json();
@@ -114,13 +214,23 @@ ${rawText}
 
     try {
       const jsonParsed = JSON.parse(cleanedText);
-      return NextResponse.json(jsonParsed);
+      const normalized = normalizeScanResult(jsonParsed, rawText);
+
+      if (!normalized) return apiError("Format hasil AI belum valid. Coba scan ulang.", 502);
+
+      return NextResponse.json(normalized);
     } catch {
-      console.error("Failed to parse AI response as JSON:", cleanedText);
-      return NextResponse.json({ error: "Invalid JSON from AI" }, { status: 500 });
+      console.error("Failed to parse AI scan response as JSON");
+      return apiError("Format hasil AI belum valid. Coba scan ulang.", 502);
     }
   } catch (error) {
+    if (isAbortError(error)) {
+      return apiError("AI sedang lambat. Coba lagi sebentar.", 504);
+    }
+
     console.error("AI Scan Error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  } finally {
+    timeout.done();
   }
 }

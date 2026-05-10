@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { hashPassword, signAuthToken, toApiUser, type UserRow } from "@/lib/server/auth";
+import { hashPassword, attachAuthCookie,
+  signAuthToken, toApiUser, type UserRow } from "@/lib/server/auth";
 import { ensureSchema, getPool } from "@/lib/server/db";
 import { apiError, isEnabled } from "@/lib/server/http";
 
@@ -32,8 +33,8 @@ export async function POST() {
   );
   const user = toApiUser(rows[0]);
 
-  return NextResponse.json({
-    user,
-    token: signAuthToken(user),
-  });
+  const token = signAuthToken(user);
+  const response = NextResponse.json({ user, token, authenticated: true });
+
+  return attachAuthCookie(response, token);
 }

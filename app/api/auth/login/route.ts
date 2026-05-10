@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import {
   normalizeEmail,
   normalizeString,
+  attachAuthCookie,
   signAuthToken,
   toApiUser,
   verifyPassword,
@@ -36,8 +37,8 @@ export async function POST(request: Request) {
 
   const user = toApiUser(row);
 
-  return NextResponse.json({
-    user,
-    token: signAuthToken(user),
-  });
+  const token = signAuthToken(user);
+  const response = NextResponse.json({ user, token, authenticated: true });
+
+  return attachAuthCookie(response, token);
 }

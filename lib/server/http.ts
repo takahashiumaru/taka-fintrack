@@ -4,6 +4,20 @@ export function apiError(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status });
 }
 
+export function withTimeout(ms: number) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), ms);
+
+  return {
+    signal: controller.signal,
+    done: () => clearTimeout(timeout),
+  };
+}
+
+export function isAbortError(error: unknown) {
+  return error instanceof Error && error.name === "AbortError";
+}
+
 export async function readJson(request: Request): Promise<Record<string, unknown> | null> {
   try {
     const value: unknown = await request.json();

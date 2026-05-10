@@ -4,6 +4,7 @@ import {
   hashPassword,
   normalizeEmail,
   normalizeString,
+  attachAuthCookie,
   signAuthToken,
   toApiUser,
   type UserRow,
@@ -46,8 +47,8 @@ export async function POST(request: Request) {
   );
   const user = toApiUser(rows[0]);
 
-  return NextResponse.json({
-    user,
-    token: signAuthToken(user),
-  });
+  const token = signAuthToken(user);
+  const response = NextResponse.json({ user, token, authenticated: true });
+
+  return attachAuthCookie(response, token);
 }

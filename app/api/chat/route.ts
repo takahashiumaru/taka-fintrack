@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/server/auth";
-import { apiError, readJson, tooManyRequests } from "@/lib/server/http";
+import { apiError, isAbortError, readJson, tooManyRequests, withTimeout } from "@/lib/server/http";
 import { checkRateLimit, getClientIp } from "@/lib/server/rate-limit";
 
 export const runtime = "nodejs";
@@ -9,6 +9,7 @@ export const dynamic = "force-dynamic";
 const maxMessages = 20;
 const maxMessageLength = 2_000;
 const maxRequestsPerMinute = 20;
+const aiTimeoutMs = 30_000;
 
 type ChatMessage = {
   role?: unknown;
@@ -32,6 +33,8 @@ function validateMessages(value: unknown) {
 }
 
 export async function POST(req: NextRequest) {
+  const timeout = withTimeout(aiTimeoutMs);
+
   try {
     const user = await getAuthenticatedUser(req);
     if (!user) return apiError("Sesi tidak valid. Login ulang.", 401);
@@ -52,6 +55,7 @@ export async function POST(req: NextRequest) {
 
     const aiResponse = await fetch(process.env.AI_API_URL, {
       method: "POST",
+      signal: timeout.signal,
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${process.env.AI_API_KEY}`,
@@ -64,8 +68,8 @@ export async function POST(req: NextRequest) {
     });
 
     if (!aiResponse.ok) {
-      console.error("AI Chat API Error:", await aiResponse.text());
-      return NextResponse.json({ error: "API Response Not OK" }, { status: 500 });
+      console.error("AI Chat API upstream error", { status: aiResponse.status });
+      return apiError("AI chat sedang bermasalah. Coba lagi sebentar.", 502);
     }
 
     return new Response(aiResponse.body, {
@@ -76,7 +80,13 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error) {
+    if (isAbortError(error)) {
+      return apiError("AI sedang lambat. Coba lagi sebentar.", 504);
+    }
+
     console.error("AI Chat Error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  } finally {
+    timeout.done();
   }
 }
