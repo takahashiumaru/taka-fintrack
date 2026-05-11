@@ -73,6 +73,7 @@ export async function POST(request: Request) {
   const transactionDate = normalizeTransactionDate(body?.transactionDate);
 
   if (!merchant) return apiError("Merchant wajib diisi.");
+  if (merchant.length > 160) return apiError("Merchant maksimal 160 karakter.");
   if (!Number.isFinite(amount) || amount <= 0) return apiError("Nominal belum valid.");
   if (!type) return apiError("Tipe transaksi belum valid.");
 

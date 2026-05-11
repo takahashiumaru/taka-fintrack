@@ -11,17 +11,25 @@ import {
 } from "@/lib/server/auth";
 import { ensureSchema, getPool } from "@/lib/server/db";
 import { apiError, readJson } from "@/lib/server/http";
+import { checkRateLimit, getClientIp } from "@/lib/server/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
+  const ip = getClientIp(request);
+  const rateLimit = checkRateLimit(`auth-register:${ip}`, 3, 60_000);
+  if (!rateLimit.ok) {
+    return apiError("Terlalu banyak percobaan registrasi. Coba lagi nanti.", 429);
+  }
+
   const body = await readJson(request);
   const name = normalizeString(body?.name);
   const email = normalizeEmail(body?.email);
   const password = normalizeString(body?.password);
 
   if (!name) return apiError("Nama wajib diisi.");
+  if (name.length > 120) return apiError("Nama maksimal 120 karakter.");
   if (!email.includes("@")) return apiError("Email belum valid.");
   if (password.length < 6) return apiError("Password minimal 6 karakter.");
 

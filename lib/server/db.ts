@@ -93,6 +93,10 @@ async function createSchema() {
   await addColumnIfMissing("transactions", "category_id", "ADD COLUMN category_id BIGINT UNSIGNED NULL AFTER user_id");
   await addColumnIfMissing("transactions", "payment_account", "ADD COLUMN payment_account VARCHAR(80) NOT NULL DEFAULT 'Cash' AFTER source");
   await addIndexIfMissing("transactions", "transactions_category_id_idx", "ADD INDEX transactions_category_id_idx (category_id)");
+  await addIndexIfMissing("transactions", "transactions_date_idx", "ADD INDEX transactions_date_idx (transaction_date)");
+
+  // Cleanup expired password reset tokens
+  await pool.execute("DELETE FROM password_reset_tokens WHERE expires_at < NOW()");
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS password_reset_tokens (
