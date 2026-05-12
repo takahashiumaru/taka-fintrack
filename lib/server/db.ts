@@ -94,9 +94,11 @@ async function createSchema() {
   await addColumnIfMissing("transactions", "payment_account", "ADD COLUMN payment_account VARCHAR(80) NOT NULL DEFAULT 'Cash' AFTER source");
   await addIndexIfMissing("transactions", "transactions_category_id_idx", "ADD INDEX transactions_category_id_idx (category_id)");
   await addIndexIfMissing("transactions", "transactions_date_idx", "ADD INDEX transactions_date_idx (transaction_date)");
-
-  // Cleanup expired password reset tokens
-  await pool.execute("DELETE FROM password_reset_tokens WHERE expires_at < NOW()");
+  await addIndexIfMissing(
+    "transactions",
+    "transactions_user_date_created_id_idx",
+    "ADD INDEX transactions_user_date_created_id_idx (user_id, transaction_date, created_at, id)",
+  );
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS password_reset_tokens (
@@ -114,6 +116,21 @@ async function createSchema() {
         ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
+
+  await pool.execute("DELETE FROM password_reset_tokens WHERE expires_at < NOW()");
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS rate_limit_buckets (
+      rate_key VARCHAR(255) NOT NULL,
+      count INT UNSIGNED NOT NULL DEFAULT 0,
+      reset_at DATETIME NOT NULL,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (rate_key),
+      KEY rate_limit_buckets_reset_at_idx (reset_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  await pool.execute("DELETE FROM rate_limit_buckets WHERE reset_at < NOW()");
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS receipt_scans (

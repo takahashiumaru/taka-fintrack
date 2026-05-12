@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { normalizeEmail } from "@/lib/server/auth";
 import { ensureSchema, getPool } from "@/lib/server/db";
 import { apiError, readJson } from "@/lib/server/http";
+import { checkPersistentRateLimit, getClientIp } from "@/lib/server/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,6 +23,13 @@ export async function POST(request: Request) {
   if (!email.includes("@")) return apiError("Email belum valid.");
 
   await ensureSchema();
+
+  const ip = getClientIp(request);
+  const ipLimit = await checkPersistentRateLimit(`forgot-password:ip:${ip}`, 5, 10 * 60_000);
+  const emailLimit = await checkPersistentRateLimit(`forgot-password:email:${email}`, 3, 10 * 60_000);
+  if (!ipLimit.ok || !emailLimit.ok) {
+    return apiError("Terlalu banyak permintaan reset password. Coba lagi nanti.", 429);
+  }
 
   const pool = getPool();
   const [rows] = await pool.execute<UserLookupRow[]>(

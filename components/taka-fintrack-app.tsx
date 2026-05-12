@@ -92,6 +92,13 @@ type Transaction = {
   createdAt: string;
 };
 
+type TransactionsPagination = {
+  page: number;
+  limit: number;
+  hasMore: boolean;
+  nextPage: number | null;
+};
+
 type ApiTransaction = {
   id: number;
   categoryId: number | null;
@@ -182,7 +189,7 @@ type ThemeMode = "light" | "dark";
 const viewStorageKey = "taka-fintrack.active-view";
 const themeStorageKey = "taka-fintrack.theme";
 const authStorageKey = "taka-fintrack.auth-user";
-const authTokenStorageKey = "taka-fintrack.auth-token-fallback";
+const authTokenStorageKey = "taka-fintrack.auth-token-session-fallback";
 const chatHistoryStorageKey = "taka-fintrack.chat-history";
 const forgotPasswordCooldownStorageKey = "taka-fintrack.forgot-password-cooldown-until";
 const forgotPasswordCooldownSeconds = 60;
@@ -357,7 +364,7 @@ async function apiRequest<T>(url: string, init: RequestInit = {}) {
 
   if (!headers.has("Authorization") && typeof window !== "undefined") {
     try {
-      const token = window.localStorage.getItem(authTokenStorageKey);
+      const token = window.sessionStorage.getItem(authTokenStorageKey);
       if (token) headers.set("Authorization", `Bearer ${token}`);
     } catch {
       // Ignore private browsing/storage restrictions.
@@ -1039,6 +1046,8 @@ export function TakaFinTrackApp() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [dataStatus, setDataStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [dataError, setDataError] = useState("");
+  const [transactionsPagination, setTransactionsPagination] = useState<TransactionsPagination>({ page: 1, limit: 20, hasMore: false, nextPage: null });
+  const [isLoadingMoreTransactions, setIsLoadingMoreTransactions] = useState(false);
   const activeMeta = navItems.find((item) => item.key === activeView) ?? navItems[0];
   const analytics = useMemo(() => getFinanceAnalytics(transactions), [transactions]);
   const changeView = useCallback((view: ViewKey) => {
@@ -1050,7 +1059,7 @@ export function TakaFinTrackApp() {
   const handleAuthenticated = useCallback((session: AuthSession) => {
     try {
       window.localStorage.setItem(authStorageKey, JSON.stringify(session.user));
-      if (session.token) window.localStorage.setItem(authTokenStorageKey, session.token);
+      if (session.token) window.sessionStorage.setItem(authTokenStorageKey, session.token);
     } catch {
       // Ignore private browsing/storage restrictions.
     }
@@ -1076,7 +1085,8 @@ export function TakaFinTrackApp() {
   const handleLogout = useCallback(() => {
     try {
       window.localStorage.removeItem(authStorageKey);
-      window.localStorage.removeItem(authTokenStorageKey);
+      window.localStorage.removeItem("taka-fintrack.auth-token-fallback");
+      window.sessionStorage.removeItem(authTokenStorageKey);
     } catch {
       // Ignore private browsing/storage restrictions.
     }
@@ -1096,13 +1106,14 @@ export function TakaFinTrackApp() {
 
     try {
       const [transactionResponse, categoryResponse] = await Promise.all([
-        apiRequest<{ transactions: ApiTransaction[] }>("/api/transactions", {
+        apiRequest<{ transactions: ApiTransaction[]; pagination?: TransactionsPagination }>("/api/transactions?page=1&limit=20", {
         }),
         apiRequest<{ categories: Category[] }>("/api/categories", {
         }),
       ]);
 
       setTransactions(transactionResponse.transactions.map(normalizeApiTransaction));
+      setTransactionsPagination(transactionResponse.pagination ?? { page: 1, limit: 20, hasMore: false, nextPage: null });
       setCategories(categoryResponse.categories);
       setDataStatus("ready");
     } catch (error) {
@@ -1110,6 +1121,34 @@ export function TakaFinTrackApp() {
       setDataError(error instanceof Error ? error.message : "Data gagal dimuat.");
     }
   }, [sessionReady]);
+  const loadMoreTransactions = useCallback(async () => {
+    if (!sessionReady || isLoadingMoreTransactions || !transactionsPagination.hasMore || !transactionsPagination.nextPage) return;
+
+    setIsLoadingMoreTransactions(true);
+    setDataError("");
+
+    try {
+      const response = await apiRequest<{ transactions: ApiTransaction[]; pagination?: TransactionsPagination }>(
+        `/api/transactions?page=${transactionsPagination.nextPage}&limit=${transactionsPagination.limit}`,
+      );
+      const nextTransactions = response.transactions.map(normalizeApiTransaction);
+
+      setTransactions((current) => {
+        const seenIds = new Set(current.map((transaction) => transaction.rawId));
+        return [...current, ...nextTransactions.filter((transaction) => !seenIds.has(transaction.rawId))];
+      });
+      setTransactionsPagination(response.pagination ?? {
+        page: transactionsPagination.nextPage ?? transactionsPagination.page + 1,
+        limit: transactionsPagination.limit,
+        hasMore: false,
+        nextPage: null,
+      });
+    } catch (error) {
+      setDataError(error instanceof Error ? error.message : "Transaksi berikutnya gagal dimuat.");
+    } finally {
+      setIsLoadingMoreTransactions(false);
+    }
+  }, [sessionReady, isLoadingMoreTransactions, transactionsPagination]);
   const createTransaction = useCallback(async (input: TransactionInput) => {
     if (!sessionReady) throw new Error("Sesi belum siap.");
 
@@ -1178,7 +1217,7 @@ export function TakaFinTrackApp() {
 
         try {
           window.localStorage.setItem(authStorageKey, JSON.stringify(response.user));
-          if (response.token) window.localStorage.setItem(authTokenStorageKey, response.token);
+          if (response.token) window.sessionStorage.setItem(authTokenStorageKey, response.token);
         } catch {
           // Ignore private browsing/storage restrictions.
         }
@@ -1295,6 +1334,9 @@ export function TakaFinTrackApp() {
               onCreateCategory={createCategory}
               onDeleteTransaction={deleteTransaction}
               onRefresh={refreshFinanceData}
+              pagination={transactionsPagination}
+              isLoadingMore={isLoadingMoreTransactions}
+              onLoadMore={loadMoreTransactions}
             />
           )}
           <div className={activeView === "scan" ? "block" : "hidden"} aria-hidden={activeView !== "scan"}>
@@ -2709,6 +2751,9 @@ function TransactionsView({
   onCreateCategory,
   onDeleteTransaction,
   onRefresh,
+  pagination,
+  isLoadingMore,
+  onLoadMore,
 }: {
   transactions: Transaction[];
   categories: Category[];
@@ -2718,6 +2763,9 @@ function TransactionsView({
   onCreateCategory: (input: CategoryInput) => Promise<Category>;
   onDeleteTransaction: (rawId: number) => Promise<void>;
   onRefresh: () => Promise<void>;
+  pagination: TransactionsPagination;
+  isLoadingMore: boolean;
+  onLoadMore: () => Promise<void>;
 }) {
   const [filter, setFilter] = useState<"Semua" | "Income" | "Expense" | "Scan">("Semua");
   const [selectedMonth, setSelectedMonth] = useState(() => {
@@ -2974,6 +3022,19 @@ function TransactionsView({
             <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-bold text-slate-400">
               {dataStatus === "loading" ? "Memuat transaksi dari database..." : "Belum ada transaksi untuk periode ini."}
             </div>
+          )}
+          {(pagination.hasMore || isLoadingMore) && (
+            <button
+              type="button"
+              onClick={() => void onLoadMore()}
+              disabled={isLoadingMore}
+              className="mt-3 flex min-h-12 w-full items-center justify-center rounded-xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm font-black text-cyan-700 shadow-sm transition hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {isLoadingMore ? "Memuat transaksi lain..." : "Muat transaksi lainnya"}
+            </button>
+          )}
+          {!pagination.hasMore && transactions.length > 0 && (
+            <p className="py-3 text-center text-xs font-bold text-slate-400">Semua transaksi sudah tampil.</p>
           )}
         </div>
       </section>

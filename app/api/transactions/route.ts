@@ -30,6 +30,11 @@ export async function GET(request: Request) {
   await ensureSchema();
   await ensureUserCategories(user.id);
 
+  const { searchParams } = new URL(request.url);
+  const page = Math.max(1, Number(searchParams.get("page") ?? 1) || 1);
+  const limit = Math.min(50, Math.max(5, Number(searchParams.get("limit") ?? 20) || 20));
+  const offset = (page - 1) * limit;
+
   const [rows] = await getPool().execute<TransactionRow[]>(
     `
       SELECT
@@ -50,11 +55,23 @@ export async function GET(request: Request) {
         AND c.user_id = t.user_id
       WHERE t.user_id = ?
       ORDER BY COALESCE(t.transaction_date, t.created_at) DESC, t.id DESC
+      LIMIT ${limit + 1} OFFSET ${offset}
     `,
     [user.id],
   );
 
-  return NextResponse.json({ transactions: rows.map(toTransaction) });
+  const hasMore = rows.length > limit;
+  const visibleRows = hasMore ? rows.slice(0, limit) : rows;
+
+  return NextResponse.json({
+    transactions: visibleRows.map(toTransaction),
+    pagination: {
+      page,
+      limit,
+      hasMore,
+      nextPage: hasMore ? page + 1 : null,
+    },
+  });
 }
 
 export async function POST(request: Request) {
