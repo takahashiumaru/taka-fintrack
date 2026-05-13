@@ -2243,20 +2243,20 @@ function HeroBalance({
             </button>
           </div>
         </div>
-        <div className="relative min-h-[250px] bg-gradient-to-br from-[#CAB5FF] via-[#E8DCFF] to-[#DDFBEA] p-5">
-          <div className="absolute right-5 top-5 rounded-xl bg-white/86 p-3 text-taka-ink shadow-float">
-            <p className="text-xs font-black uppercase tracking-[0.1em] text-slate-400">Budget</p>
+        <div className="relative min-h-[250px] bg-gradient-to-br from-[#CAB5FF] via-[#E8DCFF] to-[#DDFBEA] p-5 dark:from-[#1e2a4a] dark:via-[#1a3a52] dark:to-[#1d4a4a] dark:border dark:border-white/10">
+          <div className="absolute right-5 top-5 rounded-xl bg-white/86 p-3 text-taka-ink shadow-float dark:bg-white/10 dark:text-white dark:border dark:border-white/10">
+            <p className="text-xs font-black uppercase tracking-[0.1em] text-slate-400 dark:text-slate-300">Budget</p>
             <p className="mt-1 text-xl font-black">{analytics.savingsRatio}%</p>
           </div>
-          <div className="absolute bottom-5 left-5 right-5 rounded-xl bg-white/90 p-4 text-taka-ink shadow-float">
+          <div className="absolute bottom-5 left-5 right-5 rounded-xl bg-white/90 p-4 text-taka-ink shadow-float dark:bg-white/10 dark:text-white dark:border dark:border-white/10">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-black">AI menemukan peluang hemat</p>
-                <p className="mt-1 text-xs font-semibold text-slate-500">
+                <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-300">
                   {analytics.currentMonthCount > 0 ? `${analytics.currentMonthCount} transaksi bulan ini sudah masuk DB.` : "Belum ada transaksi bulan ini."}
                 </p>
               </div>
-              <div className="grid h-10 w-10 place-items-center rounded-lg bg-taka-navy text-white">
+              <div className="grid h-10 w-10 place-items-center rounded-lg bg-taka-navy text-white dark:bg-violet-500/30 dark:border dark:border-violet-400/30">
                 <Bot size={19} />
               </div>
             </div>
@@ -2655,7 +2655,7 @@ function ScanSpotlight({
   const latestScan = transactions.find((transaction) => transaction.source === "Scan");
 
   return (
-    <section className="overflow-hidden rounded-xl border border-white/70 bg-white/86 shadow-soft backdrop-blur">
+    <section className="overflow-hidden rounded-xl border border-white/70 bg-white/86 shadow-soft backdrop-blur dark:bg-white/8 dark:border-white/10">
       <div className="relative h-56">
         <Image
           src="/images/receipt-lifestyle.svg"
@@ -2668,16 +2668,16 @@ function ScanSpotlight({
       <div className="p-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-lg font-black text-taka-ink">Receipt Scanner</p>
-            <p className="mt-1 text-sm font-semibold text-slate-500">
+            <p className="text-lg font-black text-taka-ink dark:text-white">Receipt Scanner</p>
+            <p className="mt-1 text-sm font-semibold text-slate-500 dark:text-slate-300">
               {latestScan ? `${latestScan.merchant} • ${currency.format(latestScan.amount)}` : "Belum ada scan tersimpan"}
             </p>
           </div>
-          <div className="grid h-10 w-10 place-items-center rounded-lg bg-emerald-100 text-emerald-700">
+          <div className="grid h-10 w-10 place-items-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border dark:border-emerald-400/30">
             <Check size={20} />
           </div>
         </div>
-        <button type="button" onClick={() => onNavigate("scan")} className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-taka-navy px-4 py-3 text-sm font-black text-white transition hover:bg-slate-800">
+        <button type="button" onClick={() => onNavigate("scan")} className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-taka-navy px-4 py-3 text-sm font-black text-white transition hover:bg-slate-800 dark:bg-violet-500/30 dark:border dark:border-violet-400/40 dark:hover:bg-violet-500/40">
           <ScanLine size={18} />
           Buka Scan
         </button>
