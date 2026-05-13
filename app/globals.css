@@ -30,14 +30,14 @@
   --surface: #0D1B2F;
   --surface-2: #10233C;
   --surface-soft: rgba(15, 35, 60, 0.72);
-  --border: rgba(96, 165, 250, 0.22);
+  --border: rgba(96, 165, 250, 0.28);
   --text: #F8FAFC;
-  --text-muted: #CBD5E1;
-  --text-soft: #94A3B8;
+  --text-muted: #E2E8F0;
+  --text-soft: #B0BDD1;
   --primary: #2563EB;
-  --primary-bright: #38BDF8;
+  --primary-bright: #22A7D8;
   --primary-soft: rgba(37, 99, 235, 0.18);
-  --success: #34D399;
+  --success: #2DB87D;
   --success-soft: rgba(34, 197, 94, 0.10);
   --warning: #F59E0B;
   --danger: #FB7185;
@@ -224,7 +224,7 @@ button {
 
 :root[data-theme="dark"] [class*="text-emerald-600"],
 :root[data-theme="dark"] [class*="text-green-600"] {
-  color: #7DD3FC !important;
+  color: #5FC4A8 !important;
 }
 
 :root[data-theme="dark"] [class*="text-rose-500"],
@@ -237,7 +237,7 @@ button {
 :root[data-theme="dark"] [class*="text-violet-600"],
 :root[data-theme="dark"] [class*="text-purple-600"],
 :root[data-theme="dark"] [class*="text-blue-600"] {
-  color: #7DD3FC !important;
+  color: #60B8E0 !important;
 }
 
 :root[data-theme="dark"] [class*="text-amber-600"],
@@ -264,14 +264,14 @@ button {
 
 :root[data-theme="dark"] .profile-trigger {
   background: rgba(15, 35, 60, 0.72) !important;
-  border-color: rgba(125, 211, 252, 0.22) !important;
+  border-color: rgba(96, 165, 250, 0.28) !important;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.04) !important;
 }
 
 :root[data-theme="dark"] .avatar-circle {
-  background-image: linear-gradient(135deg, #1D4ED8, #0EA5E9) !important;
-  --tw-ring-color: rgba(125, 211, 252, 0.42) !important;
-  box-shadow: 0 0 0 1px rgba(14, 165, 233, 0.18), 0 10px 28px rgba(14, 165, 233, 0.16) !important;
+  background-image: linear-gradient(135deg, #1D4ED8, #0891B2) !important;
+  --tw-ring-color: rgba(96, 165, 250, 0.38) !important;
+  box-shadow: 0 0 0 1px rgba(14, 165, 233, 0.16), 0 10px 28px rgba(14, 165, 233, 0.14) !important;
 }
 
 :root[data-theme="dark"] .profile-trigger .avatar-circle {
@@ -282,20 +282,20 @@ button {
 :root[data-theme="dark"] .profile-modal,
 :root[data-theme="dark"] .profile-menu {
   background:
-    radial-gradient(circle at 18% 0%, rgba(14, 165, 233, 0.15), transparent 35%),
+    radial-gradient(circle at 18% 0%, rgba(14, 165, 233, 0.12), transparent 35%),
     linear-gradient(180deg, rgba(13, 27, 47, 0.97), rgba(8, 20, 38, 0.98)) !important;
-  border-color: rgba(125, 211, 252, 0.26) !important;
-  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.55), 0 0 32px rgba(37, 99, 235, 0.14) !important;
+  border-color: rgba(96, 165, 250, 0.28) !important;
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.55), 0 0 32px rgba(37, 99, 235, 0.12) !important;
 }
 
 :root[data-theme="dark"] .profile-modal .ring-white,
 :root[data-theme="dark"] .profile-menu .ring-white {
-  --tw-ring-color: rgba(125, 211, 252, 0.42) !important;
+  --tw-ring-color: rgba(96, 165, 250, 0.38) !important;
 }
 
 :root[data-theme="dark"] .profile-modal [class*="border-white"],
 :root[data-theme="dark"] .profile-menu [class*="border-white"] {
-  border-color: rgba(125, 211, 252, 0.24) !important;
+  border-color: rgba(96, 165, 250, 0.26) !important;
 }
 
 :root[data-theme="dark"] .profile-modal [class*="bg-taka-navy"],
@@ -307,8 +307,8 @@ button {
 :root[data-theme="dark"] .profile-modal [class*="bg-slate-100"],
 :root[data-theme="dark"] .profile-menu [class*="bg-slate-100"] {
   background: rgba(15, 35, 60, 0.76) !important;
-  border: 1px solid rgba(125, 211, 252, 0.18) !important;
-  color: #BAE6FD !important;
+  border: 1px solid rgba(96, 165, 250, 0.22) !important;
+  color: #A8C5E0 !important;
 }
 
 :root[data-theme="dark"] .profile-modal [class*="bg-rose-50"],
@@ -331,16 +331,16 @@ button {
 }
 
 :root[data-theme="dark"] .transaction-action-edit {
-  background: linear-gradient(135deg, rgba(14, 165, 233, 0.26), rgba(37, 99, 235, 0.18)) !important;
-  border-color: rgba(125, 211, 252, 0.34) !important;
-  color: #BAE6FD !important;
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.22), rgba(37, 99, 235, 0.16)) !important;
+  border-color: rgba(96, 165, 250, 0.32) !important;
+  color: #A8C5E0 !important;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
 }
 
 :root[data-theme="dark"] .transaction-action-edit:hover,
 :root[data-theme="dark"] .transaction-action-edit:focus-visible {
-  background: linear-gradient(135deg, rgba(14, 165, 233, 0.36), rgba(37, 99, 235, 0.28)) !important;
-  border-color: rgba(125, 211, 252, 0.56) !important;
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.32), rgba(37, 99, 235, 0.24)) !important;
+  border-color: rgba(96, 165, 250, 0.48) !important;
   color: #FFFFFF !important;
 }
 
@@ -360,16 +360,16 @@ button {
 
 :root[data-theme="dark"] .chat-suggestion-button,
 :root[data-theme="dark"] .chat-suggestion-pill {
-  background: linear-gradient(135deg, rgba(37, 99, 235, 0.22), rgba(14, 165, 233, 0.14)) !important;
-  border: 1px solid rgba(125, 211, 252, 0.26) !important;
-  color: #E0F2FE !important;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.20), rgba(14, 165, 233, 0.12)) !important;
+  border: 1px solid rgba(96, 165, 250, 0.28) !important;
+  color: #D0E5F5 !important;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.05) !important;
 }
 
 :root[data-theme="dark"] .chat-suggestion-button:hover,
 :root[data-theme="dark"] .chat-suggestion-pill:hover {
-  background: linear-gradient(135deg, rgba(37, 99, 235, 0.95), rgba(14, 165, 233, 0.86)) !important;
-  border-color: rgba(125, 211, 252, 0.58) !important;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.88), rgba(14, 165, 233, 0.78)) !important;
+  border-color: rgba(96, 165, 250, 0.52) !important;
   color: #FFFFFF !important;
 }
 
@@ -386,29 +386,29 @@ button {
 }
 
 :root[data-theme="dark"] .scan-info-panel {
-  background: linear-gradient(135deg, rgba(14, 165, 233, 0.18), rgba(37, 99, 235, 0.12)) !important;
-  border: 1px solid rgba(125, 211, 252, 0.26) !important;
-  color: #BAE6FD !important;
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.15), rgba(37, 99, 235, 0.10)) !important;
+  border: 1px solid rgba(96, 165, 250, 0.28) !important;
+  color: #A8C5E0 !important;
 }
 
 :root[data-theme="dark"] .scan-recommendation-panel,
 :root[data-theme="dark"] .scan-category-panel {
-  background: linear-gradient(135deg, rgba(34, 197, 94, 0.17), rgba(20, 184, 166, 0.11)) !important;
-  border: 1px solid rgba(74, 222, 128, 0.24) !important;
-  color: #BBF7D0 !important;
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.14), rgba(20, 184, 166, 0.09)) !important;
+  border: 1px solid rgba(74, 222, 128, 0.22) !important;
+  color: #9FE8B8 !important;
 }
 
 :root[data-theme="dark"] .scan-retry-button {
-  background: linear-gradient(135deg, #2563EB, #0EA5E9) !important;
-  border: 1px solid rgba(125, 211, 252, 0.42) !important;
+  background: linear-gradient(135deg, #2563EB, #0891B2) !important;
+  border: 1px solid rgba(96, 165, 250, 0.38) !important;
   color: #FFFFFF !important;
-  box-shadow: 0 12px 30px rgba(14, 165, 233, 0.28), inset 0 1px 0 rgba(255,255,255,0.12) !important;
+  box-shadow: 0 12px 30px rgba(14, 165, 233, 0.24), inset 0 1px 0 rgba(255,255,255,0.12) !important;
 }
 
 :root[data-theme="dark"] .scan-retry-button:hover,
 :root[data-theme="dark"] .scan-retry-button:focus-visible {
-  background: linear-gradient(135deg, #1D4ED8, #38BDF8) !important;
-  border-color: rgba(186, 230, 253, 0.62) !important;
+  background: linear-gradient(135deg, #1D4ED8, #22A7D8) !important;
+  border-color: rgba(96, 165, 250, 0.54) !important;
 }
 
 :root[data-theme="dark"] .scan-delete-image-button {
@@ -436,17 +436,17 @@ button {
 
 .transaction-row-card:focus,
 .transaction-row-card:focus-visible {
-  border-color: rgba(125, 211, 252, 0.58) !important;
-  box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.26) !important;
+  border-color: rgba(96, 165, 250, 0.52) !important;
+  box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.22) !important;
 }
 
 :root[data-theme="dark"] .transaction-detail-modal {
   background:
-    radial-gradient(circle at 18% 0%, rgba(14, 165, 233, 0.16), transparent 38%),
+    radial-gradient(circle at 18% 0%, rgba(14, 165, 233, 0.13), transparent 38%),
     linear-gradient(145deg, rgba(12, 27, 48, 0.96), rgba(7, 16, 31, 0.96)) !important;
-  border: 1px solid rgba(125, 211, 252, 0.24) !important;
+  border: 1px solid rgba(96, 165, 250, 0.26) !important;
   color: var(--text) !important;
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.52), 0 0 35px rgba(37, 99, 235, 0.14) !important;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.52), 0 0 35px rgba(37, 99, 235, 0.12) !important;
 }
 
 .chat-view-frame,
