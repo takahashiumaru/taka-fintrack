@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ChangeEvent, FormEvent } from "react";
+import type { ChangeEvent, FormEvent, TouchEvent as ReactTouchEvent } from "react";
 import { createPortal } from "react-dom";
 import clsx from "clsx";
 import type { LucideIcon } from "lucide-react";
@@ -32,6 +32,7 @@ import {
   Pencil,
   Plus,
   ReceiptText,
+  RefreshCw,
   ScanLine,
   Search,
   Settings,
@@ -1106,6 +1107,10 @@ export function TakaFinTrackApp() {
   const [transactionsPagination, setTransactionsPagination] = useState<TransactionsPagination>({ page: 1, limit: 20, hasMore: false, nextPage: null });
   const [isLoadingMoreTransactions, setIsLoadingMoreTransactions] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
+  const [pullDistance, setPullDistance] = useState(0);
+  const [isPullRefreshing, setIsPullRefreshing] = useState(false);
+  const pullStartYRef = useRef<number | null>(null);
+  const isPullingRef = useRef(false);
   const activeMeta = navItems.find((item) => item.key === activeView) ?? navItems[0];
   const analytics = useMemo(() => getFinanceAnalytics(transactions), [transactions]);
   const changeView = useCallback((view: ViewKey) => {
@@ -1196,6 +1201,63 @@ export function TakaFinTrackApp() {
       setDataError(error instanceof Error ? error.message : "Data gagal dimuat.");
     }
   }, [sessionReady]);
+
+  const canUsePullToRefresh = sessionReady && !isAuthChecking && !showSplash && dataStatus !== "loading";
+  const pullProgress = Math.min(1, pullDistance / 96);
+  const pullLabel = isPullRefreshing ? "Memuat ulang data..." : pullDistance > 96 ? "Lepas untuk refresh" : "Tarik untuk refresh";
+
+  const handlePullStart = useCallback((event: ReactTouchEvent<HTMLElement>) => {
+    if (!canUsePullToRefresh || event.touches.length !== 1 || window.scrollY > 0) return;
+    pullStartYRef.current = event.touches[0].clientY;
+    isPullingRef.current = false;
+  }, [canUsePullToRefresh]);
+
+  const handlePullMove = useCallback((event: ReactTouchEvent<HTMLElement>) => {
+    if (pullStartYRef.current === null || isPullRefreshing) return;
+    if (window.scrollY > 0) {
+      pullStartYRef.current = null;
+      isPullingRef.current = false;
+      setPullDistance(0);
+      return;
+    }
+
+    const delta = event.touches[0].clientY - pullStartYRef.current;
+    if (delta <= 0) {
+      setPullDistance(0);
+      return;
+    }
+
+    isPullingRef.current = true;
+    setPullDistance(Math.min(128, delta * 0.45));
+  }, [isPullRefreshing]);
+
+  const handlePullEnd = useCallback(async () => {
+    if (!isPullingRef.current) {
+      pullStartYRef.current = null;
+      return;
+    }
+
+    const shouldRefresh = pullDistance > 96 && !isPullRefreshing;
+    pullStartYRef.current = null;
+    isPullingRef.current = false;
+
+    if (!shouldRefresh) {
+      setPullDistance(0);
+      return;
+    }
+
+    setPullDistance(72);
+    setIsPullRefreshing(true);
+    try {
+      await refreshFinanceData();
+    } finally {
+      setTimeout(() => {
+        setIsPullRefreshing(false);
+        setPullDistance(0);
+      }, 260);
+    }
+  }, [isPullRefreshing, pullDistance, refreshFinanceData]);
+
   const loadMoreTransactions = useCallback(async () => {
     if (!sessionReady || isLoadingMoreTransactions || !transactionsPagination.hasMore || !transactionsPagination.nextPage) return;
 
@@ -1378,10 +1440,27 @@ export function TakaFinTrackApp() {
   return (
     <>
       {showSplash && <AppSplashScreen theme={theme} />}
-      <main className={clsx(
-      "finance-app-shell min-h-screen w-full max-w-full overflow-x-hidden px-3 pt-3 sm:px-4 lg:p-6",
-      activeView === "chat" ? "pb-12" : "pb-40",
-    )}>
+      {(pullDistance > 4 || isPullRefreshing) && (
+        <div className="pointer-events-none fixed left-0 right-0 top-3 z-[1550] flex justify-center lg:hidden" aria-live="polite">
+          <div
+            className="flex items-center gap-2 rounded-full border border-white/70 bg-white/92 px-4 py-2 text-xs font-black text-blue-700 shadow-[0_16px_36px_rgba(37,99,235,0.20)] backdrop-blur-xl dark:border-sky-400/20 dark:bg-slate-950/90 dark:text-sky-100"
+            style={{ transform: `translateY(${Math.min(38, pullDistance * 0.24)}px)`, opacity: Math.max(0.35, pullProgress) }}
+          >
+            <RefreshCw size={15} className={clsx("transition-transform", isPullRefreshing ? "animate-spin" : pullDistance > 96 ? "rotate-180" : "rotate-0")} />
+            <span>{pullLabel}</span>
+          </div>
+        </div>
+      )}
+      <main
+        className={clsx(
+          "finance-app-shell min-h-screen w-full max-w-full overflow-x-hidden px-3 pt-3 sm:px-4 lg:p-6",
+          activeView === "chat" ? "pb-12" : "pb-40",
+        )}
+        onTouchStart={handlePullStart}
+        onTouchMove={handlePullMove}
+        onTouchEnd={handlePullEnd}
+        onTouchCancel={handlePullEnd}
+      >
       <div className="mx-auto grid w-full max-w-[1500px] items-start gap-3 lg:grid-cols-[278px_minmax(0,1fr)] lg:gap-4">
         <Sidebar
           activeView={activeView}

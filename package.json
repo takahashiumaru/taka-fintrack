@@ -6,13 +6,23 @@
     "dev": "next dev -p 3001",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "mobile:sync": "cap sync",
+    "mobile:assets": "capacitor-assets generate --iconBackgroundColor #0EA5E9 --splashBackgroundColor #F4F9FF && cap sync",
+    "android:open": "cap open android",
+    "android:build:debug": "cd android && ./gradlew assembleDebug",
+    "android:build:release": "cd android && ./gradlew assembleRelease",
+    "ios:open": "cap open ios",
+    "ios:sync": "cap sync ios"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@capacitor/android": "^8.3.4",
+    "@capacitor/core": "^8.3.4",
+    "@capacitor/ios": "^8.3.4",
     "@google/generative-ai": "^0.24.1",
     "clsx": "^2.1.1",
     "lucide-react": "^1.14.0",
@@ -25,6 +35,8 @@
     "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.3.4",
     "@types/node": "^20.17.16",
     "@types/nodemailer": "^8.0.0",
     "@types/react": "^18.3.18",
