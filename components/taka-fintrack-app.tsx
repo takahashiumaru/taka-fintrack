@@ -3386,7 +3386,7 @@ function ScanView({
     if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
       cameraInputRef.current?.click();
       setCameraStatus("idle");
-      setCameraMessage("Browser ini tidak mengizinkan kamera live di HTTP/in-app browser. Pakai kamera bawaan HP untuk ambil foto struk.");
+      setCameraMessage("Kamera live butuh HTTPS atau localhost. Pakai tombol upload untuk ambil foto struk dari galeri HP.");
       return;
     }
 
@@ -4439,7 +4439,7 @@ function EditableField({
   const displayValue = inputMode === "numeric" && value ? formatNumber(value) : value;
 
   return (
-    <label className="block">
+    <label className="block relative">
       <span className="text-xs font-black uppercase tracking-[0.1em] text-slate-400">{label}</span>
       <input
         type={type}
@@ -4449,7 +4449,7 @@ function EditableField({
         onChange={handleChange}
         className={clsx(
           "mt-2 h-12 w-full min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-taka-ink outline-none transition placeholder:text-slate-400 focus:border-emerald-300 focus:bg-white",
-          type === "date" && "appearance-none overflow-hidden text-center [color-scheme:light] [&::-webkit-date-and-time-value]:m-0 [&::-webkit-date-and-time-value]:min-h-0 [&::-webkit-date-and-time-value]:text-center [&::-webkit-calendar-picker-indicator]:opacity-60",
+          type === "date" && "relative z-10 appearance-none overflow-hidden text-center [color-scheme:light] [&::-webkit-date-and-time-value]:m-0 [&::-webkit-date-and-time-value]:min-h-0 [&::-webkit-date-and-time-value]:text-center [&::-webkit-calendar-picker-indicator]:opacity-60 [&::-webkit-calendar-picker-indicator]:cursor-pointer",
         )}
       />
     </label>
