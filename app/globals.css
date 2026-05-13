@@ -809,3 +809,97 @@ button {
     transition-duration: 1ms !important;
   }
 }
+
+/* iPhone-native comfort pass */
+html {
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior-y: none;
+}
+
+body {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.finance-app-shell {
+  min-height: 100svh;
+}
+
+.native-summary-scroll {
+  scroll-padding-inline: 0.25rem;
+}
+
+.taka-mobile-nav {
+  padding-bottom: max(0.375rem, env(safe-area-inset-bottom));
+}
+
+@supports (height: 100dvh) {
+  .finance-app-shell {
+    min-height: 100dvh;
+  }
+}
+
+@media (max-width: 430px) {
+  .finance-app-shell {
+    padding-left: 0.625rem;
+    padding-right: 0.625rem;
+  }
+
+  .native-topbar {
+    border-radius: 1.35rem;
+    box-shadow: 0 12px 32px rgba(37, 99, 235, 0.08);
+  }
+
+  .native-topbar .theme-icon-button,
+  .native-topbar button[aria-label="Notifikasi"] {
+    width: 2.375rem;
+    height: 2.375rem;
+    border-radius: 1rem;
+  }
+
+  .native-transactions-panel {
+    box-shadow: 0 14px 38px rgba(37, 99, 235, 0.08);
+  }
+
+  .native-month-pill {
+    max-width: min(45vw, 180px);
+  }
+
+  .native-summary-card {
+    min-width: 8.25rem;
+  }
+
+  .transaction-row-card {
+    min-height: 5.2rem;
+  }
+
+  .transaction-row-card .transaction-action-edit,
+  .transaction-row-card .transaction-action-delete {
+    width: 2.2rem;
+    height: 2.2rem;
+    border-radius: 0.95rem;
+  }
+
+  .taka-mobile-nav {
+    box-shadow: 0 12px 36px rgba(15, 23, 42, 0.18);
+  }
+}
+
+@media (max-width: 370px) {
+  .native-refresh-pill span {
+    display: none;
+  }
+
+  .native-month-pill {
+    max-width: 42vw;
+    padding-left: 0.65rem;
+    padding-right: 0.65rem;
+  }
+
+  .native-summary-card {
+    min-width: 7.85rem;
+  }
+
+  .taka-mobile-nav span {
+    font-size: 0.55rem;
+  }
+}
