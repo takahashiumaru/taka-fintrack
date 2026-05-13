@@ -1,7 +1,34 @@
 /** @type {import('next').NextConfig} */
+const cacheImmutable = "public, max-age=31536000, immutable";
+const cacheShort = "public, max-age=3600, stale-while-revalidate=86400";
+
 const nextConfig = {
   async headers() {
     return [
+      {
+        source: "/images/:path*",
+        headers: [
+          { key: "Cache-Control", value: cacheImmutable },
+        ],
+      },
+      {
+        source: "/_next/static/:path*",
+        headers: [
+          { key: "Cache-Control", value: cacheImmutable },
+        ],
+      },
+      {
+        source: "/icon.png",
+        headers: [
+          { key: "Cache-Control", value: cacheShort },
+        ],
+      },
+      {
+        source: "/apple-icon.png",
+        headers: [
+          { key: "Cache-Control", value: cacheShort },
+        ],
+      },
       {
         source: "/(.*)",
         headers: [

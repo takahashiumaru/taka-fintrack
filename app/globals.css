@@ -4,23 +4,23 @@
 
 :root {
   color-scheme: light;
-  --bg: #F6FAFF;
-  --bg-2: #EEF6FF;
+  --bg: #F8FAFC;
+  --bg-2: #EFF6FF;
   --surface: #FFFFFF;
-  --surface-2: #F8FBFF;
-  --surface-soft: rgba(255, 255, 255, 0.82);
+  --surface-2: #F8FAFC;
+  --surface-soft: rgba(255, 255, 255, 0.9);
   --border: rgba(37, 99, 235, 0.14);
   --text: #0F172A;
   --text-muted: #475569;
   --text-soft: #64748B;
   --primary: #2563EB;
-  --primary-bright: #0284C7;
-  --primary-soft: #DBEAFE;
-  --success: #16A34A;
-  --success-soft: #DCFCE7;
-  --warning: #D97706;
-  --danger: #E11D48;
-  --danger-soft: #FFE4E6;
+  --primary-bright: #0EA5E9;
+  --primary-soft: #EFF6FF;
+  --success: #2DB87D;
+  --success-soft: #EAFBF4;
+  --warning: #F59E0B;
+  --danger: #FB7185;
+  --danger-soft: #FFF0F2;
 }
 
 :root[data-theme="dark"] {
@@ -62,8 +62,9 @@ body {
   overflow-x: hidden;
   color: var(--text);
   background:
-    radial-gradient(circle at 10% 8%, color-mix(in srgb, var(--primary-bright) 18%, transparent), transparent 28rem),
-    radial-gradient(circle at 90% 4%, color-mix(in srgb, var(--success) 5%, transparent), transparent 24rem),
+    radial-gradient(circle at 14% 6%, color-mix(in srgb, var(--primary-bright) 20%, transparent), transparent 28rem),
+    radial-gradient(circle at 88% 8%, color-mix(in srgb, var(--primary) 9%, transparent), transparent 24rem),
+    radial-gradient(circle at 50% 95%, color-mix(in srgb, var(--primary-bright) 8%, transparent), transparent 28rem),
     linear-gradient(135deg, var(--bg) 0%, var(--bg-2) 52%, var(--bg) 100%);
   transition: background 180ms ease, color 180ms ease;
 }
@@ -82,24 +83,15 @@ button {
 .topbar-glass {
   position: relative;
   overflow: visible;
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.78), rgba(239, 246, 255, 0.58)) !important;
-  border-color: rgba(37, 99, 235, 0.16) !important;
-  box-shadow:
-    0 18px 42px rgba(15, 23, 42, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9) !important;
-  -webkit-backdrop-filter: blur(22px) saturate(150%);
-  backdrop-filter: blur(22px) saturate(150%);
+  background: linear-gradient(135deg, rgba(239, 246, 255, 0.72), rgba(248, 251, 255, 0.62)) !important;
+  border-color: rgba(37, 99, 235, 0.10) !important;
+  box-shadow: none !important;
+  -webkit-backdrop-filter: blur(18px) saturate(135%);
+  backdrop-filter: blur(18px) saturate(135%);
 }
 
 .topbar-glass::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background:
-    radial-gradient(circle at 12% 0%, rgba(56, 189, 248, 0.24), transparent 34%),
-    radial-gradient(circle at 86% 8%, rgba(37, 99, 235, 0.16), transparent 32%);
+  content: none !important;
 }
 
 .topbar-glass > * {
@@ -108,13 +100,9 @@ button {
 }
 
 :root[data-theme="dark"] .topbar-glass {
-  background:
-    linear-gradient(135deg, rgba(9, 20, 38, 0.78), rgba(15, 35, 60, 0.58)) !important;
-  border-color: rgba(125, 211, 252, 0.2) !important;
-  box-shadow:
-    0 18px 46px rgba(0, 0, 0, 0.28),
-    0 0 28px rgba(37, 99, 235, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+  background: linear-gradient(135deg, rgba(7, 20, 38, 0.74), rgba(8, 26, 48, 0.54)) !important;
+  border-color: rgba(125, 211, 252, 0.10) !important;
+  box-shadow: none !important;
 }
 
 .no-scrollbar::-webkit-scrollbar {
@@ -514,5 +502,310 @@ button {
     min-height: 0;
     padding-bottom: 0.5rem;
     overscroll-behavior: contain;
+  }
+}
+
+.finance-app-shell [class*="rounded-xl"] {
+  border-radius: 1.65rem;
+}
+
+.finance-app-shell [class*="rounded-lg"] {
+  border-radius: 1.15rem;
+}
+
+.finance-app-shell [class*="shadow-soft"] {
+  box-shadow: 0 18px 46px rgba(37, 99, 235, 0.14), 0 6px 18px rgba(32, 34, 58, 0.05) !important;
+}
+
+.finance-app-shell [class*="bg-taka-navy"] {
+  background: linear-gradient(135deg, #0EA5E9 0%, #2563EB 52%, #1D4ED8 100%) !important;
+}
+
+.finance-app-shell input,
+.finance-app-shell select,
+.finance-app-shell textarea {
+  border-color: rgba(81, 70, 216, 0.13) !important;
+  background-color: rgba(255, 255, 255, 0.92) !important;
+}
+
+.finance-app-shell input:focus,
+.finance-app-shell select:focus,
+.finance-app-shell textarea:focus {
+  border-color: #2563EB !important;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.14);
+}
+
+.finance-app-shell .transaction-row-card {
+  border-color: rgba(37, 99, 235, 0.14) !important;
+  background: rgba(255, 255, 255, 0.94) !important;
+  box-shadow: 0 10px 26px rgba(81, 70, 216, 0.06);
+}
+
+.finance-app-shell .transaction-row-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(81, 70, 216, 0.24) !important;
+}
+
+.finance-app-shell .recharts-wrapper,
+.finance-app-shell .recharts-surface {
+  outline: none;
+}
+
+@media (max-width: 767px) {
+  .finance-app-shell {
+    padding-bottom: max(10rem, calc(8.5rem + env(safe-area-inset-bottom))) !important;
+  }
+}
+
+:root[data-theme="dark"] .finance-app-shell [class*="bg-white/86"],
+:root[data-theme="dark"] .finance-app-shell [class*="bg-white/92"] {
+  background-color: rgba(13, 27, 47, 0.86) !important;
+}
+
+
+/* Professional dark-mode shell: force redesigned arbitrary light cards to true dark navy. */
+:root[data-theme="dark"] body {
+  background:
+    radial-gradient(circle at 18% -10%, rgba(14, 165, 233, 0.18), transparent 24rem),
+    radial-gradient(circle at 86% 10%, rgba(37, 99, 235, 0.16), transparent 22rem),
+    linear-gradient(135deg, #020617 0%, #071426 48%, #020617 100%) !important;
+}
+
+:root[data-theme="dark"] .finance-app-shell {
+  background:
+    radial-gradient(circle at 18% 0%, rgba(14, 165, 233, 0.16), transparent 22rem),
+    linear-gradient(180deg, #020617 0%, #071426 54%, #020617 100%) !important;
+  color: var(--text) !important;
+}
+
+:root[data-theme="dark"] .finance-app-shell [class*="bg-[#F8FAFC]"],
+:root[data-theme="dark"] .finance-app-shell [class*="bg-[#F9FAFB]"],
+:root[data-theme="dark"] .finance-app-shell [class*="bg-[#EFF6FF]"],
+:root[data-theme="dark"] .finance-app-shell [class*="bg-[#DBEAFE]"] {
+  background: linear-gradient(145deg, rgba(15, 23, 42, 0.96), rgba(8, 20, 39, 0.94)) !important;
+  color: #F8FAFC !important;
+}
+
+:root[data-theme="dark"] .finance-app-shell [class*="ring-[#DBEAFE]"] {
+  --tw-ring-color: rgba(56, 189, 248, 0.22) !important;
+  border-color: rgba(56, 189, 248, 0.18) !important;
+}
+
+:root[data-theme="dark"] .finance-app-shell [class*="bg-white"],
+:root[data-theme="dark"] .finance-app-shell [class*="bg-slate-50"],
+:root[data-theme="dark"] .finance-app-shell [class*="bg-slate-100"] {
+  background-color: rgba(15, 23, 42, 0.88) !important;
+}
+
+:root[data-theme="dark"] .finance-app-shell [class*="border-white"],
+:root[data-theme="dark"] .finance-app-shell [class*="border-slate-100"],
+:root[data-theme="dark"] .finance-app-shell [class*="border-slate-200"] {
+  border-color: rgba(56, 189, 248, 0.18) !important;
+}
+
+:root[data-theme="dark"] .finance-app-shell [class*="text-slate-900"],
+:root[data-theme="dark"] .finance-app-shell [class*="text-slate-800"],
+:root[data-theme="dark"] .finance-app-shell [class*="text-slate-700"],
+:root[data-theme="dark"] .finance-app-shell .text-taka-ink {
+  color: #F8FAFC !important;
+}
+
+:root[data-theme="dark"] .finance-app-shell [class*="text-slate-600"],
+:root[data-theme="dark"] .finance-app-shell [class*="text-slate-500"],
+:root[data-theme="dark"] .finance-app-shell [class*="text-slate-400"] {
+  color: #CBD5E1 !important;
+}
+
+:root[data-theme="dark"] .finance-app-shell input,
+:root[data-theme="dark"] .finance-app-shell select,
+:root[data-theme="dark"] .finance-app-shell textarea {
+  background: rgba(2, 6, 23, 0.72) !important;
+  color: #F8FAFC !important;
+  border-color: rgba(56, 189, 248, 0.22) !important;
+}
+
+:root[data-theme="dark"] .finance-app-shell input::placeholder,
+:root[data-theme="dark"] .finance-app-shell textarea::placeholder {
+  color: #94A3B8 !important;
+}
+
+:root[data-theme="dark"] .finance-app-shell .chat-suggestion-pill {
+  background: rgba(14, 165, 233, 0.16) !important;
+  color: #BAE6FD !important;
+  border-color: rgba(56, 189, 248, 0.28) !important;
+}
+
+:root[data-theme="dark"] .finance-app-shell nav[class*="fixed"] {
+  background: linear-gradient(135deg, rgba(2, 6, 23, 0.94), rgba(8, 20, 39, 0.94)) !important;
+  border-color: rgba(56, 189, 248, 0.22) !important;
+}
+
+
+:root[data-theme="dark"] .category-form-card {
+  background: linear-gradient(145deg, rgba(15, 23, 42, 0.96), rgba(2, 6, 23, 0.96)) !important;
+  border-color: rgba(56, 189, 248, 0.24) !important;
+  box-shadow: 0 18px 44px rgba(14, 165, 233, 0.10) !important;
+}
+:root[data-theme="dark"] .category-form-card input,
+:root[data-theme="dark"] .category-form-card select {
+  background: rgba(2, 6, 23, 0.72) !important;
+  color: #f8fafc !important;
+  border-color: rgba(56, 189, 248, 0.24) !important;
+}
+:root[data-theme="dark"] .category-form-card input::placeholder {
+  color: #94a3b8 !important;
+}
+:root[data-theme="dark"] .category-form-card span,
+:root[data-theme="dark"] .category-form-card p {
+  color: #e2e8f0;
+}
+
+@keyframes splash-progress {
+  0% { transform: translateX(-115%); }
+  55% { transform: translateX(45%); }
+  100% { transform: translateX(145%); }
+}
+
+
+/* Taka motion system: subtle, mobile-safe polish */
+@keyframes taka-fade-up {
+  from { opacity: 0; transform: translate3d(0, 12px, 0) scale(0.992); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+@keyframes taka-scale-in {
+  from { opacity: 0; transform: translate3d(0, 10px, 0) scale(0.96); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+@keyframes taka-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes taka-soft-pop {
+  0% { transform: scale(0.96); }
+  65% { transform: scale(1.035); }
+  100% { transform: scale(1); }
+}
+
+@keyframes taka-shine-sweep {
+  0% { transform: translateX(-130%) skewX(-18deg); opacity: 0; }
+  18% { opacity: 0.48; }
+  58% { opacity: 0.18; }
+  100% { transform: translateX(135%) skewX(-18deg); opacity: 0; }
+}
+
+@keyframes taka-progress-sweep {
+  0% { transform: translateX(-115%) scaleX(0.72); }
+  48% { transform: translateX(12%) scaleX(1); }
+  100% { transform: translateX(135%) scaleX(0.78); }
+}
+
+@keyframes taka-typing-dot {
+  0%, 80%, 100% { transform: translateY(0); opacity: 0.42; }
+  40% { transform: translateY(-3px); opacity: 1; }
+}
+
+.finance-app-shell > div,
+.finance-app-shell section,
+.finance-app-shell article,
+.finance-app-shell .theme-surface-soft,
+.finance-app-shell .theme-surface {
+  animation: taka-fade-up 420ms cubic-bezier(.2,.8,.2,1) both;
+  animation-delay: var(--motion-delay, 0ms);
+}
+
+.finance-app-shell button,
+.finance-app-shell a,
+.transaction-detail-modal button {
+  transition-property: transform, box-shadow, background-color, border-color, color, opacity, filter;
+  transition-duration: 180ms;
+  transition-timing-function: cubic-bezier(.2,.8,.2,1);
+}
+
+.finance-app-shell button:active,
+.transaction-detail-modal button:active {
+  transform: scale(0.965);
+}
+
+.transaction-detail-backdrop,
+.fixed.inset-0.z-\[1700\] {
+  animation: taka-backdrop-in 180ms ease-out both;
+}
+
+.transaction-detail-modal {
+  animation: taka-scale-in 240ms cubic-bezier(.2,.8,.2,1) both;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.taka-animate-panel {
+  animation: taka-scale-in 180ms cubic-bezier(.2,.8,.2,1) both;
+  transform-origin: top center;
+}
+
+.taka-soft-pop {
+  animation: taka-soft-pop 340ms cubic-bezier(.2,.8,.2,1) both;
+}
+
+.taka-shine {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.taka-shine::after {
+  content: "";
+  position: absolute;
+  inset: -35% auto -35% -45%;
+  width: 38%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.42), transparent);
+  animation: taka-shine-sweep 3.8s cubic-bezier(.2,.8,.2,1) infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.taka-shine > * {
+  position: relative;
+  z-index: 1;
+}
+
+.taka-progress-sweep {
+  animation: taka-progress-sweep 1.28s ease-in-out infinite;
+  transform-origin: left center;
+}
+
+.taka-mobile-nav {
+  animation: taka-fade-up 360ms cubic-bezier(.2,.8,.2,1) both;
+}
+
+.taka-mobile-nav button[aria-current="page"] {
+  animation: taka-soft-pop 320ms cubic-bezier(.2,.8,.2,1) both;
+}
+
+.taka-typing-dot {
+  animation: taka-typing-dot 1s ease-in-out infinite;
+}
+
+.taka-typing-dot:nth-child(2) { animation-delay: 130ms; }
+.taka-typing-dot:nth-child(3) { animation-delay: 260ms; }
+
+@media (hover: hover) {
+  .finance-app-shell .theme-surface-soft:hover,
+  .finance-app-shell .theme-surface:hover,
+  .finance-app-shell article:hover {
+    transform: translateY(-1.5px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 1ms !important;
   }
 }

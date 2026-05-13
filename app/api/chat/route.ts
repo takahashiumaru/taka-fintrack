@@ -7,7 +7,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const maxMessages = 20;
-const maxMessageLength = 2_000;
+const maxUserMessageLength = 2_000;
+const maxSystemMessageLength = 16_000;
 const maxRequestsPerMinute = 20;
 const aiTimeoutMs = 30_000;
 
@@ -24,7 +25,10 @@ function validateMessages(value: unknown) {
     const content = message?.content;
 
     if (!["system", "user", "assistant"].includes(String(role))) return null;
-    if (typeof content !== "string" || content.trim().length === 0 || content.length > maxMessageLength) return null;
+    if (typeof content !== "string" || content.trim().length === 0) return null;
+
+    const maxLength = role === "system" ? maxSystemMessageLength : maxUserMessageLength;
+    if (content.length > maxLength) return null;
 
     return { role, content: content.trim() };
   });
@@ -46,7 +50,7 @@ export async function POST(req: NextRequest) {
     const messages = validateMessages(body?.messages);
 
     if (!messages) {
-      return apiError(`messages wajib 1-${maxMessages} item, tiap pesan maksimal ${maxMessageLength} karakter.`);
+      return apiError(`messages wajib 1-${maxMessages} item. Pesan user/asisten maksimal ${maxUserMessageLength} karakter, pesan system maksimal ${maxSystemMessageLength} karakter.`);
     }
 
     if (!process.env.AI_API_URL || !process.env.AI_API_KEY) {

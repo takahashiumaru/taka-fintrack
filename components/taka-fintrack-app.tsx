@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
+import { createPortal } from "react-dom";
 import clsx from "clsx";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -175,6 +176,62 @@ const currency = new Intl.NumberFormat("id-ID", {
   currency: "IDR",
   maximumFractionDigits: 0,
 });
+
+function useAnimatedNumber(value: number, duration = 780) {
+  const [displayValue, setDisplayValue] = useState(0);
+  const previousValue = useRef(0);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      setDisplayValue(value);
+      previousValue.current = value;
+      return;
+    }
+
+    const mediaQuery = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+    if (mediaQuery?.matches) {
+      setDisplayValue(value);
+      previousValue.current = value;
+      return;
+    }
+
+    const startValue = previousValue.current;
+    const difference = value - startValue;
+    if (difference === 0) return;
+
+    let frame = 0;
+    let startTime: number | null = null;
+    const easeOutCubic = (progress: number) => 1 - Math.pow(1 - progress, 3);
+
+    const tick = (time: number) => {
+      if (startTime === null) startTime = time;
+      const progress = Math.min((time - startTime) / duration, 1);
+      setDisplayValue(startValue + difference * easeOutCubic(progress));
+
+      if (progress < 1) {
+        frame = window.requestAnimationFrame(tick);
+      } else {
+        previousValue.current = value;
+        setDisplayValue(value);
+      }
+    };
+
+    frame = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(frame);
+  }, [duration, value]);
+
+  return displayValue;
+}
+
+function AnimatedCurrency({ value, className }: { value: number; className?: string }) {
+  const animatedValue = useAnimatedNumber(value);
+  return <span className={className}>{currency.format(Math.round(animatedValue))}</span>;
+}
+
+function AnimatedPercent({ value, className }: { value: number; className?: string }) {
+  const animatedValue = useAnimatedNumber(value, 620);
+  return <span className={className}>{Math.round(animatedValue)}%</span>;
+}
 
 const navItems: Array<{ key: ViewKey; label: string; icon: LucideIcon }> = [
   { key: "dashboard", label: "Home", icon: Home },
@@ -575,8 +632,8 @@ const summaryCards = [
     value: 8450000,
     delta: "+12,4%",
     icon: ArrowUpRight,
-    tone: "text-emerald-600",
-    bg: "bg-emerald-50",
+    tone: "text-blue-600",
+    bg: "bg-blue-50",
   },
   {
     label: "Pengeluaran",
@@ -591,8 +648,8 @@ const summaryCards = [
     value: 4485000,
     delta: "+24,5%",
     icon: WalletCards,
-    tone: "text-violet-600",
-    bg: "bg-violet-50",
+    tone: "text-blue-600",
+    bg: "bg-blue-50",
   },
 ];
 
@@ -1038,16 +1095,17 @@ function parseReceiptText(rawText: string): ScannedReceipt {
 
 export function TakaFinTrackApp() {
   const [activeView, setActiveView] = useState<ViewKey>(getInitialView);
-  const [currentUser, setCurrentUser] = useState<AuthUser | null>(getStoredUser);
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [theme, setTheme] = useState<ThemeMode>(getInitialTheme);
-  const [sessionReady, setSessionReady] = useState(Boolean(getStoredUser()));
-  const [isAuthChecking, setIsAuthChecking] = useState(Boolean(getStoredUser()));
+  const [sessionReady, setSessionReady] = useState(false);
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [dataStatus, setDataStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [dataError, setDataError] = useState("");
   const [transactionsPagination, setTransactionsPagination] = useState<TransactionsPagination>({ page: 1, limit: 20, hasMore: false, nextPage: null });
   const [isLoadingMoreTransactions, setIsLoadingMoreTransactions] = useState(false);
+  const [showSplash, setShowSplash] = useState(true);
   const activeMeta = navItems.find((item) => item.key === activeView) ?? navItems[0];
   const analytics = useMemo(() => getFinanceAnalytics(transactions), [transactions]);
   const changeView = useCallback((view: ViewKey) => {
@@ -1066,6 +1124,7 @@ export function TakaFinTrackApp() {
 
     setCurrentUser(session.user);
     setSessionReady(true);
+    setShowSplash(true);
   }, []);
   const handleUserUpdate = useCallback((updates: Partial<AuthUser>) => {
     setCurrentUser((currentUserValue) => {
@@ -1082,7 +1141,7 @@ export function TakaFinTrackApp() {
       return nextUser;
     });
   }, []);
-  const handleLogout = useCallback(() => {
+  const clearClientSession = useCallback(() => {
     try {
       window.localStorage.removeItem(authStorageKey);
       window.localStorage.removeItem("taka-fintrack.auth-token-fallback");
@@ -1090,14 +1149,30 @@ export function TakaFinTrackApp() {
     } catch {
       // Ignore private browsing/storage restrictions.
     }
-
-    setCurrentUser(null);
-    setSessionReady(false);
-    void fetch("/api/auth/logout", { method: "POST", credentials: "include" }).catch(() => undefined);
-    setTransactions([]);
-    setCategories([]);
-    setDataStatus("idle");
   }, []);
+
+  const handleLogout = useCallback(async () => {
+    setIsAuthChecking(true);
+
+    try {
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+        cache: "no-store",
+        keepalive: true,
+      });
+    } catch {
+      // Even if the network fails, clear client state so the user is not kept in the app UI.
+    } finally {
+      clearClientSession();
+      setCurrentUser(null);
+      setSessionReady(false);
+      setTransactions([]);
+      setCategories([]);
+      setDataStatus("idle");
+      setIsAuthChecking(false);
+    }
+  }, [clearClientSession]);
   const refreshFinanceData = useCallback(async () => {
     if (!sessionReady) return;
 
@@ -1198,11 +1273,6 @@ export function TakaFinTrackApp() {
   }, [sessionReady]);
 
   useEffect(() => {
-    if (!sessionReady) {
-      setIsAuthChecking(false);
-      return;
-    }
-
     let isCancelled = false;
 
     async function verifySession() {
@@ -1214,6 +1284,7 @@ export function TakaFinTrackApp() {
         if (isCancelled) return;
 
         setCurrentUser(response.user);
+        setSessionReady(true);
 
         try {
           window.localStorage.setItem(authStorageKey, JSON.stringify(response.user));
@@ -1221,11 +1292,13 @@ export function TakaFinTrackApp() {
         } catch {
           // Ignore private browsing/storage restrictions.
         }
-      } catch (error) {
+      } catch {
         if (isCancelled) return;
-        if (error instanceof Error && (error as any).status === 401) {
-          handleLogout();
-        }
+
+        clearClientSession();
+
+        setCurrentUser(null);
+        setSessionReady(false);
       } finally {
         if (!isCancelled) {
           setIsAuthChecking(false);
@@ -1238,7 +1311,7 @@ export function TakaFinTrackApp() {
     return () => {
       isCancelled = true;
     };
-  }, [sessionReady, handleLogout]);
+  }, [clearClientSession]);
 
   useEffect(() => {
     if (currentUser && sessionReady) {
@@ -1273,8 +1346,17 @@ export function TakaFinTrackApp() {
     return () => window.removeEventListener("hashchange", syncViewFromHash);
   }, []);
 
+
+  useEffect(() => {
+    if (!currentUser || !showSplash) return;
+
+    const timeoutId = window.setTimeout(() => setShowSplash(false), 1350);
+    return () => window.clearTimeout(timeoutId);
+  }, [currentUser, showSplash]);
+
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
+    document.documentElement.classList.toggle("dark", theme === "dark");
     document.documentElement.style.colorScheme = theme;
 
     try {
@@ -1294,8 +1376,10 @@ export function TakaFinTrackApp() {
   }
 
   return (
-    <main className={clsx(
-      "min-h-screen w-full max-w-full overflow-x-hidden px-3 pt-3 sm:px-4 lg:p-6",
+    <>
+      {showSplash && <AppSplashScreen theme={theme} />}
+      <main className={clsx(
+      "finance-app-shell min-h-screen w-full max-w-full overflow-x-hidden px-3 pt-3 sm:px-4 lg:p-6",
       activeView === "chat" ? "pb-12" : "pb-40",
     )}>
       <div className="mx-auto grid w-full max-w-[1500px] items-start gap-3 lg:grid-cols-[278px_minmax(0,1fr)] lg:gap-4">
@@ -1349,7 +1433,35 @@ export function TakaFinTrackApp() {
         </section>
       </div>
       <MobileNav activeView={activeView} onChange={changeView} />
-    </main>
+      </main>
+    </>
+  );
+}
+
+function AppSplashScreen({ theme }: { theme: ThemeMode }) {
+  const isDark = theme === "dark";
+
+  return (
+    <div
+      className={clsx(
+        "fixed inset-0 z-[9999] grid place-items-center overflow-hidden px-6 transition-colors",
+        isDark ? "bg-[#061427] text-white" : "bg-[#F4F9FF] text-[#0F172A]",
+      )}
+    >
+      <div className={clsx("pointer-events-none absolute inset-0", isDark ? "bg-[radial-gradient(circle_at_50%_18%,rgba(14,165,233,0.22),transparent_30%),linear-gradient(180deg,#071B33_0%,#061427_78%)]" : "bg-[radial-gradient(circle_at_50%_20%,rgba(96,165,250,0.20),transparent_34%),linear-gradient(180deg,#F8FBFF_0%,#EAF4FF_100%)]")} />
+      <div className="relative flex w-full max-w-[320px] flex-col items-center text-center">
+        <div className={clsx("taka-soft-pop relative grid h-24 w-24 place-items-center rounded-[30px] p-3", isDark ? "bg-white/8 ring-1 ring-white/12" : "bg-white ring-1 ring-blue-100 shadow-[0_20px_48px_rgba(37,99,235,0.13)]")}>
+          <Image src="/images/taka-logo-v3.png" alt="Taka FinTrack" width={76} height={76} priority unoptimized className="h-full w-full object-contain" />
+
+        </div>
+        <p className={clsx("mt-5 text-[11px] font-black uppercase tracking-[0.28em]", isDark ? "text-sky-200" : "text-blue-600")}>Taka FinTrack</p>
+        <h2 className="mt-2 text-2xl font-black tracking-tight">Memuat dashboard</h2>
+        <p className={clsx("mt-2 max-w-[260px] text-sm font-semibold leading-6", isDark ? "text-slate-300" : "text-slate-500")}>Sedang menyiapkan data terbaru kamu.</p>
+        <div className={clsx("mt-7 h-2 w-44 overflow-hidden rounded-full", isDark ? "bg-white/10" : "bg-blue-100")}>
+          <div className="taka-progress-sweep h-full w-2/3 rounded-full bg-gradient-to-r from-sky-300 via-blue-500 to-cyan-300" />
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -1357,7 +1469,7 @@ function AuthLoadingScreen() {
   return (
     <main className="grid min-h-screen place-items-center px-3 py-3">
       <div className="rounded-xl border border-white/70 bg-white/86 p-6 text-center shadow-soft backdrop-blur">
-        <div className="mx-auto h-12 w-12 animate-pulse rounded-full border-4 border-emerald-300 border-t-taka-navy" />
+        <div className="mx-auto h-12 w-12 animate-pulse rounded-full border-4 border-blue-300 border-t-taka-navy" />
         <p className="mt-4 text-sm font-black text-taka-ink">Mengecek sesi...</p>
       </div>
     </main>
@@ -1451,6 +1563,14 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (session: AuthSessio
         return;
       }
 
+      try {
+        window.localStorage.removeItem(authStorageKey);
+        window.localStorage.removeItem("taka-fintrack.auth-token-fallback");
+        window.sessionStorage.removeItem(authTokenStorageKey);
+      } catch {
+        // Ignore private browsing/storage restrictions.
+      }
+
       const session = await apiRequest<AuthSession>(isRegister ? "/api/auth/register" : "/api/auth/login", {
         method: "POST",
         body: JSON.stringify({
@@ -1468,7 +1588,7 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (session: AuthSessio
   }
 
   return (
-    <main className="min-h-screen px-3 py-3 sm:px-4 lg:p-6">
+    <main className="finance-app-shell min-h-screen px-3 py-3 sm:px-4 lg:p-6">
       <div className="mx-auto grid min-h-[calc(100vh-24px)] w-full max-w-[1180px] gap-4 lg:min-h-[calc(100vh-48px)] lg:grid-cols-[minmax(0,0.96fr)_minmax(0,1.04fr)]">
         <section className="flex min-w-0 flex-col rounded-xl border border-white/70 bg-white/86 p-4 shadow-soft backdrop-blur sm:p-6 lg:p-8">
           <div className="flex items-center gap-3">
@@ -1503,7 +1623,7 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (session: AuthSessio
           </div>
 
           <div className="mt-7">
-            <p className="text-[11px] font-black uppercase tracking-[0.12em] text-emerald-600">
+            <p className="text-[11px] font-black uppercase tracking-[0.12em] text-blue-600">
               {isForgot ? "Reset akses" : isRegister ? "Akun baru" : "Selamat datang"}
             </p>
             <h1 className="mt-1 text-3xl font-black leading-tight text-taka-ink sm:text-4xl">
@@ -1576,7 +1696,7 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (session: AuthSessio
             <button
               type="submit"
               disabled={isSubmitting || isForgotOnCooldown}
-              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-taka-navy px-4 py-3 text-sm font-black text-white shadow-float transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-taka-navy px-4 py-3 text-sm font-black text-white shadow-float transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isRegister ? <Check size={18} /> : <ChevronRight size={18} />}
               {isSubmitting
@@ -1598,7 +1718,7 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (session: AuthSessio
               <button
                 type="button"
                 onClick={() => switchMode(isForgot ? "login" : "forgot")}
-                className="w-full rounded-lg px-3 py-2 text-sm font-black text-emerald-700 transition hover:bg-emerald-50"
+                className="w-full rounded-lg px-3 py-2 text-sm font-black text-blue-700 transition hover:bg-blue-50"
               >
                 {isForgot ? "Kembali ke Login" : "Lupa Password?"}
               </button>
@@ -1643,7 +1763,7 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (session: AuthSessio
               icon={ReceiptText}
               title="Transaksi"
               text="Income, expense, dan transaksi hasil scan tetap mudah dilacak."
-              tone="violet"
+              tone="blue"
             />
             <AuthFeature
               icon={Bot}
@@ -1691,7 +1811,7 @@ function AuthField({
             placeholder={placeholder}
             autoComplete={autoComplete}
             onChange={(event) => onChange(event.target.value)}
-            className="h-12 w-full rounded-lg border border-slate-200 bg-slate-50 pl-3 pr-10 text-sm font-bold text-taka-ink outline-none transition placeholder:text-slate-400 focus:border-emerald-300 focus:bg-white"
+            className="h-12 w-full rounded-lg border border-slate-200 bg-slate-50 pl-3 pr-10 text-sm font-bold text-taka-ink outline-none transition placeholder:text-slate-400 focus:border-blue-300 focus:bg-white"
           />
           {isPassword && (
             <button
@@ -1717,11 +1837,10 @@ function AuthFeature({
   icon: LucideIcon;
   title: string;
   text: string;
-  tone: "emerald" | "violet" | "blue";
+  tone: "emerald" | "blue";
 }) {
   const toneClass = {
     emerald: "bg-emerald-400/18 text-emerald-200",
-    violet: "bg-violet-400/18 text-violet-100",
     blue: "bg-sky-400/18 text-sky-100",
   }[tone];
 
@@ -1741,7 +1860,7 @@ function AuthFeature({
 function AppLogo({ size = 44 }: { size?: number }) {
   return (
     <Image
-      src="/images/taka-logo-v2.png"
+      src="/images/taka-logo-v3.png"
       alt="Taka FinTrack"
       width={size}
       height={size}
@@ -1809,7 +1928,7 @@ function Sidebar({
           </div>
         </div>
 
-        <div className="mt-4 rounded-xl bg-gradient-to-br from-taka-violet via-white to-taka-mint p-4 dark:from-[#1e3a5f] dark:via-[#0f233c] dark:to-[#1a4d5c] dark:border dark:border-white/10">
+        <div className="mt-4 rounded-xl bg-gradient-to-br from-taka-sky via-white to-taka-mint p-4 dark:from-[#1e3a5f] dark:via-[#0f233c] dark:to-[#1a4d5c] dark:border dark:border-white/10">
           <div className="flex items-center gap-3">
             <AvatarCircle user={user} />
             <div className="min-w-0">
@@ -1824,7 +1943,7 @@ function Sidebar({
             </div>
             <div className="rounded-lg bg-white/82 p-3 dark:bg-white/8 dark:border dark:border-white/10">
               <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-slate-400 dark:text-slate-300">Health</p>
-              <p className="mt-1 text-lg font-black text-emerald-600 dark:text-emerald-400">{healthScore}%</p>
+              <p className="mt-1 text-lg font-black text-blue-600 dark:text-emerald-400">{healthScore}%</p>
             </div>
           </div>
         </div>
@@ -1849,9 +1968,9 @@ function Sidebar({
         </nav>
 
         <div className="mt-auto space-y-3">
-          <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-4">
+          <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
             <div className="flex items-start gap-3">
-              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-emerald-500 text-white">
+              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-blue-500 text-white">
                 <ShieldCheck size={18} />
               </div>
               <div>
@@ -1893,11 +2012,10 @@ function TopBar({
   onToggleTheme: () => void;
 }) {
   return (
-    <header className="topbar-glass relative z-[1200] flex items-start justify-between gap-3 rounded-xl border border-white/70 bg-white/82 p-3 shadow-soft backdrop-blur sm:items-center sm:p-4">
+    <header className="topbar-glass relative z-[1200] flex items-start justify-between gap-3 rounded-xl border border-white/70 bg-white/82 p-3 backdrop-blur sm:items-center sm:p-4">
       <div className="min-w-0">
-        <div className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-[0.12em] text-emerald-600 sm:gap-2 sm:text-xs">
-          <Sparkles size={13} />
-          <span>Mei 2026</span>
+        <div className="inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-blue-700 ring-1 ring-blue-100 dark:bg-sky-500/12 dark:text-sky-200 dark:ring-sky-400/20 sm:text-xs">
+          Mei 2026
         </div>
         <h1 className="mt-1 truncate text-xl font-black leading-tight text-taka-ink sm:text-3xl">{title}</h1>
       </div>
@@ -1906,7 +2024,7 @@ function TopBar({
         <label className="relative hidden min-w-0 flex-1 sm:block">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={17} />
           <input
-            className="h-11 w-56 rounded-lg border border-slate-200 bg-slate-50 pl-10 pr-3 text-sm font-semibold outline-none transition focus:border-emerald-300 focus:bg-white lg:w-64"
+            className="h-11 w-56 rounded-lg border border-slate-200 bg-slate-50 pl-10 pr-3 text-sm font-semibold outline-none transition focus:border-blue-300 focus:bg-white lg:w-64"
             placeholder="Cari transaksi"
           />
         </label>
@@ -1918,11 +2036,11 @@ function TopBar({
         >
           {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
         </button>
-        <button type="button" className="grid h-10 w-10 place-items-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:border-emerald-300 hover:text-emerald-600 sm:h-11 sm:w-11" aria-label="Notifikasi">
+        <button type="button" className="grid h-10 w-10 place-items-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:border-blue-300 hover:text-blue-600 sm:h-11 sm:w-11" aria-label="Notifikasi">
           <Bell size={18} />
         </button>
         <ProfileMenu user={user} onUserUpdate={onUserUpdate} onLogout={onLogout} />
-        <button type="button" onClick={onAddTransaction} className="hidden items-center gap-2 rounded-lg bg-taka-navy px-4 py-3 text-sm font-extrabold text-white shadow-float transition hover:bg-slate-800 sm:flex">
+        <button type="button" onClick={onAddTransaction} className="hidden items-center gap-2 rounded-lg bg-taka-navy px-4 py-3 text-sm font-extrabold text-white shadow-float transition hover:bg-blue-700 sm:flex">
           <Plus size={18} />
           Tambah
         </button>
@@ -2079,7 +2197,7 @@ function ProfileMenu({
           </div>
 
           <div className="mt-4 grid grid-cols-2 gap-2">
-            <label className="inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-lg bg-taka-navy px-3 py-2 text-xs font-black text-white transition hover:bg-slate-800">
+            <label className="inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-lg bg-taka-navy px-3 py-2 text-xs font-black text-white transition hover:bg-blue-700">
               <Camera size={15} />
               {isSavingProfile ? "Menyimpan..." : "Ganti Foto"}
               <input type="file" accept="image/*" className="sr-only" onChange={handleAvatarUpload} disabled={isSavingProfile} />
@@ -2097,7 +2215,7 @@ function ProfileMenu({
 
           <div className="mt-4 border-t border-slate-100 pt-4">
             <div className="flex items-center gap-2">
-              <Settings size={16} className="text-emerald-600" />
+              <Settings size={16} className="text-blue-600" />
               <p className="text-sm font-black text-taka-ink">Ganti Password</p>
             </div>
             <div className="mt-3 space-y-2">
@@ -2106,7 +2224,7 @@ function ProfileMenu({
                   type={showPassword ? "text" : "password"}
                   value={newPassword}
                   onChange={(event) => setNewPassword(event.target.value)}
-                  className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 pl-3 pr-10 text-xs font-bold text-taka-ink outline-none transition placeholder:text-slate-400 focus:border-emerald-300 focus:bg-white"
+                  className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 pl-3 pr-10 text-xs font-bold text-taka-ink outline-none transition placeholder:text-slate-400 focus:border-blue-300 focus:bg-white"
                   placeholder="Password baru"
                   autoComplete="new-password"
                 />
@@ -2123,7 +2241,7 @@ function ProfileMenu({
                   type={showPassword ? "text" : "password"}
                   value={confirmPassword}
                   onChange={(event) => setConfirmPassword(event.target.value)}
-                  className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 pl-3 pr-10 text-xs font-bold text-taka-ink outline-none transition placeholder:text-slate-400 focus:border-emerald-300 focus:bg-white"
+                  className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 pl-3 pr-10 text-xs font-bold text-taka-ink outline-none transition placeholder:text-slate-400 focus:border-blue-300 focus:bg-white"
                   placeholder="Konfirmasi password"
                   autoComplete="new-password"
                 />
@@ -2139,7 +2257,7 @@ function ProfileMenu({
                 type="button"
                 onClick={savePassword}
                 disabled={isSavingPassword}
-                className="flex min-h-10 w-full items-center justify-center gap-2 rounded-lg bg-emerald-500 px-3 py-2 text-xs font-black text-white transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex min-h-10 w-full items-center justify-center gap-2 rounded-lg bg-blue-500 px-3 py-2 text-xs font-black text-white transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <Check size={15} />
                 {isSavingPassword ? "Menyimpan..." : "Simpan Password"}
@@ -2148,7 +2266,7 @@ function ProfileMenu({
           </div>
 
           {(message || error) && (
-            <div className={clsx("mt-3 rounded-lg px-3 py-2 text-xs font-bold", error ? "bg-rose-50 text-rose-600" : "bg-emerald-50 text-emerald-700")}>
+            <div className={clsx("mt-3 rounded-lg px-3 py-2 text-xs font-bold", error ? "bg-rose-50 text-rose-600" : "bg-blue-50 text-blue-700")}>
               {error || message}
             </div>
           )}
@@ -2182,222 +2300,136 @@ function DashboardView({
   onNavigate: (view: ViewKey) => void;
 }) {
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_386px]">
-      <div className="min-w-0 space-y-4">
-        <HeroBalance analytics={analytics} transactions={transactions} onNavigate={onNavigate} />
-        <SummaryGrid analytics={analytics} />
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_330px]">
+    <div className="space-y-5">
+      <HeroBalance analytics={analytics} transactions={transactions} onNavigate={onNavigate} />
+      <SummaryGrid analytics={analytics} />
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
+        <div className="space-y-5">
           <WeeklyChart data={analytics.weekly} />
-          <CategoryPanel data={analytics.categoryBreakdown} />
+          <RecentTransactions transactions={transactions} dataStatus={dataStatus} compact />
         </div>
-        <RecentTransactions transactions={transactions} dataStatus={dataStatus} compact />
-      </div>
-      <div className="space-y-4">
-        <ScanSpotlight transactions={transactions} onNavigate={onNavigate} />
-        <AiInsightCard analytics={analytics} onNavigate={onNavigate} />
-        <CardStack analytics={analytics} />
+        <div className="space-y-5">
+          <CategoryPanel data={analytics.categoryBreakdown} />
+          <AiInsightCard analytics={analytics} onNavigate={onNavigate} />
+          <ScanSpotlight transactions={transactions} onNavigate={onNavigate} />
+        </div>
       </div>
     </div>
   );
 }
 
-function HeroBalance({
-  analytics,
-  transactions,
-  onNavigate,
-}: {
-  analytics: ReturnType<typeof getFinanceAnalytics>;
-  transactions: Transaction[];
-  onNavigate: (view: ViewKey) => void;
-}) {
+function HeroBalance({ analytics, transactions, onNavigate }: { analytics: ReturnType<typeof getFinanceAnalytics>; transactions: Transaction[]; onNavigate: (view: ViewKey) => void; }) {
+  const latestTransactions = transactions.slice(0, 3);
+  const spentPercent = analytics.income > 0 ? Math.min(100, Math.round((analytics.expense / analytics.income) * 100)) : 0;
+
   return (
-    <section className="overflow-hidden rounded-xl bg-taka-navy text-white shadow-soft">
-      <div className="grid gap-0 2xl:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="p-5 sm:p-6">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-white/12 px-3 py-1 text-xs font-bold text-emerald-100">Net balance</span>
-            {analytics.savingsRatio > 0 && (
-              <span className="rounded-full bg-emerald-400/20 px-3 py-1 text-xs font-bold text-emerald-100">{analytics.savingsRatio}% savings ratio</span>
-            )}
-          </div>
-          <p className="mt-5 text-sm font-semibold text-slate-300">Saldo bersih bulan ini</p>
-          <h2 className="mt-2 text-4xl font-black tracking-normal sm:text-5xl">{currency.format(analytics.balance)}</h2>
-          <div className="mt-6 grid gap-3 sm:grid-cols-2">
-            <div className="rounded-xl bg-white/10 p-4">
-              <p className="text-xs font-bold uppercase tracking-[0.1em] text-slate-300">Income</p>
-              <p className="mt-2 text-xl font-black text-emerald-200">{currency.format(analytics.income)}</p>
+    <section className="relative overflow-hidden rounded-[34px] bg-[#F8FAFC] p-4 shadow-[0_24px_70px_rgba(37,99,235,0.13)] ring-1 ring-[#DBEAFE] sm:p-6 lg:p-7">
+      <div className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-[#60A5FA]/35 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-24 left-10 h-72 w-72 rounded-full bg-[#39C7A5]/18 blur-3xl" />
+      <div className="relative grid gap-5 lg:grid-cols-[minmax(0,1fr)_390px]">
+        <div className="space-y-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-[#2563EB] shadow-sm ring-1 ring-[#DBEAFE]"><Sparkles size={14} /> Finance overview</p>
+              <h2 className="mt-4 max-w-2xl text-3xl font-black leading-tight text-[#0F172A] dark:text-white dark:drop-shadow-[0_2px_14px_rgba(14,165,233,0.22)] sm:text-5xl">Kelola cashflow harian dengan tampilan yang lebih jelas.</h2>
+              <p className="mt-3 max-w-xl text-sm font-semibold leading-6 text-[#64687F] dark:text-slate-200 sm:text-base">Ringkasan saldo, spending, scan struk, dan insight AI tetap memakai data real dari API — tampilannya dibuat seperti app finance profesional.</p>
             </div>
-            <div className="rounded-xl bg-white/10 p-4">
-              <p className="text-xs font-bold uppercase tracking-[0.1em] text-slate-300">Expense</p>
-              <p className="mt-2 text-xl font-black text-rose-200">{currency.format(analytics.expense)}</p>
-            </div>
+            <button type="button" onClick={() => onNavigate("transactions")} className="inline-flex items-center gap-2 rounded-[20px] bg-gradient-to-br from-[#0EA5E9] to-[#2563EB] px-5 py-3 text-sm font-black text-white shadow-[0_16px_34px_rgba(37,99,235,0.24)] transition hover:-translate-y-0.5"><Plus size={18} /> Tambah Transaksi</button>
           </div>
-          <div className="mt-6 flex flex-wrap gap-2">
-            <button type="button" onClick={() => onNavigate("transactions")} className="inline-flex items-center gap-2 rounded-lg bg-emerald-400 px-4 py-3 text-sm font-black text-taka-ink transition hover:bg-emerald-300">
-              <Plus size={18} />
-              Transaksi
-            </button>
-            <button type="button" onClick={() => onNavigate("scan")} className="inline-flex items-center gap-2 rounded-lg bg-white/12 px-4 py-3 text-sm font-black text-white transition hover:bg-white/18">
-              <ScanLine size={18} />
-              Scan Struk
-            </button>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="sm:col-span-2 overflow-hidden rounded-[32px] bg-gradient-to-br from-[#0EA5E9] via-[#2563EB] to-[#1D4ED8] p-5 text-white shadow-[0_24px_60px_rgba(37,99,235,0.30)]">
+              <div className="flex items-start justify-between gap-4"><div><p className="text-sm font-semibold text-white/70">Total balance bulan ini</p><p className="mt-3 text-4xl font-black tracking-tight sm:text-5xl"><AnimatedCurrency value={analytics.balance} /></p></div><div className="rounded-2xl bg-white/14 p-3"><WalletCards size={24} /></div></div>
+              <div className="mt-8 grid grid-cols-2 gap-3"><MetricPill label="Income" value={analytics.income} tone="green" /><MetricPill label="Expense" value={analytics.expense} tone="red" /></div>
+              <div className="mt-5"><div className="flex items-center justify-between text-xs font-bold text-white/70"><span>Budget usage</span><AnimatedPercent value={spentPercent} /></div><div className="mt-2 h-2 overflow-hidden rounded-full bg-white/18"><div className="h-full rounded-full bg-[#F6A23A] transition-[width] duration-700 ease-out" style={{ width: `${spentPercent}%` }} /></div></div>
+            </div>
+            <div className="rounded-[32px] bg-white p-5 shadow-[0_18px_45px_rgba(32,34,58,0.07)] ring-1 ring-[#DBEAFE] dark:bg-slate-900/86 dark:ring-sky-400/20"><div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#EFF6FF] text-[#2563EB]"><Bot size={23} /></div><p className="mt-5 text-sm font-black text-[#0F172A] dark:text-white">AI Finance Health</p><p className="mt-2 text-4xl font-black text-[#2563EB]">{analytics.savingsRatio}%</p><p className="mt-2 text-sm font-semibold leading-6 text-[#64748B] dark:text-slate-300">Rasio hemat dari transaksi bulan ini.</p><button type="button" onClick={() => onNavigate("chat")} className="mt-4 w-full rounded-[18px] bg-[#EFF6FF] px-4 py-3 text-sm font-black text-[#2563EB] dark:bg-sky-500/16 dark:text-sky-100">Tanya AI</button></div>
           </div>
         </div>
-        <div className="relative min-h-[250px] bg-gradient-to-br from-[#CAB5FF] via-[#E8DCFF] to-[#DDFBEA] p-5 dark:from-[#1e2a4a] dark:via-[#1a3a52] dark:to-[#1d4a4a] dark:border dark:border-white/10">
-          <div className="absolute right-5 top-5 rounded-xl bg-white/86 p-3 text-taka-ink shadow-float dark:bg-white/10 dark:text-white dark:border dark:border-white/10">
-            <p className="text-xs font-black uppercase tracking-[0.1em] text-slate-400 dark:text-slate-300">Budget</p>
-            <p className="mt-1 text-xl font-black">{analytics.savingsRatio}%</p>
+        <div className="relative min-h-[520px] overflow-hidden rounded-[36px] bg-gradient-to-br from-blue-50 via-sky-50 to-slate-100 p-5 text-slate-950 shadow-[0_26px_70px_rgba(37,99,235,0.14)] ring-1 ring-blue-100/80 dark:from-[#071426] dark:via-[#06101f] dark:to-[#020617] dark:text-white dark:ring-transparent dark:shadow-[0_26px_70px_rgba(2,6,23,0.54)]">
+          <div className="absolute inset-x-8 top-8 h-40 rounded-full bg-[#0EA5E9]/22 blur-3xl dark:bg-[#0EA5E9]/28" />
+          <div className="relative mx-auto max-w-[285px] rounded-[34px] border-[9px] border-white/75 bg-white p-3 text-[#0F172A] shadow-2xl dark:border-[#07101f] dark:bg-[#071426] dark:text-white">
+            <div className="mx-auto mb-3 h-1.5 w-16 rounded-full bg-[#DBEAFE] dark:bg-slate-700" /><div className="flex items-center justify-between"><div><p className="text-xs font-bold text-[#64748B] dark:text-slate-300">Hi, Umar</p><p className="text-lg font-black dark:text-white">FinTrack</p></div><div className="grid h-10 w-10 place-items-center rounded-full bg-white text-[#2563EB] shadow-sm dark:bg-slate-900 dark:text-sky-300"><Bell size={17} /></div></div>
+            <div className="mt-4 rounded-[28px] bg-gradient-to-br from-[#0EA5E9] to-[#2563EB] p-4 text-white shadow-[0_16px_34px_rgba(37,99,235,0.28)]"><p className="text-xs font-semibold text-white/70">Total balance</p><p className="mt-2 text-2xl font-black">{currency.format(analytics.balance)}</p><div className="mt-5 flex items-center justify-between text-[11px] font-bold text-white/75"><span>**** 4829</span><span>Taka Card</span></div></div>
+            <div className="mt-4 grid grid-cols-2 gap-2"><MiniPhoneStat label="Income" value={analytics.income} color="#2DB87D" /><MiniPhoneStat label="Expense" value={analytics.expense} color="#FB7185" /></div>
+            <div className="mt-4 rounded-[24px] bg-white p-3 shadow-sm dark:bg-slate-900/92 dark:ring-1 dark:ring-sky-400/10"><div className="flex items-center justify-between"><p className="text-sm font-black dark:text-white">Recent</p><span className="text-xs font-bold text-[#64748B] dark:text-slate-300">Today</span></div><div className="mt-3 space-y-2">
+              {latestTransactions.map((item) => (<div key={item.id} className="flex items-center gap-2"><span className="grid h-8 w-8 place-items-center rounded-xl" style={{ backgroundColor: getSoftColor(item.categoryColor), color: item.categoryColor }}>{item.type === "income" ? <TrendingUp size={15} /> : <CreditCard size={15} />}</span><div className="min-w-0 flex-1"><p className="truncate text-xs font-black dark:text-white">{item.merchant}</p><p className="truncate text-[10px] font-bold text-[#64748B] dark:text-slate-300">{item.category}</p></div><p className={clsx("text-[11px] font-black", item.type === "income" ? "text-[#39C7A5]" : "text-[#FF6375]")}>{item.type === "income" ? "+" : "-"}{currency.format(item.amount).replace("Rp", "")}</p></div>))}
+              {latestTransactions.length === 0 && <p className="rounded-2xl bg-[#F7F6FD] p-3 text-center text-xs font-bold text-[#64748B] dark:bg-slate-950 dark:text-slate-300">Belum ada transaksi</p>}
+            </div></div>
           </div>
-          <div className="absolute bottom-5 left-5 right-5 rounded-xl bg-white/90 p-4 text-taka-ink shadow-float dark:bg-white/10 dark:text-white dark:border dark:border-white/10">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-black">AI menemukan peluang hemat</p>
-                <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-300">
-                  {analytics.currentMonthCount > 0 ? `${analytics.currentMonthCount} transaksi bulan ini sudah masuk DB.` : "Belum ada transaksi bulan ini."}
-                </p>
-              </div>
-              <div className="grid h-10 w-10 place-items-center rounded-lg bg-taka-navy text-white dark:bg-violet-500/30 dark:border dark:border-violet-400/30">
-                <Bot size={19} />
-              </div>
-            </div>
-          </div>
-          <PhonePreview transactions={transactions} balance={analytics.balance} />
         </div>
       </div>
     </section>
   );
 }
 
-function PhonePreview({ transactions, balance }: { transactions: Transaction[]; balance: number }) {
-  return (
-    <div className="mx-auto h-[292px] w-[162px] rounded-[28px] border-[8px] border-taka-navy bg-white p-3 shadow-float">
-      <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-slate-200" />
-      <div className="rounded-xl bg-gradient-to-br from-violet-500 to-emerald-400 p-3 text-white">
-        <p className="text-[10px] font-bold opacity-80">Card balance</p>
-        <p className="mt-2 text-lg font-black">{currency.format(balance)}</p>
-      </div>
-      <div className="mt-3 space-y-2">
-        {transactions.slice(0, 4).map((item) => (
-          <div key={item.id} className="flex items-center gap-2 rounded-lg bg-slate-50 p-2">
-            <span className="h-6 w-6 rounded-md" style={{ backgroundColor: getSoftColor(item.categoryColor) }} />
-            <div className="min-w-0 flex-1">
-              <div className="h-2.5 w-16 rounded bg-slate-300" />
-              <div className="mt-1.5 h-2 w-10 rounded bg-slate-200" />
-            </div>
-            <div className="h-2.5 w-8 rounded bg-slate-300" />
-          </div>
-        ))}
-        {transactions.length === 0 && (
-          <div className="rounded-lg bg-slate-50 p-3">
-            <div className="h-2.5 w-20 rounded bg-slate-300" />
-            <div className="mt-2 h-2 w-14 rounded bg-slate-200" />
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
+function MetricPill({ label, value, tone }: { label: string; value: number; tone: "green" | "red" }) { return (<div className="rounded-[22px] bg-white/12 p-4"><p className="text-xs font-bold uppercase tracking-[0.1em] text-white/60">{label}</p><p className={clsx("mt-2 text-lg font-black", tone === "green" ? "text-[#BFF4E7]" : "text-[#FFD4DA]")}><AnimatedCurrency value={value} /></p></div>); }
+function MiniPhoneStat({ label, value, color }: { label: string; value: number; color: string }) { return (<div className="rounded-[20px] bg-white p-3 shadow-sm dark:bg-slate-900/92 dark:ring-1 dark:ring-sky-400/10"><p className="text-[10px] font-bold uppercase tracking-[0.08em] text-[#64748B] dark:text-slate-300">{label}</p><p className="mt-1 truncate text-xs font-black" style={{ color }}>{currency.format(value)}</p></div>); }
 
 function SummaryGrid({ analytics }: { analytics: ReturnType<typeof getFinanceAnalytics> }) {
   const cards = [
-    {
-      label: "Pemasukan",
-      value: analytics.income,
-      delta: `${analytics.currentMonthCount} trx`,
-      icon: ArrowUpRight,
-      tone: "text-emerald-600",
-      bg: "bg-emerald-50",
-    },
-    {
-      label: "Pengeluaran",
-      value: analytics.expense,
-      delta: "Mei",
-      icon: ArrowDownRight,
-      tone: "text-rose-500",
-      bg: "bg-rose-50",
-    },
-    {
-      label: "Saldo Bersih",
-      value: analytics.balance,
-      delta: `${analytics.savingsRatio}%`,
-      icon: WalletCards,
-      tone: "text-violet-600",
-      bg: "bg-violet-50",
-    },
+    { label: "Pemasukan", value: analytics.income, helper: `${analytics.currentMonthCount} transaksi`, icon: ArrowUpRight, iconClass: "from-emerald-300 via-teal-400 to-cyan-500", pillClass: "text-emerald-700 bg-emerald-50 ring-emerald-100 dark:text-emerald-100 dark:bg-emerald-400/12 dark:ring-emerald-300/20", valueClass: "text-emerald-700 dark:text-emerald-100", glow: "bg-emerald-400/16" },
+    { label: "Pengeluaran", value: analytics.expense, helper: "Bulan ini", icon: ArrowDownRight, iconClass: "from-rose-300 via-rose-500 to-orange-400", pillClass: "text-rose-700 bg-rose-50 ring-rose-100 dark:text-rose-100 dark:bg-rose-400/12 dark:ring-rose-300/20", valueClass: "text-rose-700 dark:text-rose-100", glow: "bg-rose-400/14" },
+    { label: "Saldo Bersih", value: analytics.balance, helper: `${analytics.savingsRatio}% savings`, icon: WalletCards, iconClass: "from-sky-300 via-blue-500 to-indigo-600", pillClass: "text-blue-700 bg-blue-50 ring-blue-100 dark:text-sky-100 dark:bg-sky-400/12 dark:ring-sky-300/20", valueClass: "text-blue-800 dark:text-sky-100", glow: "bg-sky-400/16" },
   ];
 
   return (
     <section className="grid gap-3 md:grid-cols-3">
       {cards.map((card) => (
-        <div key={card.label} className="rounded-xl border border-white/70 bg-white/86 p-4 shadow-soft backdrop-blur">
-          <div className="flex items-start justify-between gap-3">
-            <div className={clsx("grid h-11 w-11 place-items-center rounded-lg", card.bg, card.tone)}>
-              <card.icon size={20} />
+        <div
+          key={card.label}
+          className="group relative overflow-hidden rounded-[32px] border border-blue-100/80 bg-gradient-to-br from-white via-blue-50/60 to-slate-100 p-5 shadow-[0_18px_42px_rgba(37,99,235,0.10)] transition hover:-translate-y-1 hover:shadow-[0_24px_56px_rgba(37,99,235,0.15)] dark:border-transparent dark:bg-[#061427] dark:bg-none dark:shadow-[inset_0_1px_0_rgba(14,165,233,0.08),0_20px_52px_rgba(2,6,23,0.45)]"
+        >
+          <div className={clsx("pointer-events-none absolute -right-12 -top-14 h-32 w-32 rounded-full blur-2xl", card.glow)} />
+          <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-sky-300/40 to-transparent dark:via-sky-300/16" />
+          <div className="relative flex items-start justify-between gap-3">
+            <div className={clsx("grid h-14 w-14 place-items-center rounded-[22px] bg-gradient-to-br text-white shadow-[0_16px_34px_rgba(14,165,233,0.20)] ring-1 ring-white/25 dark:ring-0 dark:shadow-[0_18px_38px_rgba(14,165,233,0.22)]", card.iconClass)}>
+              <card.icon size={24} strokeWidth={2.7} />
             </div>
-            <span className={clsx("rounded-full px-2.5 py-1 text-xs font-black", card.bg, card.tone)}>{card.delta}</span>
+            <span className={clsx("rounded-full px-3 py-1.5 text-[11px] font-black ring-1 backdrop-blur", card.pillClass)}>{card.helper}</span>
           </div>
-          <p className="mt-5 text-sm font-bold text-slate-500">{card.label}</p>
-          <p className="mt-1 text-2xl font-black text-taka-ink">{currency.format(card.value)}</p>
+          <div className="relative mt-6">
+            <p className="text-[13px] font-black uppercase tracking-[0.08em] text-slate-500 dark:text-slate-300">{card.label}</p>
+            <p className={clsx("mt-2 text-3xl font-black tracking-tight", card.valueClass)}>{currency.format(card.value)}</p>
+          </div>
         </div>
       ))}
     </section>
   );
 }
 
-function WeeklyChart({ data }: { data: Array<{ day: string; income: number; expense: number }> }) {
-  return (
-    <section className="rounded-xl border border-white/70 bg-white/86 p-4 shadow-soft backdrop-blur">
-      <SectionHeader title="Tren 7 Hari" action="Mingguan" />
-      <div className="mt-4 h-[292px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} barGap={8}>
-            <CartesianGrid vertical={false} stroke="#E2E8F0" strokeDasharray="3 3" />
-            <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: "#64748B", fontSize: 12, fontWeight: 700 }} />
-            <YAxis axisLine={false} tickLine={false} tick={{ fill: "#94A3B8", fontSize: 11, fontWeight: 700 }} />
-            <Tooltip content={<ChartTooltip />} cursor={{ fill: "rgba(34,197,94,0.08)" }} />
-            <Bar dataKey="income" name="Income" fill="#22C55E" radius={[8, 8, 0, 0]} isAnimationActive={false} />
-            <Bar dataKey="expense" name="Expense" fill="#FF6B6B" radius={[8, 8, 0, 0]} isAnimationActive={false} />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-    </section>
-  );
-}
+function WeeklyChart({ data }: { data: Array<{ day: string; income: number; expense: number }> }) { return (<section className="rounded-[30px] bg-white p-5 shadow-[0_16px_40px_rgba(37,99,235,0.08)] ring-1 ring-[#DBEAFE]"><SectionHeader title="Cashflow 7 Hari" action="Mingguan" /><div className="mt-5 h-[310px]"><ResponsiveContainer width="100%" height="100%"><BarChart data={data} barGap={8}><CartesianGrid vertical={false} stroke="#DBEAFE" strokeDasharray="3 3" /><XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: "#64748B", fontSize: 12, fontWeight: 700 }} /><YAxis axisLine={false} tickLine={false} tick={{ fill: "#B1B4C6", fontSize: 11, fontWeight: 700 }} /><Tooltip content={<ChartTooltip />} cursor={{ fill: "rgba(81,70,216,0.06)" }} /><Bar dataKey="income" name="Income" fill="#39C7A5" radius={[10, 10, 0, 0]} isAnimationActive /><Bar dataKey="expense" name="Expense" fill="#FF6375" radius={[10, 10, 0, 0]} isAnimationActive /></BarChart></ResponsiveContainer></div></section>); }
 
-function CategoryPanel({
-  data,
-}: {
-  data: Array<{ name: string; amount: number; color: string; value: number }>;
-}) {
+function CategoryPanel({ data }: { data: Array<{ name: string; amount: number; color: string; value: number }>; }) {
   return (
-    <section className="rounded-xl border border-white/70 bg-white/86 p-4 shadow-soft backdrop-blur">
-      <SectionHeader title="Kategori" action="Mei" />
-      <div className="mt-2 h-[210px]">
+    <section className="rounded-[30px] bg-white p-5 shadow-[0_16px_40px_rgba(37,99,235,0.08)] ring-1 ring-[#DBEAFE] dark:bg-[#071426] dark:ring-transparent dark:shadow-[0_18px_52px_rgba(2,6,23,0.44)]">
+      <SectionHeader title="Expense by Category" action="Bulan ini" />
+      <div className="mt-3 h-[220px]">
         {data.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
-              <Pie data={data} innerRadius={58} outerRadius={86} paddingAngle={3} dataKey="value" isAnimationActive={false}>
-                {data.map((entry) => (
-                  <Cell key={entry.name} fill={entry.color} />
-                ))}
+              <Pie data={data} innerRadius={62} outerRadius={90} paddingAngle={4} dataKey="value" isAnimationActive>
+                {data.map((entry) => <Cell key={entry.name} fill={entry.color} />)}
               </Pie>
               <Tooltip content={<PieTooltip />} />
             </PieChart>
           </ResponsiveContainer>
         ) : (
-          <div className="grid h-full place-items-center rounded-xl bg-slate-50 text-center text-sm font-bold text-slate-400">
-            Belum ada expense bulan ini
-          </div>
+          <div className="grid h-full place-items-center rounded-[24px] bg-blue-50 text-center text-sm font-bold text-slate-500 dark:bg-slate-950/70 dark:text-slate-300">Belum ada expense bulan ini</div>
         )}
       </div>
       <div className="space-y-2">
-        {data.slice(0, 4).map((item) => (
-          <div key={item.name} className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2.5">
-            <div className="flex min-w-0 items-center gap-2">
-              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />
-              <span className="truncate text-sm font-bold text-slate-700">{item.name}</span>
+        {data.slice(0, 5).map((item) => (
+          <div key={item.name} className="rounded-[18px] bg-blue-50/70 px-3 py-3 ring-1 ring-blue-100/70 dark:bg-slate-950/64 dark:ring-sky-300/10">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />
+                <span className="truncate text-sm font-black text-[#0F172A] dark:text-slate-100">{item.name}</span>
+              </div>
+              <span className="text-sm font-black text-[#2563EB] dark:text-sky-200">{item.value}%</span>
             </div>
-            <span className="text-sm font-black text-taka-ink">{item.value}%</span>
+            <div className="mt-2 h-1.5 rounded-full bg-white dark:bg-slate-800">
+              <div className="h-full rounded-full" style={{ width: `${item.value}%`, backgroundColor: item.color }} />
+            </div>
           </div>
         ))}
       </div>
@@ -2405,33 +2437,7 @@ function CategoryPanel({
   );
 }
 
-function RecentTransactions({
-  transactions,
-  dataStatus,
-  compact = false,
-}: {
-  transactions: Transaction[];
-  dataStatus: "idle" | "loading" | "ready" | "error";
-  compact?: boolean;
-}) {
-  const visibleTransactions = transactions.slice(0, compact ? 5 : transactions.length);
-
-  return (
-    <section className="rounded-xl border border-white/70 bg-white/86 p-4 shadow-soft backdrop-blur">
-      <SectionHeader title="Transaksi Terbaru" action="Lihat semua" />
-      <div className="mt-4 space-y-2">
-        {visibleTransactions.map((item) => (
-          <TransactionRow key={item.id} item={item} onDelete={undefined} />
-        ))}
-        {visibleTransactions.length === 0 && (
-          <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-bold text-slate-400">
-            {dataStatus === "loading" ? "Memuat transaksi..." : "Belum ada transaksi real di database."}
-          </div>
-        )}
-      </div>
-    </section>
-  );
-}
+function RecentTransactions({ transactions, dataStatus, compact = false }: { transactions: Transaction[]; dataStatus: "idle" | "loading" | "ready" | "error"; compact?: boolean; }) { const visibleTransactions = transactions.slice(0, compact ? 6 : transactions.length); return (<section className="rounded-[30px] bg-white p-5 shadow-[0_16px_40px_rgba(37,99,235,0.08)] ring-1 ring-[#DBEAFE]"><SectionHeader title="Transaksi Terbaru" action="Lihat semua" /><div className="mt-4 space-y-2">{visibleTransactions.map((item) => <TransactionRow key={item.id} item={item} onDelete={undefined} />)}{visibleTransactions.length === 0 && (<div className="rounded-[24px] border border-dashed border-[#D7D3F5] bg-[#F7F6FD] p-5 text-center text-sm font-bold text-[#64748B]">{dataStatus === "loading" ? "Memuat transaksi..." : "Belum ada transaksi real di database."}</div>)}</div></section>); }
 
 function TransactionRow({
   item,
@@ -2444,10 +2450,27 @@ function TransactionRow({
 }) {
   const isIncome = item.type === "income";
   const amount = `${isIncome ? "+" : "-"}${currency.format(item.amount)}`;
-  const amountClass = isIncome ? "text-emerald-600" : "text-rose-500";
+  const amountClass = isIncome ? "text-blue-600" : "text-rose-500";
   const [isDeleting, setIsDeleting] = useState(false);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
+
+  useEffect(() => {
+    if (!showDetail) return;
+
+    const previousOverflow = document.body.style.overflow;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setShowDetail(false);
+    };
+
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [showDetail]);
 
   return (
     <div
@@ -2482,6 +2505,7 @@ function TransactionRow({
       {onEdit && (
         <button
           type="button"
+          onPointerDown={(event) => event.stopPropagation()}
           onClick={(event) => {
             event.stopPropagation();
             onEdit(item);
@@ -2496,6 +2520,7 @@ function TransactionRow({
         <button
           type="button"
           disabled={isDeleting}
+          onPointerDown={(event) => event.stopPropagation()}
           onClick={(event) => {
             event.stopPropagation();
             setShowConfirmDelete(true);
@@ -2508,21 +2533,29 @@ function TransactionRow({
       )}
       </div>
 
-      {showDetail && (
+      {showDetail && createPortal((
         <div
-          className="transaction-detail-backdrop fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-md"
+          className="transaction-detail-backdrop fixed inset-0 z-[1600] flex items-center justify-center bg-slate-950/72 p-4 backdrop-blur-lg"
+          onPointerDown={(event) => {
+            event.stopPropagation();
+          }}
           onClick={(event) => {
+            event.stopPropagation();
             if (event.target === event.currentTarget) setShowDetail(false);
           }}
         >
           <div
-            className="transaction-detail-modal w-full max-w-sm rounded-[1.65rem] bg-white p-5 shadow-[0_8px_32px_rgba(0,0,0,0.18)]"
+            className="transaction-detail-modal max-h-[calc(100vh-2rem)] w-full max-w-sm overflow-y-auto rounded-[1.85rem] border border-white/12 bg-white p-0 shadow-[0_24px_80px_rgba(2,6,23,0.38)] dark:bg-[#071426] dark:text-white dark:shadow-[0_28px_90px_rgba(0,0,0,0.58)]"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Detail transaksi ${item.merchant}`}
+            onPointerDown={(event) => event.stopPropagation()}
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start justify-between gap-3 bg-gradient-to-br from-blue-50 to-white px-5 pb-4 pt-5 dark:from-slate-900 dark:to-[#071426]">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">Detail Transaksi</p>
-                <h3 className="mt-1 text-lg font-black text-taka-ink">{item.merchant}</h3>
+                <p className="text-xs font-black uppercase tracking-[0.12em] text-sky-600 dark:text-sky-300">Detail Transaksi</p>
+                <h3 className="mt-1 text-xl font-black text-taka-ink dark:text-white">{item.merchant}</h3>
               </div>
               <button
                 type="button"
@@ -2530,17 +2563,18 @@ function TransactionRow({
                   event.stopPropagation();
                   setShowDetail(false);
                 }}
-                className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-500 transition hover:bg-slate-200"
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white text-slate-500 shadow-sm transition hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
                 aria-label="Tutup detail transaksi"
               >
                 <X size={18} strokeWidth={3} />
               </button>
             </div>
-            <div className={clsx("mt-4 rounded-2xl p-4", isIncome ? "bg-emerald-50" : "bg-rose-50")}>
-              <p className="text-xs font-black uppercase tracking-[0.1em] text-slate-400">Nominal</p>
-              <p className={clsx("mt-1 text-2xl font-black", amountClass)}>{amount}</p>
-            </div>
-            <div className="mt-4 grid gap-2 text-sm font-bold text-slate-600">
+            <div className="px-5 pb-5">
+              <div className={clsx("rounded-2xl p-4 shadow-inner", isIncome ? "bg-blue-50 dark:bg-emerald-400/10" : "bg-rose-50 dark:bg-rose-400/10")}>
+                <p className="text-xs font-black uppercase tracking-[0.1em] text-slate-400 dark:text-slate-300">Nominal</p>
+                <p className={clsx("mt-1 text-3xl font-black", amountClass)}>{amount}</p>
+              </div>
+            <div className="mt-4 grid gap-2 text-sm font-bold text-slate-600 dark:text-slate-200">
               <DetailLine label="Kategori" value={item.category} />
               <DetailLine label="Akun / Dompet" value={item.paymentAccount || "Cash"} />
               <DetailLine label="Tanggal" value={item.date} />
@@ -2556,7 +2590,7 @@ function TransactionRow({
                     setShowDetail(false);
                     onEdit(item);
                   }}
-                  className="flex-1 rounded-xl bg-taka-navy py-2.5 text-sm font-black text-white transition hover:bg-slate-800"
+                  className="flex-1 rounded-xl bg-gradient-to-r from-sky-400 via-blue-500 to-blue-700 py-3 text-sm font-black text-white shadow-[0_14px_30px_rgba(37,99,235,0.28)] transition hover:-translate-y-0.5"
                 >
                   Edit
                 </button>
@@ -2569,20 +2603,23 @@ function TransactionRow({
                     setShowDetail(false);
                     setShowConfirmDelete(true);
                   }}
-                  className="flex-1 rounded-xl bg-rose-500 py-2.5 text-sm font-black text-white transition hover:bg-rose-600"
+                  className="flex-1 rounded-xl bg-rose-500/12 py-3 text-sm font-black text-rose-600 ring-1 ring-rose-200 transition hover:bg-rose-500 hover:text-white dark:bg-rose-400/10 dark:text-rose-200 dark:ring-rose-300/20 dark:hover:bg-rose-500"
                 >
                   Hapus
                 </button>
               )}
             </div>
+            </div>
           </div>
         </div>
-      )}
+      ), document.body)}
 
-      {showConfirmDelete && (
+      {showConfirmDelete && createPortal((
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-[1700] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-md"
+          onPointerDown={(event) => event.stopPropagation()}
           onClick={(event) => {
+            event.stopPropagation();
             if (event.target === event.currentTarget) setShowConfirmDelete(false);
           }}
         >
@@ -2631,16 +2668,16 @@ function TransactionRow({
             </div>
           </div>
         </div>
-      )}
+      ), document.body)}
     </div>
   );
 }
 
 function DetailLine({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2">
-      <span className="text-xs font-black uppercase tracking-[0.08em] text-slate-400">{label}</span>
-      <span className="truncate text-right text-sm font-black text-taka-ink">{value}</span>
+    <div className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2 dark:bg-white/8 dark:ring-1 dark:ring-white/10">
+      <span className="text-xs font-black uppercase tracking-[0.08em] text-slate-400 dark:text-slate-300">{label}</span>
+      <span className="truncate text-right text-sm font-black text-taka-ink dark:text-white">{value}</span>
     </div>
   );
 }
@@ -2680,11 +2717,11 @@ function ScanSpotlight({
               {latestScan ? `${latestScan.merchant} • ${currency.format(latestScan.amount)}` : "Belum ada scan tersimpan"}
             </p>
           </div>
-          <div className="grid h-10 w-10 place-items-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border dark:border-emerald-400/30">
+          <div className="grid h-10 w-10 place-items-center rounded-lg bg-emerald-100 text-blue-700 dark:bg-blue-500/20 dark:text-emerald-400 dark:border dark:border-emerald-400/30">
             <Check size={20} />
           </div>
         </div>
-        <button type="button" onClick={() => onNavigate("scan")} className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-taka-navy px-4 py-3 text-sm font-black text-white transition hover:bg-slate-800 dark:bg-violet-500/30 dark:border dark:border-violet-400/40 dark:hover:bg-violet-500/40">
+        <button type="button" onClick={() => onNavigate("scan")} className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-taka-navy px-4 py-3 text-sm font-black text-white transition hover:bg-blue-700 dark:bg-blue-500/30 dark:border dark:border-blue-400/40 dark:hover:bg-blue-500/40">
           <ScanLine size={18} />
           Buka Scan
         </button>
@@ -2705,7 +2742,7 @@ function AiInsightCard({
   return (
     <section className="rounded-xl border border-white/70 bg-white/86 p-4 shadow-soft backdrop-blur">
       <div className="flex items-start gap-3">
-        <div className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-violet-100 text-violet-700">
+        <div className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-blue-100 text-blue-700">
           <Bot size={20} />
         </div>
         <div className="min-w-0">
@@ -2717,7 +2754,7 @@ function AiInsightCard({
           </p>
         </div>
       </div>
-      <button type="button" onClick={() => onNavigate("chat")} className="mt-4 flex w-full items-center justify-between rounded-lg bg-violet-50 px-4 py-3 text-sm font-black text-violet-700 transition hover:bg-violet-100">
+      <button type="button" onClick={() => onNavigate("chat")} className="mt-4 flex w-full items-center justify-between rounded-lg bg-blue-50 px-4 py-3 text-sm font-black text-blue-700 transition hover:bg-blue-100">
         Tanya Taka
         <ChevronRight size={18} />
       </button>
@@ -2730,7 +2767,7 @@ function CardStack({ analytics }: { analytics: ReturnType<typeof getFinanceAnaly
     <section className="rounded-xl border border-white/70 bg-white/86 p-4 shadow-soft backdrop-blur">
       <SectionHeader title="Kartu" action="2 aktif" />
       <div className="mt-4 space-y-3">
-        <div className="rounded-xl bg-gradient-to-br from-emerald-400 to-violet-500 p-4 text-white shadow-float">
+        <div className="rounded-xl bg-gradient-to-br from-emerald-400 to-sky-500 p-4 text-white shadow-float">
           <div className="flex items-center justify-between">
             <p className="text-sm font-black">Taka Wallet</p>
             <MoreHorizontal size={18} />
@@ -2775,6 +2812,7 @@ function TransactionsView({
   onLoadMore: () => Promise<void>;
 }) {
   const [filter, setFilter] = useState<"Semua" | "Income" | "Expense" | "Scan">("Semua");
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -2806,6 +2844,15 @@ function TransactionsView({
   }, [transactions, selectedMonth]);
 
   const filteredTransactions = monthTransactions.filter((transaction) => {
+    const query = searchQuery.trim().toLowerCase();
+    const matchesSearch = !query || [
+      transaction.merchant,
+      transaction.category,
+      transaction.paymentAccount,
+      transaction.source,
+    ].some((value) => value.toLowerCase().includes(query));
+
+    if (!matchesSearch) return false;
     if (filter === "Income") return transaction.type === "income";
     if (filter === "Expense") return transaction.type === "expense";
     if (filter === "Scan") return transaction.source === "Scan";
@@ -2961,14 +3008,14 @@ function TransactionsView({
               <ChevronLeft size={18} />
             </button>
             <button type="button" onClick={goToCurrentMonth} className="flex items-center gap-2 rounded-lg bg-slate-50 px-4 py-2 text-sm font-black text-taka-ink transition hover:bg-slate-100">
-              <CalendarDays size={15} className="text-emerald-600" />
+              <CalendarDays size={15} className="text-blue-600" />
               {getFullMonthLabel(selectedMonth)}
             </button>
             <button type="button" onClick={nextMonth} className="grid h-9 w-9 place-items-center rounded-lg bg-slate-100 text-slate-500 transition hover:bg-slate-200">
               <ChevronRight size={18} />
             </button>
             {!isCurrentMonth && (
-              <button type="button" onClick={goToCurrentMonth} className="rounded-lg bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700 transition hover:bg-emerald-100">
+              <button type="button" onClick={goToCurrentMonth} className="rounded-lg bg-blue-50 px-3 py-2 text-xs font-black text-blue-700 transition hover:bg-emerald-100">
                 Hari ini
               </button>
             )}
@@ -2976,7 +3023,7 @@ function TransactionsView({
           <button
             type="button"
             onClick={() => void onRefresh()}
-            className="shrink-0 rounded-lg bg-emerald-50 px-3 py-2 text-sm font-black text-emerald-700 transition hover:bg-emerald-100"
+            className="shrink-0 rounded-lg bg-blue-50 px-3 py-2 text-sm font-black text-blue-700 transition hover:bg-emerald-100"
           >
             Refresh
           </button>
@@ -2984,21 +3031,31 @@ function TransactionsView({
 
         {/* Monthly summary */}
         <div className="mt-3 grid grid-cols-3 gap-2">
-          <div className="rounded-lg bg-emerald-50 px-3 py-2.5">
-            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-emerald-600">Income</p>
-            <p className="mt-1 text-sm font-black text-emerald-700">{currency.format(monthIncome)}</p>
+          <div className="rounded-lg bg-blue-50 px-3 py-2.5">
+            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-blue-600">Income</p>
+            <p className="mt-1 text-sm font-black text-blue-700">{currency.format(monthIncome)}</p>
           </div>
           <div className="rounded-lg bg-rose-50 px-3 py-2.5">
             <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-rose-500">Expense</p>
             <p className="mt-1 text-sm font-black text-rose-600">{currency.format(monthExpense)}</p>
           </div>
-          <div className="rounded-lg bg-violet-50 px-3 py-2.5">
-            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-violet-500">Balance</p>
-            <p className={clsx("mt-1 text-sm font-black", monthIncome - monthExpense >= 0 ? "text-violet-700" : "text-rose-600")}>
+          <div className="rounded-lg bg-blue-50 px-3 py-2.5">
+            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-blue-500">Balance</p>
+            <p className={clsx("mt-1 text-sm font-black", monthIncome - monthExpense >= 0 ? "text-blue-700" : "text-rose-600")}>
               {currency.format(monthIncome - monthExpense)}
             </p>
           </div>
         </div>
+
+        <label className="relative mt-3 block">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[#64748B]" size={17} />
+          <input
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            className="h-12 w-full rounded-[20px] border border-[#DBEAFE] bg-white/92 pl-11 pr-4 text-sm font-bold text-taka-ink outline-none transition placeholder:text-[#64748B] focus:border-[#2563EB]"
+            placeholder="Cari merchant, kategori, akun..."
+          />
+        </label>
 
         {/* Type filter */}
         <div className="no-scrollbar mt-3 -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
@@ -3046,7 +3103,7 @@ function TransactionsView({
         </div>
       </section>
 
-      <section className="min-w-0 rounded-xl border border-white/70 bg-white/86 p-3 shadow-soft backdrop-blur sm:p-4">
+      <section className="min-w-0 rounded-[28px] border border-white/70 bg-white/90 p-3 shadow-soft backdrop-blur dark:border-sky-400/20 dark:bg-slate-950/82 sm:p-4">
         <div className="flex items-start justify-between gap-3">
           <SectionTitle title={editingTransaction ? "Edit Transaksi" : "Tambah Manual"} eyebrow={editingTransaction ? "ubah data" : "data real DB"} />
           {editingTransaction && (
@@ -3062,73 +3119,53 @@ function TransactionsView({
             onChange={(option) => setTransactionType(option === "Income" ? "income" : "expense")}
           />
           <EditableField label="Nominal" inputMode="numeric" value={amount} placeholder="Rp 125.000" onChange={setAmount} />
-          <label className="block">
-            <span className="text-xs font-black uppercase tracking-[0.1em] text-slate-400">Kategori</span>
-            <select
-              value={categoryId}
-              onChange={(event) => setCategoryId(event.target.value)}
-              className="mt-2 h-12 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-taka-ink outline-none transition focus:border-emerald-300 focus:bg-white"
-            >
-              {availableCategories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          <CustomSelect
+            label="Kategori"
+            value={categoryId}
+            onChange={setCategoryId}
+            options={availableCategories.map((category) => ({ value: String(category.id), label: category.name }))}
+          />
           <EditableField label="Merchant" value={merchant} placeholder="Kopi Kenangan" onChange={setMerchant} />
-          <label className="block">
-            <span className="text-xs font-black uppercase tracking-[0.1em] text-slate-400">Akun / Dompet Pembayaran</span>
-            <select
-              value={paymentAccount}
-              onChange={(event) => setPaymentAccount(event.target.value)}
-              className="mt-2 h-12 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-taka-ink outline-none transition focus:border-emerald-300 focus:bg-white"
-            >
-              {paymentAccountOptions.map((account) => (
-                <option key={account} value={account}>{account}</option>
-              ))}
-            </select>
-          </label>
-          <EditableField label="Tanggal" type="date" value={transactionDate} placeholder="" onChange={setTransactionDate} />
+          <CustomSelect
+            label="Akun / Dompet Pembayaran"
+            value={paymentAccount}
+            onChange={setPaymentAccount}
+            options={paymentAccountOptions.map((account) => ({ value: account, label: account }))}
+          />
+          <CustomDateField label="Tanggal" value={transactionDate} onChange={setTransactionDate} />
           {(message || error) && (
-            <div className={clsx("rounded-lg px-3 py-2 text-sm font-bold", error ? "bg-rose-50 text-rose-600" : "bg-emerald-50 text-emerald-700")}>
+            <div className={clsx("rounded-lg px-3 py-2 text-sm font-bold", error ? "bg-rose-50 text-rose-600" : "bg-blue-50 text-blue-700")}>
               {error || message}
             </div>
           )}
           <button
             type="submit"
             disabled={isSavingTransaction}
-            className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-500 px-4 py-3 text-sm font-black text-white transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-400 via-blue-500 to-blue-700 px-4 py-3.5 text-sm font-black text-white shadow-[0_16px_34px_rgba(37,99,235,0.30)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_42px_rgba(37,99,235,0.38)] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
           >
             <Plus size={18} />
             {isSavingTransaction ? "Menyimpan..." : editingTransaction ? "Update Transaksi" : "Simpan Transaksi"}
           </button>
         </form>
 
-        <form className="mt-5 rounded-xl border border-slate-100 bg-slate-50 p-3" onSubmit={submitCategory}>
-          <p className="text-sm font-black text-taka-ink">Tambah Kategori</p>
+        <form className="category-form-card mt-5 rounded-[24px] border border-blue-100 bg-gradient-to-br from-blue-50 to-white p-3 shadow-[0_14px_34px_rgba(37,99,235,0.08)] dark:border-sky-400/25 dark:bg-slate-950/90 dark:from-slate-900/95 dark:to-slate-950/95 dark:shadow-[0_18px_44px_rgba(14,165,233,0.10)]" onSubmit={submitCategory}>
+          <p className="text-sm font-black text-taka-ink dark:text-white">Tambah Kategori</p>
           <div className="mt-3 space-y-3">
             <EditableField label="Nama" value={categoryName} placeholder="Contoh: Kosan" onChange={setCategoryName} />
             <div className="grid grid-cols-[minmax(0,1fr)_56px] gap-2">
-              <label className="block">
-                <span className="text-xs font-black uppercase tracking-[0.1em] text-slate-400">Tipe</span>
-                <select
-                  value={categoryType}
-                  onChange={(event) => setCategoryType(event.target.value as CategoryType)}
-                  className="mt-2 h-12 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-taka-ink outline-none"
-                >
-                  <option value="expense">Expense</option>
-                  <option value="income">Income</option>
-                  <option value="both">Both</option>
-                </select>
-              </label>
+              <CustomSelect
+                label="Tipe"
+                value={categoryType}
+                onChange={(value) => setCategoryType(value as CategoryType)}
+                options={[{ value: "expense", label: "Expense" }, { value: "income", label: "Income" }, { value: "both", label: "Both" }]}
+              />
               <label className="block">
                 <span className="text-xs font-black uppercase tracking-[0.1em] text-slate-400">Warna</span>
                 <input
                   type="color"
                   value={categoryColor}
                   onChange={(event) => setCategoryColor(event.target.value)}
-                  className="mt-2 h-12 w-full rounded-lg border border-slate-200 bg-white p-1"
+                  className="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white p-1 dark:border-sky-400/20 dark:bg-slate-950/70"
                   aria-label="Warna kategori"
                 />
               </label>
@@ -3136,7 +3173,7 @@ function TransactionsView({
             <button
               type="submit"
               disabled={isSavingCategory}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-taka-navy px-4 py-3 text-sm font-black text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-400 via-blue-500 to-blue-700 px-4 py-3.5 text-sm font-black text-white shadow-[0_16px_34px_rgba(37,99,235,0.30)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_42px_rgba(37,99,235,0.38)] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
             >
               <Plus size={18} />
               {isSavingCategory ? "Menyimpan..." : "Tambah Kategori"}
@@ -3283,12 +3320,18 @@ function ScanView({
 
       setCameraMessage("Memproses teks dengan Taka AI...");
       try {
+        const scanHeaders = new Headers({ "Content-Type": "application/json" });
+        try {
+          const token = window.sessionStorage.getItem(authTokenStorageKey);
+          if (token) scanHeaders.set("Authorization", `Bearer ${token}`);
+        } catch {
+          // Ignore private browsing/storage restrictions.
+        }
+
         const aiResponse = await fetch("/api/scan-ai", {
           method: "POST",
           credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: scanHeaders,
           body: JSON.stringify({ rawText, imageData: preprocessed }),
         });
 
@@ -3523,7 +3566,7 @@ function ScanView({
       <section className="rounded-xl border border-white/70 bg-white/86 p-3 shadow-soft backdrop-blur sm:p-4">
         <SectionTitle title="Scan Struk" eyebrow="JPEG / PNG • max 10MB" />
         <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px] 2xl:grid-cols-[minmax(0,1fr)_380px]">
-          <div className="rounded-xl border border-dashed border-emerald-300 bg-emerald-50 p-3 sm:p-4">
+          <div className="rounded-xl border border-dashed border-blue-300 bg-blue-50 p-3 sm:p-4">
             <div className="relative h-[360px] overflow-hidden rounded-xl bg-slate-950 shadow-inner sm:h-[420px] lg:h-[500px]">
               {receiptPreviewUrl ? (
                 <div
@@ -3554,10 +3597,10 @@ function ScanView({
               />
               <canvas ref={canvasRef} className="hidden" />
               <div className="pointer-events-none absolute inset-6 rounded-[1.4rem] border border-white/60">
-                <span className="absolute -left-px -top-px h-10 w-10 rounded-tl-[1.4rem] border-l-4 border-t-4 border-emerald-300" />
-                <span className="absolute -right-px -top-px h-10 w-10 rounded-tr-[1.4rem] border-r-4 border-t-4 border-emerald-300" />
-                <span className="absolute -bottom-px -left-px h-10 w-10 rounded-bl-[1.4rem] border-b-4 border-l-4 border-emerald-300" />
-                <span className="absolute -bottom-px -right-px h-10 w-10 rounded-br-[1.4rem] border-b-4 border-r-4 border-emerald-300" />
+                <span className="absolute -left-px -top-px h-10 w-10 rounded-tl-[1.4rem] border-l-4 border-t-4 border-blue-300" />
+                <span className="absolute -right-px -top-px h-10 w-10 rounded-tr-[1.4rem] border-r-4 border-t-4 border-blue-300" />
+                <span className="absolute -bottom-px -left-px h-10 w-10 rounded-bl-[1.4rem] border-b-4 border-l-4 border-blue-300" />
+                <span className="absolute -bottom-px -right-px h-10 w-10 rounded-br-[1.4rem] border-b-4 border-r-4 border-blue-300" />
               </div>
               {cameraStatus === "active" && (
                 <>
@@ -3565,7 +3608,7 @@ function ScanView({
                   <button
                     type="button"
                     onClick={capturePhoto}
-                    className="absolute bottom-20 left-1/2 grid h-16 w-16 -translate-x-1/2 place-items-center rounded-full border-4 border-white bg-emerald-500 text-white shadow-float transition hover:bg-emerald-600"
+                    className="absolute bottom-20 left-1/2 grid h-16 w-16 -translate-x-1/2 place-items-center rounded-full border-4 border-white bg-blue-500 text-white shadow-float transition hover:bg-blue-600"
                     aria-label="Ambil foto struk"
                   >
                     <Camera size={24} />
@@ -3590,7 +3633,7 @@ function ScanView({
               {scanStatus === "scanning" && (
                 <div className="absolute inset-0 grid place-items-center bg-taka-navy/58 px-5 text-center text-white">
                   <div>
-                    <div className="mx-auto h-12 w-12 animate-pulse rounded-full border-4 border-emerald-300 border-t-white" />
+                    <div className="mx-auto h-12 w-12 animate-pulse rounded-full border-4 border-blue-300 border-t-white" />
                     <p className="mt-3 text-sm font-black">Scanning...</p>
                   </div>
                 </div>
@@ -3623,7 +3666,7 @@ function ScanView({
                 disabled={cameraStatus === "starting" || scanStatus === "scanning"}
                 className={clsx(
                   "inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-black text-white transition disabled:cursor-not-allowed disabled:opacity-70",
-                  cameraStatus === "active" ? "bg-emerald-500 hover:bg-emerald-600" : "bg-taka-navy hover:bg-slate-800",
+                  cameraStatus === "active" ? "bg-blue-500 hover:bg-blue-600" : "bg-taka-navy hover:bg-blue-700",
                 )}
               >
                 <Camera size={18} />
@@ -3739,52 +3782,38 @@ function ScanView({
         
         {hasScannedReceipt && (
           <div className="mt-4">
-            <label className="block">
-              <span className="text-xs font-black uppercase tracking-[0.1em] text-slate-400">Jenis Transaksi</span>
-              <select
-                value={scanType}
-                onChange={(e) => {
-                  const nextType = e.target.value as "expense" | "income";
-                  setScanType(nextType);
-                  const suggestedCategory = suggestReceiptCategory(scannedReceipt, categories, nextType).category;
-                  setSelectedScanCategoryId(suggestedCategory ? String(suggestedCategory.id) : "");
-                }}
-                className="mt-2 h-12 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-taka-ink outline-none"
-              >
-                <option value="expense">Pengeluaran (Expense)</option>
-                <option value="income">Pemasukan (Income)</option>
-              </select>
-            </label>
-            <label className="mt-3 block">
-              <span className="text-xs font-black uppercase tracking-[0.1em] text-slate-400">Kategori</span>
-              <select
+            <CustomSelect
+              label="Jenis Transaksi"
+              value={scanType}
+              onChange={(value) => {
+                const nextType = value as "expense" | "income";
+                setScanType(nextType);
+                const suggestedCategory = suggestReceiptCategory(scannedReceipt, categories, nextType).category;
+                setSelectedScanCategoryId(suggestedCategory ? String(suggestedCategory.id) : "");
+              }}
+              options={[{ value: "expense", label: "Pengeluaran (Expense)" }, { value: "income", label: "Pemasukan (Income)" }]}
+            />
+            <div className="mt-3">
+              <CustomSelect
+                label="Kategori"
                 value={selectedScanCategory ? String(selectedScanCategory.id) : ""}
-                onChange={(e) => setSelectedScanCategoryId(e.target.value)}
-                className="mt-2 h-12 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-taka-ink outline-none"
-              >
-                <option value="">Pilih kategori</option>
-                {availableScanCategories.map((category) => (
-                  <option key={category.id} value={category.id}>{category.name}</option>
-                ))}
-              </select>
-            </label>
-            <label className="mt-3 block">
-              <span className="text-xs font-black uppercase tracking-[0.1em] text-slate-400">Akun / Dompet Pembayaran</span>
-              <select
+                onChange={setSelectedScanCategoryId}
+                options={[{ value: "", label: "Pilih kategori" }, ...availableScanCategories.map((category) => ({ value: String(category.id), label: category.name }))]}
+              />
+            </div>
+            <div className="mt-3">
+              <CustomSelect
+                label="Akun / Dompet Pembayaran"
                 value={scanPaymentAccount}
-                onChange={(e) => setScanPaymentAccount(e.target.value)}
-                className="mt-2 h-12 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-taka-ink outline-none"
-              >
-                {paymentAccountOptions.map((account) => (
-                  <option key={account} value={account}>{account}</option>
-                ))}
-              </select>
-            </label>
+                onChange={setScanPaymentAccount}
+                options={paymentAccountOptions.map((account) => ({ value: account, label: account }))}
+              />
+            </div>
             <p className="scan-info-panel mt-2 rounded-lg bg-sky-50 px-3 py-2 text-xs font-bold leading-5 text-sky-700">
               AI membaca pembayaran: {scannedReceipt?.payment || "tidak terbaca"}. Dompet tersimpan: {scanPaymentAccount}.
             </p>
             {selectedScanCategory && (
-              <p className="scan-category-panel mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-bold leading-5 text-emerald-700">
+              <p className="scan-category-panel mt-2 rounded-lg bg-blue-50 px-3 py-2 text-xs font-bold leading-5 text-blue-700">
                 Disarankan: {selectedScanCategory.name}. {categorySuggestion.reason}
               </p>
             )}
@@ -3808,8 +3837,8 @@ function ScanView({
       {showSuccessModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
           <div className="w-full max-w-xs rounded-2xl bg-white p-5 shadow-[0_8px_32px_rgba(0,0,0,0.18)] text-center">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50">
-              <Check size={22} className="text-emerald-500" />
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50">
+              <Check size={22} className="text-blue-500" />
             </div>
             <p className="mt-3 text-base font-black text-taka-ink">Berhasil Disimpan!</p>
             <p className="mt-1 text-sm font-semibold text-slate-500">
@@ -3821,7 +3850,7 @@ function ScanView({
                 setShowSuccessModal(false);
                 onNavigate("transactions");
               }}
-              className="mt-4 w-full rounded-xl bg-emerald-500 py-2.5 text-sm font-black text-white transition hover:bg-emerald-600"
+              className="mt-4 w-full rounded-xl bg-blue-500 py-2.5 text-sm font-black text-white transition hover:bg-blue-600"
             >
               Lanjut ke Transaksi
             </button>
@@ -3961,12 +3990,18 @@ function ChatView({ transactions, sessionReady }: { transactions: Transaction[];
         content: m.text
       }))];
 
+      const chatHeaders = new Headers({ 'Content-Type': 'application/json' });
+      try {
+        const token = window.sessionStorage.getItem(authTokenStorageKey);
+        if (token) chatHeaders.set('Authorization', `Bearer ${token}`);
+      } catch {
+        // Ignore private browsing/storage restrictions.
+      }
+
       const response = await fetch('/api/chat', {
         method: 'POST',
         credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: chatHeaders,
         body: JSON.stringify({
           messages: chatHistory
         })
@@ -4032,28 +4067,28 @@ function ChatView({ transactions, sessionReady }: { transactions: Transaction[];
               type="button"
               disabled={isTyping}
               onClick={() => sendMessage(question)}
-              className="w-full rounded-lg bg-slate-50 px-3 py-3 text-left text-sm font-bold leading-5 text-slate-700 transition hover:bg-emerald-50 hover:text-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full rounded-lg bg-slate-50 px-3 py-3 text-left text-sm font-bold leading-5 text-slate-700 transition hover:bg-blue-50 hover:text-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {question}
             </button>
           ))}
         </div>
-        <div className="mt-4 rounded-xl bg-violet-50 p-4">
-          <p className="text-xs font-black uppercase tracking-[0.1em] text-violet-500">Konteks aktif</p>
+        <div className="mt-4 rounded-xl bg-blue-50 p-4">
+          <p className="text-xs font-black uppercase tracking-[0.1em] text-blue-500">Konteks aktif</p>
           <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">Ringkasan Mei, top kategori, 5 transaksi terbesar, dan tren 3 bulan.</p>
         </div>
       </section>
 
       {/* Chat area — fills viewport on mobile, fixed height on desktop */}
-      <section className="chat-shell relative flex min-h-0 min-w-0 max-w-full flex-col overflow-hidden rounded-xl border border-white/70 bg-white/86 p-3 shadow-soft backdrop-blur sm:p-4 xl:h-[620px] xl:min-h-0">
-        <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-2.5">
+      <section className="chat-shell relative flex min-h-0 min-w-0 max-w-full flex-col overflow-hidden rounded-xl border border-white/70 bg-white/88 p-3 shadow-soft backdrop-blur dark:border-sky-400/20 dark:bg-slate-950/78 sm:p-4 xl:h-[620px] xl:min-h-0">
+        <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-2.5 dark:border-sky-400/15">
           <div className="flex items-center gap-3">
             <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-taka-navy text-white xl:h-11 xl:w-11">
               <Bot size={20} />
             </div>
             <div>
               <p className="text-sm font-black text-taka-ink xl:text-base">Sesi Mei 2026</p>
-              <p className="text-[11px] font-bold text-emerald-600 xl:text-xs">Streaming ready</p>
+              <p className="text-[11px] font-bold text-blue-600 xl:text-xs">Streaming ready</p>
             </div>
           </div>
           <button
@@ -4095,7 +4130,7 @@ function ChatView({ transactions, sessionReady }: { transactions: Transaction[];
                   "max-w-[86%] rounded-xl px-3.5 py-2.5 text-sm font-semibold leading-5",
                   message.role === "user"
                     ? "bg-sky-600 text-white"
-                    : "bg-slate-100 text-slate-700",
+                    : "bg-sky-50 text-slate-800 ring-1 ring-sky-100 dark:bg-slate-800/90 dark:text-slate-100 dark:ring-sky-400/15",
                 )}
               >
                 {(() => {
@@ -4104,7 +4139,7 @@ function ChatView({ transactions, sessionReady }: { transactions: Transaction[];
                     <>
                       {parts.map((part, i) => {
                         if (part.startsWith('**') && part.endsWith('**')) {
-                          return <strong key={i} className="font-black text-slate-900">{part.slice(2, -2)}</strong>;
+                          return <strong key={i} className="font-black text-slate-950 dark:text-white">{part.slice(2, -2)}</strong>;
                         }
                         return (
                           <span key={i}>
@@ -4123,7 +4158,7 @@ function ChatView({ transactions, sessionReady }: { transactions: Transaction[];
           ))}
           {isTyping && (
             <div className="flex justify-start">
-              <div className="max-w-[86%] rounded-xl bg-slate-100 px-4 py-3 text-sm font-semibold leading-6 text-slate-700">
+              <div className="max-w-[86%] rounded-xl bg-sky-50 px-4 py-3 text-sm font-semibold leading-6 text-slate-800 ring-1 ring-sky-100 dark:bg-slate-800/90 dark:text-slate-100 dark:ring-sky-400/15">
                 {typingPreview ? (
                   <span>
                     {typingPreview.split('\n').map((line, j, arr) => [
@@ -4162,7 +4197,7 @@ function ChatView({ transactions, sessionReady }: { transactions: Transaction[];
                 <button
                   type="button"
                   onClick={clearChat}
-                  className="flex-1 rounded-xl bg-rose-500 py-2.5 text-sm font-black text-white transition hover:bg-rose-600"
+                  className="flex-1 rounded-xl bg-rose-500/12 py-3 text-sm font-black text-rose-600 ring-1 ring-rose-200 transition hover:bg-rose-500 hover:text-white dark:bg-rose-400/10 dark:text-rose-200 dark:ring-rose-300/20 dark:hover:bg-rose-500"
                 >
                   Hapus
                 </button>
@@ -4171,7 +4206,7 @@ function ChatView({ transactions, sessionReady }: { transactions: Transaction[];
           </div>
         )}
         <form
-          className="flex gap-2 border-t border-slate-100 pt-2 xl:pt-4"
+          className="flex gap-2 border-t border-slate-100 pt-2 dark:border-sky-400/15 xl:pt-4"
           onSubmit={(event) => {
             event.preventDefault();
             sendMessage(draft);
@@ -4181,13 +4216,13 @@ function ChatView({ transactions, sessionReady }: { transactions: Transaction[];
             value={draft}
             disabled={isTyping}
             onChange={(event) => setDraft(event.target.value)}
-            className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold outline-none transition focus:border-emerald-300 focus:bg-white disabled:opacity-50 disabled:cursor-not-allowed xl:py-3"
+            className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-800 outline-none transition focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-sky-400/20 dark:bg-slate-900/80 dark:text-slate-100 dark:placeholder:text-slate-400 dark:focus:border-sky-400 dark:focus:ring-sky-400/10 xl:py-3"
             placeholder="Tanya kondisi keuanganmu"
           />
           <button 
             type="submit" 
             disabled={isTyping || !draft.trim()} 
-            className="rounded-lg bg-taka-navy px-4 py-2.5 text-sm font-black text-white transition disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-800 xl:py-3"
+            className="rounded-lg bg-gradient-to-br from-sky-500 to-blue-600 px-4 py-2.5 text-sm font-black text-white shadow-[0_10px_24px_rgba(37,99,235,0.22)] transition disabled:opacity-50 disabled:cursor-not-allowed hover:to-blue-700 xl:py-3"
           >
             Kirim
           </button>
@@ -4253,7 +4288,7 @@ function ReportsView({ analytics, transactions }: { analytics: ReturnType<typeof
       <section className="grid gap-3 md:grid-cols-3">
         <ReportStat label="Income Mei" value={currency.format(analytics.income)} icon={TrendingUp} tone="emerald" />
         <ReportStat label="Expense Mei" value={currency.format(analytics.expense)} icon={TrendingDown} tone="rose" />
-        <ReportStat label="Rasio Hemat" value={`${analytics.savingsRatio}%`} icon={ShieldCheck} tone="violet" />
+        <ReportStat label="Rasio Hemat" value={`${analytics.savingsRatio}%`} icon={ShieldCheck} tone="blue" />
       </section>
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
         <section className="rounded-xl border border-white/70 bg-white/86 p-4 shadow-soft backdrop-blur">
@@ -4327,12 +4362,12 @@ function ReportStat({
   label: string;
   value: string;
   icon: LucideIcon;
-  tone: "emerald" | "rose" | "violet";
+  tone: "emerald" | "rose" | "blue";
 }) {
   const toneClass = {
-    emerald: "bg-emerald-50 text-emerald-600",
+    emerald: "bg-blue-50 text-blue-600",
     rose: "bg-rose-50 text-rose-500",
-    violet: "bg-violet-50 text-violet-600",
+    blue: "bg-blue-50 text-blue-600",
   }[tone];
 
   return (
@@ -4354,21 +4389,31 @@ function MobileNav({
   onChange: (view: ViewKey) => void;
 }) {
   return (
-    <nav className="fixed bottom-3 left-3 right-3 z-40 grid grid-cols-5 gap-1 rounded-xl border border-white/70 bg-white/92 p-2 shadow-soft backdrop-blur lg:hidden">
-      {navItems.map((item) => (
-        <button
-          key={item.key}
-          type="button"
-          onClick={() => onChange(item.key)}
-          className={clsx(
-            "grid min-w-0 place-items-center gap-1 rounded-lg px-1 py-2 text-[10px] font-black transition",
-            activeView === item.key ? "bg-taka-navy text-white" : "text-slate-500",
-          )}
-        >
-          <item.icon size={18} />
-          <span className="truncate">{item.label}</span>
-        </button>
-      ))}
+    <nav className="taka-mobile-nav fixed bottom-4 left-4 right-4 z-40 grid grid-cols-5 items-center gap-1 rounded-[30px] border border-white/80 bg-white/92 p-2 shadow-[0_18px_45px_rgba(37,99,235,0.18)] backdrop-blur-xl lg:hidden dark:border-sky-400/20 dark:bg-slate-950/88">
+      {navItems.map((item) => {
+        const isCenterAction = item.key === "scan";
+        const isActive = activeView === item.key;
+
+        return (
+          <button
+            key={item.key}
+            type="button"
+            onClick={() => onChange(item.key)}
+            className={clsx(
+              "grid min-w-0 place-items-center gap-1 text-[10px] font-black transition active:scale-95",
+              isCenterAction
+                ? "-mt-6 grid h-16 w-16 rounded-[24px] bg-gradient-to-br from-[#0EA5E9] to-[#2563EB] p-0 text-white shadow-[0_14px_34px_rgba(14,165,233,0.34)]"
+                : "rounded-[18px] px-1 py-2",
+              !isCenterAction && (isActive ? "bg-[#EFF6FF] text-[#2563EB] dark:bg-sky-500/16 dark:text-sky-200" : "text-slate-500 dark:text-slate-300"),
+            )}
+            aria-label={isCenterAction ? "Tambah atau scan transaksi" : item.label}
+            aria-current={isActive ? "page" : undefined}
+          >
+            <item.icon size={isCenterAction ? 27 : 18} />
+            {!isCenterAction && <span className="truncate">{item.label}</span>}
+          </button>
+        );
+      })}
     </nav>
   );
 }
@@ -4387,7 +4432,7 @@ function SectionHeader({ title, action }: { title: string; action: string }) {
 function SectionTitle({ title, eyebrow }: { title: string; eyebrow: string }) {
   return (
     <div>
-      <p className="text-[11px] font-black uppercase tracking-[0.12em] text-emerald-600 sm:text-xs">{eyebrow}</p>
+      <p className="text-[11px] font-black uppercase tracking-[0.12em] text-blue-600 sm:text-xs">{eyebrow}</p>
       <h2 className="mt-1 text-xl font-black text-taka-ink sm:text-2xl">{title}</h2>
     </div>
   );
@@ -4402,6 +4447,215 @@ function Field({ label, value }: { label: string; value: string }) {
         value={value}
         className="mt-2 h-12 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-taka-ink outline-none"
       />
+    </label>
+  );
+}
+
+
+type SelectOption = { value: string; label: string };
+
+function CustomSelect({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: SelectOption[];
+  onChange: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = options.find((option) => option.value === value) ?? options[0];
+  const selectRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const close = (event: MouseEvent | TouchEvent) => {
+      if (!selectRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+
+    document.addEventListener("mousedown", close);
+    document.addEventListener("touchstart", close);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("touchstart", close);
+    };
+  }, [open]);
+
+  return (
+    <div ref={selectRef} className="relative block">
+      <span className="text-xs font-black uppercase tracking-[0.1em] text-slate-400 dark:text-slate-300">{label}</span>
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        className="mt-2 flex h-12 w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 text-left text-sm font-bold text-taka-ink outline-none transition focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-sky-400/20 dark:bg-slate-950/70 dark:text-slate-100 dark:focus:border-sky-400 dark:focus:ring-sky-400/10"
+        aria-expanded={open}
+      >
+        <span className="truncate">{selected?.label ?? "Pilih"}</span>
+        <ChevronRight size={17} className={clsx("shrink-0 text-slate-400 transition", open ? "rotate-90" : "rotate-0")} />
+      </button>
+      {open && (
+        <div className="taka-animate-panel absolute left-0 right-0 top-[calc(100%+8px)] z-[9999] max-h-72 overflow-y-auto rounded-2xl border border-blue-100 bg-white p-1.5 shadow-[0_22px_60px_rgba(15,23,42,0.22)] dark:border-sky-400/20 dark:bg-slate-950 dark:shadow-[0_22px_70px_rgba(0,0,0,0.55)]">
+          {options.map((option) => {
+            const active = option.value === value;
+            return (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => {
+                  onChange(option.value);
+                  setOpen(false);
+                }}
+                className={clsx(
+                  "flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-black transition",
+                  active ? "bg-blue-50 text-blue-700 dark:bg-sky-400/14 dark:text-sky-100" : "text-slate-600 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-900",
+                )}
+              >
+                <span className="grid h-5 w-5 place-items-center">
+                  {active && <Check size={15} strokeWidth={3} />}
+                </span>
+                <span className="truncate">{option.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CustomDateField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const selectedDate = useMemo(() => (value ? new Date(`${value}T00:00:00`) : new Date()), [value]);
+  const [visibleMonth, setVisibleMonth] = useState(() => new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1));
+  const pickerRef = useRef<HTMLLabelElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const close = (event: MouseEvent | TouchEvent) => {
+      if (!pickerRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+
+    document.addEventListener("mousedown", close);
+    document.addEventListener("touchstart", close);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("touchstart", close);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (open) setVisibleMonth(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1));
+  }, [open, selectedDate]);
+
+  const formatInputDate = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  const displayDate = value
+    ? selectedDate.toLocaleDateString("id-ID", { day: "2-digit", month: "2-digit", year: "numeric" })
+    : "Pilih tanggal";
+  const monthLabel = visibleMonth.toLocaleDateString("id-ID", { month: "long", year: "numeric" });
+  const firstDay = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), 1);
+  const offset = (firstDay.getDay() + 6) % 7;
+  const daysInMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 0).getDate();
+  const cells = Array.from({ length: offset + daysInMonth }, (_, index) => index < offset ? null : index - offset + 1);
+  const today = new Date();
+  const weekDays = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"];
+
+  const moveMonth = (delta: number) => {
+    setVisibleMonth((current) => new Date(current.getFullYear(), current.getMonth() + delta, 1));
+  };
+
+  return (
+    <label ref={pickerRef} className="relative block">
+      <span className="text-xs font-black uppercase tracking-[0.1em] text-slate-400 dark:text-slate-300">{label}</span>
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        className="mt-2 flex h-12 w-full items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-taka-ink transition hover:border-blue-200 focus:border-blue-300 focus:outline-none focus:ring-4 focus:ring-blue-100 dark:border-sky-400/20 dark:bg-slate-950/70 dark:text-slate-100 dark:hover:border-sky-400/40 dark:focus:border-sky-400 dark:focus:ring-sky-400/10"
+        aria-expanded={open}
+      >
+        <span className="min-w-0 flex-1 text-center">{displayDate}</span>
+        <CalendarDays size={17} className="shrink-0 text-sky-500 dark:text-sky-300" />
+      </button>
+
+      {open && (
+        <div className="taka-animate-panel absolute left-0 right-0 top-[calc(100%+8px)] z-[9999] rounded-[22px] border border-blue-100 bg-white p-3 shadow-[0_24px_70px_rgba(15,23,42,0.22)] dark:border-sky-400/18 dark:bg-slate-950 dark:text-white dark:shadow-[0_24px_80px_rgba(0,0,0,0.58)]">
+          <div className="flex items-center justify-between gap-2">
+            <button type="button" onClick={() => moveMonth(-1)} className="grid h-9 w-9 place-items-center rounded-xl bg-blue-50 text-blue-700 transition hover:bg-blue-100 dark:bg-slate-900 dark:text-sky-200 dark:hover:bg-slate-800" aria-label="Bulan sebelumnya">
+              <ChevronLeft size={18} />
+            </button>
+            <div className="text-center">
+              <p className="text-sm font-black capitalize text-taka-ink dark:text-white">{monthLabel}</p>
+              <p className="text-[11px] font-bold text-slate-400 dark:text-slate-400">Pilih tanggal transaksi</p>
+            </div>
+            <button type="button" onClick={() => moveMonth(1)} className="grid h-9 w-9 place-items-center rounded-xl bg-blue-50 text-blue-700 transition hover:bg-blue-100 dark:bg-slate-900 dark:text-sky-200 dark:hover:bg-slate-800" aria-label="Bulan berikutnya">
+              <ChevronRight size={18} />
+            </button>
+          </div>
+
+          <div className="mt-3 grid grid-cols-7 gap-1 text-center text-[11px] font-black uppercase text-slate-400 dark:text-slate-500">
+            {weekDays.map((day) => <span key={day} className="py-1">{day}</span>)}
+          </div>
+          <div className="mt-1 grid grid-cols-7 gap-1">
+            {cells.map((day, index) => {
+              if (!day) return <span key={`empty-${index}`} className="h-9" />;
+              const date = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), day);
+              const dateValue = formatInputDate(date);
+              const isSelected = value === dateValue;
+              const isToday = formatInputDate(today) === dateValue;
+              return (
+                <button
+                  key={dateValue}
+                  type="button"
+                  onClick={() => {
+                    onChange(dateValue);
+                    setOpen(false);
+                  }}
+                  className={clsx(
+                    "grid h-9 place-items-center rounded-xl text-sm font-black transition",
+                    isSelected
+                      ? "bg-gradient-to-br from-sky-400 to-blue-700 text-white shadow-[0_10px_22px_rgba(37,99,235,0.28)]"
+                      : "text-slate-600 hover:bg-blue-50 hover:text-blue-700 dark:text-slate-200 dark:hover:bg-sky-400/12 dark:hover:text-sky-100",
+                    isToday && !isSelected ? "ring-1 ring-sky-300/70 dark:ring-sky-400/40" : "",
+                  )}
+                >
+                  {day}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                const todayValue = formatInputDate(today);
+                onChange(todayValue);
+                setVisibleMonth(new Date(today.getFullYear(), today.getMonth(), 1));
+                setOpen(false);
+              }}
+              className="flex-1 rounded-xl bg-blue-50 px-3 py-2 text-xs font-black text-blue-700 transition hover:bg-blue-100 dark:bg-sky-400/12 dark:text-sky-100 dark:hover:bg-sky-400/18"
+            >
+              Hari ini
+            </button>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="flex-1 rounded-xl bg-slate-100 px-3 py-2 text-xs font-black text-slate-600 transition hover:bg-slate-200 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+            >
+              Tutup
+            </button>
+          </div>
+        </div>
+      )}
     </label>
   );
 }
@@ -4448,8 +4702,8 @@ function EditableField({
         placeholder={placeholder}
         onChange={handleChange}
         className={clsx(
-          "mt-2 h-12 w-full min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-taka-ink outline-none transition placeholder:text-slate-400 focus:border-emerald-300 focus:bg-white",
-          type === "date" && "relative z-10 appearance-none overflow-hidden text-center [color-scheme:light] [&::-webkit-date-and-time-value]:m-0 [&::-webkit-date-and-time-value]:min-h-0 [&::-webkit-date-and-time-value]:text-center [&::-webkit-calendar-picker-indicator]:opacity-60 [&::-webkit-calendar-picker-indicator]:cursor-pointer",
+          "mt-2 h-12 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-taka-ink outline-none transition placeholder:text-slate-400 focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-100 dark:border-sky-400/20 dark:bg-slate-950/70 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-sky-400 dark:focus:ring-sky-400/10",
+          type === "date" && "relative z-10 appearance-none overflow-hidden text-center [color-scheme:light] dark:[color-scheme:dark] [&::-webkit-date-and-time-value]:m-0 [&::-webkit-date-and-time-value]:min-h-0 [&::-webkit-date-and-time-value]:text-center [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 dark:[&::-webkit-calendar-picker-indicator]:invert",
         )}
       />
     </label>
@@ -4466,7 +4720,7 @@ function SegmentedControl({
   onChange?: (option: string) => void;
 }) {
   return (
-    <div className="grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1">
+    <div className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-900/80 dark:ring-1 dark:ring-sky-400/15">
       {options.map((option) => (
         <button
           key={option}
@@ -4474,7 +4728,7 @@ function SegmentedControl({
           onClick={() => onChange?.(option)}
           className={clsx(
             "rounded-lg px-3 py-2 text-sm font-black transition",
-            option === active ? "bg-white text-taka-ink shadow-sm" : "text-slate-500",
+            option === active ? "bg-white text-blue-700 shadow-sm dark:bg-sky-500/18 dark:text-sky-100" : "text-slate-500 dark:text-slate-300",
           )}
         >
           {option}

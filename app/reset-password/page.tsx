@@ -69,7 +69,7 @@ export default function ResetPasswordPage() {
       <section className="w-full max-w-md rounded-[28px] border border-white/75 bg-white/88 p-5 shadow-soft backdrop-blur sm:p-7">
         <div className="flex items-center gap-3">
           <Image
-            src="/images/taka-logo-v2.png"
+            src="/images/taka-logo-v3.png"
             alt="Taka FinTrack"
             width={56}
             height={56}
@@ -96,7 +96,7 @@ export default function ResetPasswordPage() {
         ) : (
           <>
             <div className="mt-8">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-500">Reset password</p>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-500">Reset password</p>
               <h1 className="mt-2 text-3xl font-black tracking-tight">Buat password baru</h1>
               <p className="mt-2 text-sm leading-6 text-slate-500">Masukkan password baru untuk akun kamu. Link reset hanya berlaku 30 menit.</p>
             </div>
@@ -120,7 +120,7 @@ export default function ResetPasswordPage() {
                 <label className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-slate-500">
                   <KeyRound size={14} /> Password Baru
                 </label>
-                <div className="flex items-center rounded-2xl border border-slate-200 bg-white px-4 py-1 focus-within:border-emerald-300 focus-within:ring-4 focus-within:ring-emerald-100">
+                <div className="flex items-center rounded-2xl border border-slate-200 bg-white px-4 py-1 focus-within:border-blue-300 focus-within:ring-4 focus-within:ring-blue-100">
                   <input type={showPassword ? "text" : "password"} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Minimal 6 karakter" className="min-w-0 flex-1 bg-transparent py-3 text-sm font-bold outline-none" />
                   <button type="button" onClick={() => setShowPassword((value) => !value)} className="text-slate-400">{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button>
                 </div>
@@ -130,7 +130,7 @@ export default function ResetPasswordPage() {
                 <label className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-slate-500">
                   <Lock size={14} /> Konfirmasi Password
                 </label>
-                <div className="flex items-center rounded-2xl border border-slate-200 bg-white px-4 py-1 focus-within:border-emerald-300 focus-within:ring-4 focus-within:ring-emerald-100">
+                <div className="flex items-center rounded-2xl border border-slate-200 bg-white px-4 py-1 focus-within:border-blue-300 focus-within:ring-4 focus-within:ring-blue-100">
                   <input type={showConfirmPassword ? "text" : "password"} value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="Ulangi password baru" className="min-w-0 flex-1 bg-transparent py-3 text-sm font-bold outline-none" />
                   <button type="button" onClick={() => setShowConfirmPassword((value) => !value)} className="text-slate-400">{showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button>
                 </div>

@@ -133,12 +133,15 @@ export function attachAuthCookie(response: NextResponse, token: string) {
 }
 
 export function clearAuthCookie(response: NextResponse) {
+  // Logout must work on both HTTPS domain and HTTP/IP previews. A Secure deletion
+  // cookie is ignored by browsers on HTTP, leaving the old session alive after refresh.
   response.cookies.set(authCookieName, "", {
     httpOnly: true,
     sameSite: "lax",
-    secure: shouldUseSecureCookie(),
+    secure: false,
     path: "/",
     maxAge: 0,
+    expires: new Date(0),
   });
 
   return response;
