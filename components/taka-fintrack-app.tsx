@@ -3346,11 +3346,10 @@ function ScanView({
       }
     } catch (err) {
       console.error("OCR Error:", err);
-      setScannedReceipt(indomaretExampleReceipt);
-      const suggestedCategory = suggestReceiptCategory(indomaretExampleReceipt, categories, scanType).category;
-      setSelectedScanCategoryId(suggestedCategory ? String(suggestedCategory.id) : "");
-      setScanStatus("done");
-      setCameraMessage("OCR gagal dimuat. Dipakai hasil demo dari contoh struk Indomaret.");
+      setScannedReceipt(null);
+      setSelectedScanCategoryId("");
+      setScanStatus("empty");
+      setCameraMessage("OCR gagal. Coba ambil foto ulang dengan pencahayaan lebih baik, atau pastikan .env.local memiliki GEMINI_API_KEY.");
     }
   }, [categories, scanType]);
 
