@@ -1809,22 +1809,22 @@ function Sidebar({
           </div>
         </div>
 
-        <div className="mt-4 rounded-xl bg-gradient-to-br from-taka-violet via-white to-taka-mint p-4">
+        <div className="mt-4 rounded-xl bg-gradient-to-br from-taka-violet via-white to-taka-mint p-4 dark:from-[#1e3a5f] dark:via-[#0f233c] dark:to-[#1a4d5c] dark:border dark:border-white/10">
           <div className="flex items-center gap-3">
             <AvatarCircle user={user} />
             <div className="min-w-0">
-              <p className="truncate text-sm font-extrabold text-taka-ink">{user.name}</p>
-              <p className="truncate text-xs font-semibold text-slate-600">{user.email}</p>
+              <p className="truncate text-sm font-extrabold text-taka-ink dark:text-white">{user.name}</p>
+              <p className="truncate text-xs font-semibold text-slate-600 dark:text-slate-300">{user.email}</p>
             </div>
           </div>
           <div className="mt-4 grid grid-cols-2 gap-2">
-            <div className="rounded-lg bg-white/82 p-3">
-              <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-slate-400">Scan</p>
-              <p className="mt-1 text-lg font-black text-taka-ink">{scanCount}/20</p>
+            <div className="rounded-lg bg-white/82 p-3 dark:bg-white/8 dark:border dark:border-white/10">
+              <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-slate-400 dark:text-slate-300">Scan</p>
+              <p className="mt-1 text-lg font-black text-taka-ink dark:text-white">{scanCount}/20</p>
             </div>
-            <div className="rounded-lg bg-white/82 p-3">
-              <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-slate-400">Health</p>
-              <p className="mt-1 text-lg font-black text-emerald-600">{healthScore}%</p>
+            <div className="rounded-lg bg-white/82 p-3 dark:bg-white/8 dark:border dark:border-white/10">
+              <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-slate-400 dark:text-slate-300">Health</p>
+              <p className="mt-1 text-lg font-black text-emerald-600 dark:text-emerald-400">{healthScore}%</p>
             </div>
           </div>
         </div>
