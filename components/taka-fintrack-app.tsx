@@ -2662,7 +2662,14 @@ function ScanSpotlight({
           alt="Ilustrasi scan struk Taka FinTrack"
           fill
           priority
-          className="object-cover"
+          className="object-cover dark:hidden"
+        />
+        <Image
+          src="/images/receipt-lifestyle-dark.svg"
+          alt="Ilustrasi scan struk Taka FinTrack"
+          fill
+          priority
+          className="object-cover hidden dark:block"
         />
       </div>
       <div className="p-4">
