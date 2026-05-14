@@ -4378,16 +4378,47 @@ function ReportsView({ analytics, transactions, statements }: { analytics: Retur
         headers: { "Authorization": `Bearer ${window.sessionStorage.getItem(authTokenStorageKey)}` }
       });
       if (!response.ok) throw new Error("Gagal download");
+
       const blob = await response.blob();
+      const isNativeApp = Boolean((window as typeof window & { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.());
+
+      if (isNativeApp) {
+        const [{ Filesystem, Directory }, { Share }] = await Promise.all([
+          import("@capacitor/filesystem"),
+          import("@capacitor/share"),
+        ]);
+        const arrayBuffer = await blob.arrayBuffer();
+        const bytes = new Uint8Array(arrayBuffer);
+        let binary = "";
+        const chunkSize = 0x8000;
+        for (let index = 0; index < bytes.length; index += chunkSize) {
+          binary += String.fromCharCode(...Array.from(bytes.subarray(index, index + chunkSize)));
+        }
+        const saved = await Filesystem.writeFile({
+          path: fileName,
+          data: btoa(binary),
+          directory: Directory.Documents,
+          recursive: true,
+        });
+        await Share.share({
+          title: "Taka FinTrack E-Statement",
+          text: `E-Statement ${fileName}`,
+          url: saved.uri,
+          dialogTitle: "Simpan atau bagikan PDF statement",
+        });
+        return;
+      }
+
+      const objectUrl = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
+      a.href = objectUrl;
       a.download = fileName;
       document.body.appendChild(a);
       a.click();
       a.remove();
-      URL.revokeObjectURL(a.href);
+      URL.revokeObjectURL(objectUrl);
     } catch {
-      alert("Gagal mengunduh statement.");
+      alert("Gagal mengunduh statement. Coba update aplikasi atau buka lewat browser.");
     }
   }
 
