@@ -2091,32 +2091,28 @@ function TopBar({
   onToggleTheme: () => void;
 }) {
   return (
-    <header className="topbar-glass native-topbar relative z-[1200] flex items-start justify-between gap-2 rounded-[22px] border border-white/70 bg-white/78 p-2.5 backdrop-blur-xl sm:items-center sm:p-4">
-      <div className="min-w-0">
-        <div className="inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-blue-700 ring-1 ring-blue-100 dark:bg-sky-500/12 dark:text-sky-200 dark:ring-sky-400/20 sm:text-xs">
-          Mei 2026
+    <header className="topbar-glass native-topbar sticky top-[calc(6px+env(safe-area-inset-top))] z-[1200] flex items-center justify-between gap-2 rounded-[20px] border border-white/70 bg-white/84 p-2 backdrop-blur-xl sm:relative sm:top-auto sm:p-4">
+      <div className="flex min-w-0 items-center gap-2 sm:block">
+        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-blue-50 ring-1 ring-blue-100 dark:bg-sky-500/12 dark:ring-sky-400/20 sm:hidden">
+          <AppLogo size={30} />
         </div>
-        <h1 className="mt-1 truncate text-[1.35rem] font-black leading-none text-taka-ink sm:text-3xl">{title}</h1>
+        <div className="min-w-0">
+          <div className="hidden rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-blue-700 ring-1 ring-blue-100 dark:bg-sky-500/12 dark:text-sky-200 dark:ring-sky-400/20 sm:inline-flex sm:text-xs">
+            Mei 2026
+          </div>
+          <p className="truncate text-[10px] font-black uppercase tracking-[0.1em] text-blue-600 dark:text-sky-300 sm:hidden">Taka FinTrack</p>
+          <h1 className="truncate text-[1.05rem] font-black leading-tight text-taka-ink dark:text-white sm:mt-1 sm:text-3xl">{title}</h1>
+        </div>
       </div>
 
-      <div className="flex shrink-0 items-center gap-2">
-        <label className="relative hidden min-w-0 flex-1 sm:block">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={17} />
-          <input
-            className="h-11 w-56 rounded-lg border border-slate-200 bg-slate-50 pl-10 pr-3 text-sm font-semibold outline-none transition focus:border-blue-300 focus:bg-white lg:w-64"
-            placeholder="Cari transaksi"
-          />
-        </label>
+      <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
         <button
           type="button"
           onClick={onToggleTheme}
-          className="theme-icon-button grid h-10 w-10 place-items-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:border-sky-300 hover:text-sky-600 sm:h-11 sm:w-11"
+          className="theme-icon-button grid h-9 w-9 place-items-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:border-sky-300 hover:text-sky-600 dark:border-white/10 dark:bg-white/8 dark:text-sky-100 sm:h-11 sm:w-11 sm:rounded-lg"
           aria-label={theme === "dark" ? "Aktifkan light mode" : "Aktifkan dark mode"}
         >
-          {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
-        </button>
-        <button type="button" className="grid h-10 w-10 place-items-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:border-blue-300 hover:text-blue-600 sm:h-11 sm:w-11" aria-label="Notifikasi">
-          <Bell size={18} />
+          {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
         </button>
         <ProfileMenu user={user} onUserUpdate={onUserUpdate} onLogout={onLogout} />
         <button type="button" onClick={onAddTransaction} className="hidden items-center gap-2 rounded-lg bg-taka-navy px-4 py-3 text-sm font-extrabold text-white shadow-float transition hover:bg-blue-700 sm:flex">
@@ -2379,10 +2375,10 @@ function DashboardView({
   onNavigate: (view: ViewKey) => void;
 }) {
   return (
-    <div className="space-y-5">
+    <div className="space-y-3 sm:space-y-5">
       <HeroBalance analytics={analytics} transactions={transactions} onNavigate={onNavigate} />
       <SummaryGrid analytics={analytics} />
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
+      <div className="grid gap-5 max-lg:hidden xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
         <div className="space-y-5">
           <WeeklyChart data={analytics.weekly} />
           <RecentTransactions transactions={transactions} dataStatus={dataStatus} compact />
@@ -2402,7 +2398,7 @@ function HeroBalance({ analytics, transactions, onNavigate }: { analytics: Retur
   const spentPercent = analytics.income > 0 ? Math.min(100, Math.round((analytics.expense / analytics.income) * 100)) : 0;
 
   return (
-    <section className="relative overflow-hidden rounded-[34px] bg-[#F8FAFC] p-4 shadow-[0_24px_70px_rgba(37,99,235,0.13)] ring-1 ring-[#DBEAFE] sm:p-6 lg:p-7">
+    <section className="relative overflow-hidden rounded-[26px] bg-[#F8FAFC] p-3 shadow-[0_24px_70px_rgba(37,99,235,0.13)] ring-1 ring-[#DBEAFE] sm:rounded-[34px] sm:p-6 lg:p-7">
       <div className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-[#60A5FA]/35 blur-3xl" />
       <div className="pointer-events-none absolute -bottom-24 left-10 h-72 w-72 rounded-full bg-[#39C7A5]/18 blur-3xl" />
       <div className="relative grid gap-5 lg:grid-cols-[minmax(0,1fr)_390px]">
@@ -2410,21 +2406,21 @@ function HeroBalance({ analytics, transactions, onNavigate }: { analytics: Retur
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-[#2563EB] shadow-sm ring-1 ring-[#DBEAFE]"><Sparkles size={14} /> Finance overview</p>
-              <h2 className="mt-4 max-w-2xl text-3xl font-black leading-tight text-[#0F172A] dark:text-white dark:drop-shadow-[0_2px_14px_rgba(14,165,233,0.22)] sm:text-5xl">Kelola cashflow harian dengan tampilan yang lebih jelas.</h2>
-              <p className="mt-3 max-w-xl text-sm font-semibold leading-6 text-[#64687F] dark:text-slate-200 sm:text-base">Ringkasan saldo, spending, scan struk, dan insight AI tetap memakai data real dari API — tampilannya dibuat seperti app finance profesional.</p>
+              <h2 className="mt-3 max-w-2xl text-2xl font-black leading-tight text-[#0F172A] dark:text-white dark:drop-shadow-[0_2px_14px_rgba(14,165,233,0.22)] sm:mt-4 sm:text-5xl">Saldo & transaksi hari ini.</h2>
+              <p className="mt-2 hidden max-w-xl text-sm font-semibold leading-6 text-[#64687F] dark:text-slate-200 sm:mt-3 sm:block sm:text-base">Ringkasan saldo, spending, scan struk, dan insight AI tetap memakai data real dari API — tampilannya dibuat seperti app finance profesional.</p>
             </div>
-            <button type="button" onClick={() => onNavigate("transactions")} className="inline-flex items-center gap-2 rounded-[20px] bg-gradient-to-br from-[#0EA5E9] to-[#2563EB] px-5 py-3 text-sm font-black text-white shadow-[0_16px_34px_rgba(37,99,235,0.24)] transition hover:-translate-y-0.5"><Plus size={18} /> Tambah Transaksi</button>
+            <button type="button" onClick={() => onNavigate("transactions")} className="hidden items-center gap-2 rounded-[20px] bg-gradient-to-br from-[#0EA5E9] to-[#2563EB] px-5 py-3 text-sm font-black text-white shadow-[0_16px_34px_rgba(37,99,235,0.24)] transition hover:-translate-y-0.5 sm:inline-flex"><Plus size={18} /> Tambah Transaksi</button>
           </div>
           <div className="grid gap-3 sm:grid-cols-3">
-            <div className="sm:col-span-2 overflow-hidden rounded-[32px] bg-gradient-to-br from-[#0EA5E9] via-[#2563EB] to-[#1D4ED8] p-5 text-white shadow-[0_24px_60px_rgba(37,99,235,0.30)]">
+            <div className="overflow-hidden rounded-[26px] bg-gradient-to-br from-[#0EA5E9] via-[#2563EB] to-[#1D4ED8] p-4 text-white shadow-[0_24px_60px_rgba(37,99,235,0.30)] sm:col-span-2 sm:rounded-[32px] sm:p-5">
               <div className="flex items-start justify-between gap-4"><div><p className="text-sm font-semibold text-white/70">Total balance bulan ini</p><p className="mt-3 text-4xl font-black tracking-tight sm:text-5xl"><AnimatedCurrency value={analytics.balance} /></p></div><div className="rounded-2xl bg-white/14 p-3"><WalletCards size={24} /></div></div>
               <div className="mt-8 grid grid-cols-2 gap-3"><MetricPill label="Income" value={analytics.income} tone="green" /><MetricPill label="Expense" value={analytics.expense} tone="red" /></div>
               <div className="mt-5"><div className="flex items-center justify-between text-xs font-bold text-white/70"><span>Budget usage</span><AnimatedPercent value={spentPercent} /></div><div className="mt-2 h-2 overflow-hidden rounded-full bg-white/18"><div className="h-full rounded-full bg-[#F6A23A] transition-[width] duration-700 ease-out" style={{ width: `${spentPercent}%` }} /></div></div>
             </div>
-            <div className="rounded-[32px] bg-white p-5 shadow-[0_18px_45px_rgba(32,34,58,0.07)] ring-1 ring-[#DBEAFE] dark:bg-slate-900/86 dark:ring-sky-400/20"><div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#EFF6FF] text-[#2563EB]"><Bot size={23} /></div><p className="mt-5 text-sm font-black text-[#0F172A] dark:text-white">AI Finance Health</p><p className="mt-2 text-4xl font-black text-[#2563EB]">{analytics.savingsRatio}%</p><p className="mt-2 text-sm font-semibold leading-6 text-[#64748B] dark:text-slate-300">Rasio hemat dari transaksi bulan ini.</p><button type="button" onClick={() => onNavigate("chat")} className="mt-4 w-full rounded-[18px] bg-[#EFF6FF] px-4 py-3 text-sm font-black text-[#2563EB] dark:bg-sky-500/16 dark:text-sky-100">Tanya AI</button></div>
+            <div className="hidden rounded-[32px] bg-white p-5 shadow-[0_18px_45px_rgba(32,34,58,0.07)] ring-1 ring-[#DBEAFE] dark:bg-slate-900/86 dark:ring-sky-400/20 sm:block"><div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#EFF6FF] text-[#2563EB]"><Bot size={23} /></div><p className="mt-5 text-sm font-black text-[#0F172A] dark:text-white">AI Finance Health</p><p className="mt-2 text-4xl font-black text-[#2563EB]">{analytics.savingsRatio}%</p><p className="mt-2 text-sm font-semibold leading-6 text-[#64748B] dark:text-slate-300">Rasio hemat dari transaksi bulan ini.</p><button type="button" onClick={() => onNavigate("chat")} className="mt-4 w-full rounded-[18px] bg-[#EFF6FF] px-4 py-3 text-sm font-black text-[#2563EB] dark:bg-sky-500/16 dark:text-sky-100">Tanya AI</button></div>
           </div>
         </div>
-        <div className="relative min-h-[520px] overflow-hidden rounded-[36px] bg-gradient-to-br from-blue-50 via-sky-50 to-slate-100 p-5 text-slate-950 shadow-[0_26px_70px_rgba(37,99,235,0.14)] ring-1 ring-blue-100/80 dark:from-[#071426] dark:via-[#06101f] dark:to-[#020617] dark:text-white dark:ring-transparent dark:shadow-[0_26px_70px_rgba(2,6,23,0.54)]">
+        <div className="hidden min-h-[520px] overflow-hidden rounded-[36px] bg-gradient-to-br from-blue-50 via-sky-50 to-slate-100 p-5 text-slate-950 shadow-[0_26px_70px_rgba(37,99,235,0.14)] ring-1 ring-blue-100/80 dark:from-[#071426] dark:via-[#06101f] dark:to-[#020617] dark:text-white dark:ring-transparent dark:shadow-[0_26px_70px_rgba(2,6,23,0.54)] lg:relative lg:block">
           <div className="absolute inset-x-8 top-8 h-40 rounded-full bg-[#0EA5E9]/22 blur-3xl dark:bg-[#0EA5E9]/28" />
           <div className="relative mx-auto max-w-[285px] rounded-[34px] border-[9px] border-white/75 bg-white p-3 text-[#0F172A] shadow-2xl dark:border-[#07101f] dark:bg-[#071426] dark:text-white">
             <div className="mx-auto mb-3 h-1.5 w-16 rounded-full bg-[#DBEAFE] dark:bg-slate-700" /><div className="flex items-center justify-between"><div><p className="text-xs font-bold text-[#64748B] dark:text-slate-300">Hi, Umar</p><p className="text-lg font-black dark:text-white">FinTrack</p></div><div className="grid h-10 w-10 place-items-center rounded-full bg-white text-[#2563EB] shadow-sm dark:bg-slate-900 dark:text-sky-300"><Bell size={17} /></div></div>
@@ -2456,7 +2452,7 @@ function SummaryGrid({ analytics }: { analytics: ReturnType<typeof getFinanceAna
       {cards.map((card) => (
         <div
           key={card.label}
-          className="group relative overflow-hidden rounded-[32px] border border-blue-100/80 bg-gradient-to-br from-white via-blue-50/60 to-slate-100 p-5 shadow-[0_18px_42px_rgba(37,99,235,0.10)] transition hover:-translate-y-1 hover:shadow-[0_24px_56px_rgba(37,99,235,0.15)] dark:border-transparent dark:bg-[#061427] dark:bg-none dark:shadow-[inset_0_1px_0_rgba(14,165,233,0.08),0_20px_52px_rgba(2,6,23,0.45)]"
+          className="group relative min-w-[76vw] snap-start overflow-hidden rounded-[26px] border border-blue-100/80 bg-gradient-to-br from-white via-blue-50/60 to-slate-100 p-4 shadow-[0_18px_42px_rgba(37,99,235,0.10)] transition hover:-translate-y-1 hover:shadow-[0_24px_56px_rgba(37,99,235,0.15)] dark:border-transparent dark:bg-[#061427] dark:bg-none dark:shadow-[inset_0_1px_0_rgba(14,165,233,0.08),0_20px_52px_rgba(2,6,23,0.45)] md:min-w-0 md:rounded-[32px] md:p-5"
         >
           <div className={clsx("pointer-events-none absolute -right-12 -top-14 h-32 w-32 rounded-full blur-2xl", card.glow)} />
           <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-sky-300/40 to-transparent dark:via-sky-300/16" />
@@ -2910,6 +2906,19 @@ function TransactionsView({
   const [error, setError] = useState("");
   const [isSavingTransaction, setIsSavingTransaction] = useState(false);
   const [isSavingCategory, setIsSavingCategory] = useState(false);
+  const [showMobileTransactionSheet, setShowMobileTransactionSheet] = useState(false);
+  const [transactionFormStep, setTransactionFormStep] = useState(0);
+  const transactionFormSteps = useMemo(
+    () => [
+      { label: "Tipe", helper: transactionType === "expense" ? "Pengeluaran" : "Pemasukan" },
+      { label: "Nominal", helper: amount ? `Rp ${Number(amount.replace(/\D/g, "") || 0).toLocaleString("id-ID")}` : "Isi nominal" },
+      { label: "Kategori", helper: "Kategori + tanggal" },
+      { label: "Catatan", helper: merchant.trim() || paymentAccount },
+      { label: "Simpan", helper: editingTransaction ? "Update data" : "Review akhir" },
+    ],
+    [amount, editingTransaction, merchant, paymentAccount, transactionType],
+  );
+  const lastTransactionFormStep = transactionFormSteps.length - 1;
   const availableCategories = useMemo(
     () => categories.filter((category) => category.type === "both" || category.type === transactionType),
     [categories, transactionType],
@@ -2969,6 +2978,7 @@ function TransactionsView({
 
   function startEditTransaction(transaction: Transaction) {
     setEditingTransaction(transaction);
+    setShowMobileTransactionSheet(true);
     setTransactionType(transaction.type);
     setAmount(String(transaction.amount));
     setMerchant(transaction.merchant);
@@ -2976,6 +2986,7 @@ function TransactionsView({
     setPaymentAccount(transaction.paymentAccount || "Cash");
     const matchingCategory = categories.find((category) => category.id === transaction.categoryId || category.name === transaction.category);
     setCategoryId(matchingCategory ? String(matchingCategory.id) : "");
+    setTransactionFormStep(0);
     setMessage("Mode edit aktif. Ubah data lalu simpan.");
     setError("");
   }
@@ -2986,6 +2997,7 @@ function TransactionsView({
     setAmount("");
     setPaymentAccount("Cash");
     setTransactionDate(getDateInputValue());
+    setTransactionFormStep(0);
     setMessage("");
     setError("");
   }
@@ -3035,6 +3047,7 @@ function TransactionsView({
       setPaymentAccount("Cash");
       setTransactionDate(getDateInputValue());
       setMessage(editingTransaction ? "Transaksi berhasil diperbarui." : "Transaksi berhasil disimpan ke database.");
+      setShowMobileTransactionSheet(false);
     } catch (error) {
       setMessage("");
       setError(error instanceof Error ? error.message : "Transaksi gagal disimpan.");
@@ -3079,7 +3092,7 @@ function TransactionsView({
 
   return (
     <div className="grid min-w-0 gap-3 xl:grid-cols-[minmax(0,1fr)_360px] xl:gap-4">
-      <section className="native-transactions-panel min-w-0 overflow-hidden rounded-[24px] border border-white/70 bg-white/82 p-2.5 shadow-soft backdrop-blur-xl dark:border-sky-400/20 dark:bg-slate-950/82 sm:p-4">
+      <section className="native-transactions-panel min-w-0 overflow-hidden rounded-[24px] border border-white/70 bg-white/82 p-2 shadow-soft backdrop-blur-xl dark:border-sky-400/20 dark:bg-slate-950/82 sm:p-4">
         {/* Month picker */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-1.5">
@@ -3149,8 +3162,12 @@ function TransactionsView({
           ))}
         </div>
 
-        {/* Transaction count */}
-        <p className="mt-3 text-xs font-bold text-slate-400">{filteredTransactions.length} transaksi</p>
+        <div className="mt-3 flex items-center justify-between gap-2">
+          <p className="text-xs font-bold text-slate-400">{filteredTransactions.length} transaksi</p>
+          <button type="button" onClick={() => { cancelEditTransaction(); setShowMobileTransactionSheet(true); }} className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-sky-400 to-blue-700 px-3 py-2 text-xs font-black text-white shadow-[0_10px_22px_rgba(37,99,235,0.24)] active:scale-95 xl:hidden">
+            <Plus size={14} /> Tambah
+          </button>
+        </div>
 
         {/* Transaction list */}
         <div className="mt-2 space-y-2">
@@ -3178,28 +3195,42 @@ function TransactionsView({
         </div>
       </section>
 
-      <section className="min-w-0 rounded-[28px] border border-white/70 bg-white/90 p-3 shadow-soft backdrop-blur dark:border-sky-400/20 dark:bg-slate-950/82 sm:p-4">
+      <section className={clsx("transaction-form-sheet min-w-0 rounded-[28px] border border-white/70 bg-white/90 p-3 shadow-soft backdrop-blur dark:border-sky-400/20 dark:bg-slate-950/82 sm:p-4", "fixed inset-x-0 bottom-0 z-[1550] max-h-[86dvh] overflow-y-auto rounded-b-none border-x-0 border-b-0 px-4 pb-[calc(18px+env(safe-area-inset-bottom))] transition-transform duration-300 xl:static xl:max-h-none xl:overflow-visible xl:rounded-[28px] xl:border xl:p-4", showMobileTransactionSheet || editingTransaction ? "translate-y-0" : "translate-y-[110%] xl:translate-y-0")}>
+        <div className="mx-auto mb-3 h-1.5 w-14 rounded-full bg-slate-300 xl:hidden" />
         <div className="flex items-start justify-between gap-3">
-          <SectionTitle title={editingTransaction ? "Edit Transaksi" : "Tambah Manual"} eyebrow={editingTransaction ? "ubah data" : "data real DB"} />
-          {editingTransaction && (
-            <button type="button" onClick={cancelEditTransaction} className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-black text-slate-600 transition hover:bg-slate-200">
-              Batal
+          <SectionTitle title={editingTransaction ? "Edit Transaksi" : "Tambah Manual"} eyebrow={editingTransaction ? "ubah data" : "bottom sheet mobile"} />
+          <button type="button" onClick={() => { cancelEditTransaction(); setShowMobileTransactionSheet(false); }} className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-black text-slate-600 transition hover:bg-slate-200 dark:bg-white/10 dark:text-slate-100">
+            {editingTransaction ? "Batal" : "Tutup"}
+          </button>
+        </div>
+        <div className="mb-3 grid grid-cols-5 gap-1.5 xl:hidden">
+          {transactionFormSteps.map((step, index) => (
+            <button key={step.label} type="button" onClick={() => setTransactionFormStep(index)} className={clsx("rounded-2xl px-2 py-2 text-left transition", index === transactionFormStep ? "bg-blue-600 text-white shadow-lg" : "bg-slate-100 text-slate-500 dark:bg-white/8 dark:text-slate-300")}>
+              <span className="block text-[10px] font-black">{index + 1}</span>
+              <span className="hidden text-[9px] font-bold min-[390px]:block">{step.label}</span>
             </button>
-          )}
+          ))}
         </div>
         <form className="mt-4 space-y-3" onSubmit={submitTransaction}>
+          <div className={clsx("xl:block", transactionFormStep === 0 ? "block" : "hidden xl:block")}>
           <SegmentedControl
             options={["Expense", "Income"]}
             active={transactionType === "expense" ? "Expense" : "Income"}
             onChange={(option) => setTransactionType(option === "Income" ? "income" : "expense")}
           />
+          </div>
+          <div className={clsx("xl:block", transactionFormStep === 1 ? "block" : "hidden xl:block")}>
           <EditableField label="Nominal" inputMode="numeric" value={amount} placeholder="Rp 125.000" onChange={setAmount} />
+          </div>
+          <div className={clsx("space-y-3 xl:block", transactionFormStep === 2 ? "block" : "hidden xl:block")}>
           <CustomSelect
             label="Kategori"
             value={categoryId}
             onChange={setCategoryId}
             options={availableCategories.map((category) => ({ value: String(category.id), label: category.name }))}
           />
+          </div>
+          <div className={clsx("space-y-3 xl:block", transactionFormStep === 3 ? "block" : "hidden xl:block")}>
           <EditableField label="Merchant" value={merchant} placeholder="Kopi Kenangan" onChange={setMerchant} />
           <CustomSelect
             label="Akun / Dompet Pembayaran"
@@ -3208,11 +3239,16 @@ function TransactionsView({
             options={paymentAccountOptions.map((account) => ({ value: account, label: account }))}
           />
           <CustomDateField label="Tanggal" value={transactionDate} onChange={setTransactionDate} />
+          </div>
           {(message || error) && (
             <div className={clsx("rounded-lg px-3 py-2 text-sm font-bold", error ? "bg-rose-50 text-rose-600" : "bg-blue-50 text-blue-700")}>
               {error || message}
             </div>
           )}
+          <div className="grid grid-cols-2 gap-2 xl:hidden">
+            <button type="button" onClick={() => setTransactionFormStep((step) => Math.max(0, step - 1))} disabled={transactionFormStep === 0} className="rounded-xl bg-slate-100 py-3 text-sm font-black text-slate-600 disabled:opacity-40 dark:bg-white/10 dark:text-slate-100">Back</button>
+            <button type="button" onClick={() => setTransactionFormStep((step) => Math.min(lastTransactionFormStep, step + 1))} disabled={transactionFormStep === lastTransactionFormStep} className="rounded-xl bg-blue-50 py-3 text-sm font-black text-blue-700 disabled:opacity-40 dark:bg-sky-400/10 dark:text-sky-100">Next</button>
+          </div>
           <button
             type="submit"
             disabled={isSavingTransaction}

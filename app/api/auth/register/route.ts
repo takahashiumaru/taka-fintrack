@@ -11,14 +11,16 @@ import {
 } from "@/lib/server/auth";
 import { ensureSchema, getPool } from "@/lib/server/db";
 import { apiError, readJson } from "@/lib/server/http";
-import { checkRateLimit, getClientIp } from "@/lib/server/rate-limit";
+import { checkPersistentRateLimit, getClientIp } from "@/lib/server/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
+  await ensureSchema();
+
   const ip = getClientIp(request);
-  const rateLimit = checkRateLimit(`auth-register:${ip}`, 3, 60_000);
+  const rateLimit = await checkPersistentRateLimit(`auth-register:${ip}`, 3, 60_000);
   if (!rateLimit.ok) {
     return apiError("Terlalu banyak percobaan registrasi. Coba lagi nanti.", 429);
   }
@@ -32,8 +34,6 @@ export async function POST(request: Request) {
   if (name.length > 120) return apiError("Nama maksimal 120 karakter.");
   if (!email.includes("@")) return apiError("Email belum valid.");
   if (password.length < 6) return apiError("Password minimal 6 karakter.");
-
-  await ensureSchema();
 
   const pool = getPool();
   const [existingRows] = await pool.execute<UserRow[]>(

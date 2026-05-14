@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/server/auth";
 import { apiError, isAbortError, readJson, tooManyRequests, withTimeout } from "@/lib/server/http";
-import { checkRateLimit, getClientIp } from "@/lib/server/rate-limit";
+import { checkPersistentRateLimit, getClientIp } from "@/lib/server/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
     const user = await getAuthenticatedUser(req);
     if (!user) return apiError("Sesi tidak valid. Login ulang.", 401);
 
-    const rateLimit = checkRateLimit(`chat:${user.id}:${getClientIp(req)}`, maxRequestsPerMinute, 60_000);
+    const rateLimit = await checkPersistentRateLimit(`chat:${user.id}:${getClientIp(req)}`, maxRequestsPerMinute, 60_000);
     if (!rateLimit.ok) return tooManyRequests(rateLimit.resetAt);
 
     const body = await readJson(req);

@@ -5,6 +5,7 @@ type Bucket = { count: number; resetAt: number };
 
 const buckets = new Map<string, Bucket>();
 let lastCleanupAt = 0;
+let lastPersistentCleanupAt = 0;
 const cleanupIntervalMs = 60_000;
 
 function cleanupExpiredBuckets(now: number) {
@@ -14,6 +15,18 @@ function cleanupExpiredBuckets(now: number) {
   buckets.forEach((bucket, key) => {
     if (bucket.resetAt <= now) buckets.delete(key);
   });
+}
+
+async function cleanupExpiredPersistentBuckets(now: number) {
+  if (now - lastPersistentCleanupAt < cleanupIntervalMs) return;
+  lastPersistentCleanupAt = now;
+
+  try {
+    await getPool().execute("DELETE FROM rate_limit_buckets WHERE reset_at < NOW() LIMIT 500");
+  } catch (error) {
+    lastPersistentCleanupAt = 0;
+    throw error;
+  }
 }
 
 export function getClientIp(request: Request) {
@@ -44,10 +57,12 @@ export function checkRateLimit(key: string, limit: number, windowMs: number) {
 }
 
 export async function checkPersistentRateLimit(key: string, limit: number, windowMs: number) {
+  const now = Date.now();
   const pool = getPool();
-  const resetAtSql = `DATE_ADD(NOW(), INTERVAL ${Math.max(1, Math.ceil(windowMs / 1000))} SECOND)`;
+  const windowSeconds = Math.max(1, Math.ceil(windowMs / 1000));
+  const resetAtSql = `DATE_ADD(NOW(), INTERVAL ${windowSeconds} SECOND)`;
 
-  await pool.execute("DELETE FROM rate_limit_buckets WHERE reset_at < NOW()");
+  await cleanupExpiredPersistentBuckets(now);
   await pool.execute(
     `
       INSERT INTO rate_limit_buckets (rate_key, count, reset_at)
@@ -65,7 +80,7 @@ export async function checkPersistentRateLimit(key: string, limit: number, windo
   );
   const bucket = rows[0];
   const count = Number(bucket?.count ?? 1);
-  const resetAt = Number(bucket?.reset_at_ms ?? Date.now() + windowMs);
+  const resetAt = Number(bucket?.reset_at_ms ?? now + windowMs);
 
   if (count > limit) {
     return { ok: false, remaining: 0, resetAt };
