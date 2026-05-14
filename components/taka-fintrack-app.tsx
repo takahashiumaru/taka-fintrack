@@ -1454,7 +1454,7 @@ export function TakaFinTrackApp() {
       )}
       <main
         className={clsx(
-          "finance-app-shell min-h-screen w-full max-w-full overflow-x-hidden px-3 pb-[calc(120px+env(safe-area-inset-bottom))] pt-[calc(10px+env(safe-area-inset-top))] sm:px-4 lg:p-6",
+          "finance-app-shell h-[100dvh] w-full max-w-full overflow-hidden px-3 pb-[calc(104px+env(safe-area-inset-bottom))] pt-[calc(8px+env(safe-area-inset-top))] sm:px-4 lg:h-auto lg:min-h-screen lg:overflow-x-hidden lg:p-6",
           activeView === "chat" ? "pb-[calc(72px+env(safe-area-inset-bottom))]" : "pb-[calc(120px+env(safe-area-inset-bottom))]",
         )}
         onTouchStart={handlePullStart}
@@ -1462,7 +1462,7 @@ export function TakaFinTrackApp() {
         onTouchEnd={handlePullEnd}
         onTouchCancel={handlePullEnd}
       >
-      <div className="mx-auto grid w-full max-w-[1500px] items-start gap-3 lg:grid-cols-[278px_minmax(0,1fr)] lg:gap-4">
+      <div className="mx-auto grid h-full w-full max-w-[1500px] min-h-0 items-start gap-3 lg:h-auto lg:grid-cols-[278px_minmax(0,1fr)] lg:gap-4">
         <Sidebar
           activeView={activeView}
           onChange={changeView}
@@ -1471,7 +1471,7 @@ export function TakaFinTrackApp() {
           scanCount={analytics.scanCount}
           healthScore={analytics.savingsRatio}
         />
-        <section className="min-w-0 space-y-3 lg:space-y-4">
+        <section className="flex min-h-0 min-w-0 flex-col gap-3 lg:block lg:space-y-4">
           <TopBar
             title={activeMeta.label}
             user={currentUser}
@@ -1487,6 +1487,7 @@ export function TakaFinTrackApp() {
               {dataError}
             </div>
           )}
+          <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto pb-3 overscroll-contain lg:overflow-visible lg:pb-0">
           {activeView === "dashboard" && <DashboardView analytics={analytics} transactions={transactions} dataStatus={dataStatus} onNavigate={changeView} />}
           {activeView === "transactions" && (
             <TransactionsView
@@ -1510,6 +1511,7 @@ export function TakaFinTrackApp() {
             <ChatView transactions={transactions} sessionReady={sessionReady} />
           </div>
           {activeView === "reports" && <ReportsView analytics={analytics} transactions={transactions} />}
+          </div>
         </section>
       </div>
       <MobileNav activeView={activeView} onChange={changeView} />
@@ -2092,7 +2094,7 @@ function TopBar({
   onToggleTheme: () => void;
 }) {
   return (
-    <header className="topbar-glass native-topbar sticky top-[calc(6px+env(safe-area-inset-top))] z-[1200] flex items-center justify-between gap-2 rounded-[20px] border border-white/70 bg-white/84 p-2 backdrop-blur-xl sm:relative sm:top-auto sm:p-4">
+    <header className="topbar-glass native-topbar sticky top-0 z-[1200] flex items-center justify-between gap-2 rounded-[20px] border border-white/70 bg-white/84 p-2 backdrop-blur-xl sm:relative sm:top-auto sm:p-4">
       <div className="flex min-w-0 items-center gap-2 sm:block">
         <div className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-blue-50 ring-1 ring-blue-100 dark:bg-sky-500/12 dark:ring-sky-400/20 sm:hidden">
           <AppLogo size={30} />
