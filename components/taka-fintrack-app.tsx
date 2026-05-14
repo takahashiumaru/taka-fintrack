@@ -4446,21 +4446,24 @@ function ReportsView({ analytics, transactions }: { analytics: ReturnType<typeof
           </div>
         </section>
 
-        <section className="rounded-[30px] border border-white/75 bg-white/90 p-4 shadow-[0_24px_70px_rgba(37,99,235,0.10)] backdrop-blur-xl dark:border-sky-400/20 dark:bg-slate-950/90">
-          <SectionTitle title="Breakdown" eyebrow={currency.format(totalExpense)} />
-          <div className="mt-5 space-y-3">
+        <section className="relative overflow-hidden rounded-[32px] border border-sky-100/80 bg-white/92 p-4 shadow-[0_24px_70px_rgba(37,99,235,0.10)] backdrop-blur-xl dark:border-sky-400/12 dark:bg-[#071A33] dark:shadow-[0_26px_80px_rgba(0,0,0,0.30)]">
+          <div className="pointer-events-none absolute -right-16 -top-20 h-48 w-48 rounded-full bg-sky-300/24 blur-3xl dark:bg-cyan-400/12" />
+          <div className="relative">
+            <SectionTitle title="Breakdown" eyebrow={currency.format(totalExpense)} />
+          </div>
+          <div className="relative mt-5 space-y-3">
             {analytics.categoryBreakdown.map((item) => (
-              <div key={item.name} className="rounded-[22px] bg-blue-50/70 p-3 ring-1 ring-blue-100/70 dark:bg-sky-400/8 dark:ring-sky-400/14">
+              <div key={item.name} className="rounded-[22px] bg-sky-50/80 p-3 ring-1 ring-sky-100/70 dark:bg-white/[0.045] dark:ring-white/[0.07]">
                 <div className="flex items-center justify-between gap-3 text-sm">
-                  <span className="flex min-w-0 items-center gap-2 font-black text-slate-700 dark:text-slate-100"><span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: item.color }} /> <span className="truncate">{item.name}</span></span>
-                  <span className="font-black text-taka-ink">{currency.format(item.amount)}</span>
+                  <span className="flex min-w-0 items-center gap-2 font-black text-slate-700 dark:text-sky-50"><span className="h-2.5 w-2.5 shrink-0 rounded-full shadow-[0_0_14px_currentColor]" style={{ backgroundColor: item.color, color: item.color }} /> <span className="truncate">{item.name}</span></span>
+                  <span className="font-black text-slate-900 dark:text-sky-50">{currency.format(item.amount)}</span>
                 </div>
-                <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-white/80 dark:bg-slate-900/90">
+                <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-sky-100/80 dark:bg-slate-900/70 dark:ring-1 dark:ring-white/[0.04]">
                   <div className="h-full rounded-full transition-[width] duration-700" style={{ width: `${item.value}%`, backgroundColor: item.color }} />
                 </div>
               </div>
             ))}
-            {analytics.categoryBreakdown.length === 0 && <div className="rounded-[24px] bg-blue-50 p-5 text-center text-sm font-bold text-slate-500 dark:bg-slate-950/70 dark:text-slate-300">Belum ada kategori expense bulan ini.</div>}
+            {analytics.categoryBreakdown.length === 0 && <div className="rounded-[24px] bg-blue-50 p-5 text-center text-sm font-bold text-slate-500 dark:bg-white/[0.045] dark:text-sky-100/70 dark:ring-1 dark:ring-white/[0.07]">Belum ada kategori expense bulan ini.</div>}
           </div>
         </section>
       </div>
