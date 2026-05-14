@@ -4446,7 +4446,7 @@ function ReportsView({ analytics, transactions }: { analytics: ReturnType<typeof
           </div>
         </section>
 
-        <section className="relative overflow-hidden rounded-[32px] border border-sky-100/80 bg-white/92 p-4 shadow-[0_24px_70px_rgba(37,99,235,0.10)] backdrop-blur-xl dark:border-sky-400/12 dark:bg-[#071A33] dark:shadow-[0_26px_80px_rgba(0,0,0,0.30)]">
+        <section className="relative overflow-hidden rounded-[32px] border border-sky-100/80 bg-white/92 p-4 shadow-[0_24px_70px_rgba(37,99,235,0.10)] backdrop-blur-xl dark:border-transparent dark:bg-[#071A33] dark:shadow-[0_26px_80px_rgba(0,0,0,0.30)]">
           <div className="pointer-events-none absolute -right-16 -top-20 h-48 w-48 rounded-full bg-sky-300/24 blur-3xl dark:bg-cyan-400/12" />
           <div className="relative">
             <SectionTitle title="Breakdown" eyebrow={currency.format(totalExpense)} />
