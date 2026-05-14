@@ -95,6 +95,21 @@ type Transaction = {
   createdAt: string;
 };
 
+type MonthlyStatement = {
+  id: number;
+  periodYear: number;
+  periodMonth: number;
+  fileName: string;
+  totalIncome: number;
+  totalExpense: number;
+  netCashflow: number;
+  openingBalance: number;
+  closingBalance: number;
+  emailedAt: string | null;
+  createdAt: string;
+  downloadUrl: string;
+};
+
 type TransactionsPagination = {
   page: number;
   limit: number;
@@ -1102,6 +1117,7 @@ export function TakaFinTrackApp() {
   const [sessionReady, setSessionReady] = useState(false);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [statements, setStatements] = useState<MonthlyStatement[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [dataStatus, setDataStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [dataError, setDataError] = useState("");
@@ -1186,16 +1202,16 @@ export function TakaFinTrackApp() {
     setDataError("");
 
     try {
-      const [transactionResponse, categoryResponse] = await Promise.all([
-        apiRequest<{ transactions: ApiTransaction[]; pagination?: TransactionsPagination }>("/api/transactions?page=1&limit=20", {
-        }),
-        apiRequest<{ categories: Category[] }>("/api/categories", {
-        }),
+      const [transactionResponse, categoryResponse, statementResponse] = await Promise.all([
+        apiRequest<{ transactions: ApiTransaction[]; pagination?: TransactionsPagination }>("/api/transactions?page=1&limit=20"),
+        apiRequest<{ categories: Category[] }>("/api/categories"),
+        apiRequest<{ statements: MonthlyStatement[] }>("/api/statements"),
       ]);
 
       setTransactions(transactionResponse.transactions.map(normalizeApiTransaction));
       setTransactionsPagination(transactionResponse.pagination ?? { page: 1, limit: 20, hasMore: false, nextPage: null });
       setCategories(categoryResponse.categories);
+      setStatements(statementResponse.statements);
       setDataStatus("ready");
     } catch (error) {
       setDataStatus("error");
@@ -1518,7 +1534,7 @@ export function TakaFinTrackApp() {
           <div className={activeView === "chat" ? "chat-view-frame block" : "hidden"} aria-hidden={activeView !== "chat"}>
             <ChatView transactions={transactions} sessionReady={sessionReady} />
           </div>
-          {activeView === "reports" && <ReportsView analytics={analytics} transactions={transactions} />}
+          {activeView === "reports" && <ReportsView analytics={analytics} transactions={transactions} statements={statements} />}
           </div>
         </section>
       </div>
@@ -4352,8 +4368,28 @@ function escapeCsvCell(value: string | number) {
   return `"${text}"`;
 }
 
-function ReportsView({ analytics, transactions }: { analytics: ReturnType<typeof getFinanceAnalytics>; transactions: Transaction[] }) {
+function ReportsView({ analytics, transactions, statements }: { analytics: ReturnType<typeof getFinanceAnalytics>; transactions: Transaction[]; statements: MonthlyStatement[] }) {
   const totalExpense = analytics.categoryBreakdown.reduce((total, item) => total + item.amount, 0);
+
+  async function downloadStatement(id: number, fileName: string, url: string) {
+    try {
+      const response = await fetch(url, {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${window.sessionStorage.getItem(authTokenStorageKey)}` }
+      });
+      if (!response.ok) throw new Error("Gagal download");
+      const blob = await response.blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(a.href);
+    } catch {
+      alert("Gagal mengunduh statement.");
+    }
+  }
 
   function exportExcel() {
     const rows = [
@@ -4399,6 +4435,40 @@ function ReportsView({ analytics, transactions }: { analytics: ReturnType<typeof
           </button>
         </div>
       </section>
+
+      <section className="rounded-[28px] border border-white/70 bg-white/86 p-4 shadow-soft backdrop-blur dark:border-sky-400/15 dark:bg-[#071A33]/80">
+        <div className="flex items-center gap-2">
+          <FileText size={18} className="text-blue-600 dark:text-sky-300" />
+          <h3 className="text-sm font-black text-taka-ink dark:text-sky-50">Monthly E-Statement</h3>
+        </div>
+        <div className="mt-3 space-y-2">
+          {statements.length === 0 && (
+            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 p-6 text-center dark:border-white/10">
+              <p className="text-[11px] font-bold text-slate-500 dark:text-sky-100/40">Belum ada laporan bulanan otomatis.</p>
+            </div>
+          )}
+          {statements.map((st) => (
+            <button
+              key={st.id}
+              type="button"
+              onClick={() => downloadStatement(st.id, st.fileName, st.downloadUrl)}
+              className="flex w-full items-center justify-between rounded-2xl border border-sky-100/50 bg-white p-3 shadow-sm transition active:scale-[0.98] dark:border-white/5 dark:bg-white/5"
+            >
+              <div className="flex items-center gap-3">
+                <div className="grid h-10 w-10 place-items-center rounded-xl bg-blue-50 text-blue-600 dark:bg-sky-500/15 dark:text-sky-300">
+                  <FileText size={20} />
+                </div>
+                <div className="text-left">
+                  <p className="text-xs font-black text-slate-900 dark:text-sky-50">Statement {st.periodMonth}/{st.periodYear}</p>
+                  <p className="text-[10px] font-bold text-slate-400 dark:text-sky-100/40">{st.fileName}</p>
+                </div>
+              </div>
+              <FileDown size={18} className="text-slate-400 dark:text-sky-300/60" />
+            </button>
+          ))}
+        </div>
+      </section>
+
       <section className="grid gap-3 md:grid-cols-3">
         <ReportStat label="Income Mei" value={currency.format(analytics.income)} icon={TrendingUp} tone="emerald" />
         <ReportStat label="Expense Mei" value={currency.format(analytics.expense)} icon={TrendingDown} tone="rose" />

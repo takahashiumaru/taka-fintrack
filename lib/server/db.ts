@@ -101,6 +101,31 @@ async function createSchema() {
   );
 
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS monthly_statements (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+      user_id BIGINT UNSIGNED NOT NULL,
+      period_year SMALLINT UNSIGNED NOT NULL,
+      period_month TINYINT UNSIGNED NOT NULL,
+      file_name VARCHAR(190) NOT NULL,
+      file_path VARCHAR(500) NOT NULL,
+      total_income BIGINT NOT NULL DEFAULT 0,
+      total_expense BIGINT NOT NULL DEFAULT 0,
+      net_cashflow BIGINT NOT NULL DEFAULT 0,
+      opening_balance BIGINT NOT NULL DEFAULT 0,
+      closing_balance BIGINT NOT NULL DEFAULT 0,
+      emailed_at DATETIME NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      UNIQUE KEY monthly_statements_user_period_unique (user_id, period_year, period_month),
+      KEY monthly_statements_user_id_idx (user_id),
+      CONSTRAINT monthly_statements_user_fk
+        FOREIGN KEY (user_id) REFERENCES users(id)
+        ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS password_reset_tokens (
       id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
       user_id BIGINT UNSIGNED NOT NULL,
