@@ -4193,57 +4193,65 @@ function ChatView({ transactions, sessionReady }: { transactions: Transaction[];
       </section>
 
       {/* Chat area — fills viewport on mobile, fixed height on desktop */}
-      <section className="chat-shell relative flex min-h-0 min-w-0 max-w-full flex-col overflow-hidden rounded-[28px] border border-white/70 bg-white/90 p-3 shadow-soft backdrop-blur dark:border-sky-400/20 dark:bg-slate-950/82 sm:p-4 xl:h-[620px] xl:min-h-0">
-        <div className="flex items-center justify-between gap-3 border-b border-sky-100/80 pb-2.5 dark:border-sky-400/15">
+      <section className="chat-shell relative flex min-h-0 min-w-0 max-w-full flex-col overflow-hidden rounded-[30px] border border-white/75 bg-gradient-to-b from-white/96 via-sky-50/75 to-white/92 p-2.5 shadow-[0_24px_70px_rgba(37,99,235,0.16)] backdrop-blur-2xl dark:border-sky-400/20 dark:from-slate-950/96 dark:via-slate-900/88 dark:to-slate-950/94 sm:p-4 xl:h-[620px] xl:min-h-0">
+        <div className="relative overflow-hidden rounded-[24px] border border-sky-100/80 bg-gradient-to-br from-sky-500 via-blue-600 to-cyan-500 p-3 text-white shadow-[0_18px_42px_rgba(37,99,235,0.24)] dark:border-sky-300/20">
+          <div className="pointer-events-none absolute -right-10 -top-12 h-32 w-32 rounded-full bg-white/18 blur-2xl" />
+          <div className="relative flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-sky-400 to-blue-700 text-white shadow-[0_10px_24px_rgba(37,99,235,0.22)] xl:h-11 xl:w-11">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-white/18 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.24)] ring-1 ring-white/28 xl:h-11 xl:w-11">
               <Bot size={20} />
             </div>
             <div>
-              <p className="text-sm font-black text-taka-ink dark:text-white xl:text-base">Taka AI</p>
-              <p className="text-[11px] font-bold text-blue-600 dark:text-sky-300 xl:text-xs">Asisten finansial aktif</p>
+              <p className="text-base font-black tracking-tight xl:text-lg">Taka AI</p>
+              <p className="text-[11px] font-bold text-sky-50/90 xl:text-xs">Asisten finansial real-time</p>
             </div>
           </div>
           <button
             type="button"
             onClick={() => setConfirmClear(true)}
             title="Hapus riwayat chat"
-            className="chat-clear-button grid h-9 w-9 shrink-0 place-items-center rounded-2xl border border-rose-100 bg-rose-50 text-rose-500 shadow-sm transition hover:bg-rose-100 hover:text-rose-600 active:scale-95 dark:border-rose-300/20 dark:bg-rose-400/10 dark:text-rose-200 xl:h-10 xl:w-10"
+            className="chat-clear-button grid h-9 w-9 shrink-0 place-items-center rounded-2xl border border-white/20 bg-white/14 text-white shadow-sm transition hover:bg-white/22 active:scale-95 xl:h-10 xl:w-10"
           >
             <Trash2 size={16} />
           </button>
+          </div>
         </div>
 
         {/* Mobile inline suggested questions — horizontal scroll pills */}
-        <div className="no-scrollbar chat-suggestions-row relative z-10 -mx-1 flex shrink-0 gap-2 overflow-x-auto px-1 py-2 xl:hidden">
+        <div className="no-scrollbar chat-suggestions-row relative z-10 -mx-1 flex shrink-0 gap-2 overflow-x-auto px-1 py-2.5 xl:hidden">
           {suggestedQuestions.map((question) => (
             <button
               key={question}
               type="button"
               disabled={isTyping}
               onClick={() => sendMessage(question)}
-              className="chat-suggestion-pill shrink-0 rounded-full border border-sky-200 bg-sky-50/90 px-3.5 py-2 text-xs font-bold text-sky-700 shadow-sm transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 dark:border-sky-400/20 dark:bg-sky-400/10 dark:text-sky-100"
+              className="chat-suggestion-pill shrink-0 rounded-full border border-white/70 bg-white/82 px-3.5 py-2 text-xs font-black text-blue-700 shadow-[0_8px_22px_rgba(37,99,235,0.10)] backdrop-blur transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 dark:border-sky-400/20 dark:bg-sky-400/10 dark:text-sky-100"
             >
               {question}
             </button>
           ))}
         </div>
 
-        <div ref={scrollRef} className="no-scrollbar chat-messages-scroll min-h-0 flex-1 space-y-2 overflow-y-auto py-3 scroll-smooth xl:py-4">
+        <div ref={scrollRef} className="no-scrollbar chat-messages-scroll min-h-0 flex-1 space-y-3 overflow-y-auto px-0.5 py-3 scroll-smooth xl:py-4">
           {messages.map((message, index) => (
             <div
               key={`${message.role}-${index}`}
               className={clsx(
-                "flex",
+                "flex items-end gap-2",
                 message.role === "user" ? "justify-end" : "justify-start",
               )}
             >
+              {message.role !== "user" && (
+                <div className="mb-1 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-gradient-to-br from-sky-400 to-blue-700 text-white shadow-[0_8px_18px_rgba(37,99,235,0.24)]">
+                  <Bot size={14} />
+                </div>
+              )}
               <div
                 className={clsx(
-                  "max-w-[86%] px-3.5 py-2.5 text-sm font-semibold leading-5 shadow-sm",
+                  "max-w-[84%] px-4 py-3 text-sm font-semibold leading-5 shadow-sm backdrop-blur",
                   message.role === "user"
-                    ? "rounded-[22px_22px_6px_22px] bg-gradient-to-br from-sky-500 to-blue-700 text-white"
-                    : "rounded-[22px_22px_22px_6px] bg-white text-slate-800 ring-1 ring-sky-100 dark:bg-slate-800/90 dark:text-slate-100 dark:ring-sky-400/15",
+                    ? "rounded-[24px_24px_7px_24px] bg-gradient-to-br from-sky-500 via-blue-600 to-blue-800 text-white shadow-[0_12px_26px_rgba(37,99,235,0.22)]"
+                    : "rounded-[24px_24px_24px_7px] bg-white/92 text-slate-800 ring-1 ring-sky-100/80 dark:bg-slate-800/90 dark:text-slate-100 dark:ring-sky-400/15",
                 )}
               >
                 {(() => {
@@ -4319,7 +4327,7 @@ function ChatView({ transactions, sessionReady }: { transactions: Transaction[];
           </div>
         )}
         <form
-          className="flex gap-2 border-t border-sky-100/80 pt-3 dark:border-sky-400/15 xl:pt-4"
+          className="flex gap-2 rounded-[24px] border border-sky-100/80 bg-white/76 p-1.5 shadow-[0_-10px_34px_rgba(37,99,235,0.08)] backdrop-blur-xl dark:border-sky-400/15 dark:bg-slate-900/72 xl:p-2"
           onSubmit={(event) => {
             event.preventDefault();
             sendMessage(draft);
@@ -4329,13 +4337,13 @@ function ChatView({ transactions, sessionReady }: { transactions: Transaction[];
             value={draft}
             disabled={isTyping}
             onChange={(event) => setDraft(event.target.value)}
-            className="min-w-0 flex-1 rounded-full border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-sky-400/20 dark:bg-slate-900/80 dark:text-slate-100 dark:placeholder:text-slate-400 dark:focus:border-sky-400 dark:focus:ring-sky-400/10"
+            className="min-w-0 flex-1 rounded-[20px] border-0 bg-transparent px-3 py-3 text-sm font-bold text-slate-800 outline-none transition placeholder:text-slate-400 disabled:cursor-not-allowed disabled:opacity-50 dark:text-slate-100 dark:placeholder:text-slate-500"
             placeholder="Tanya Taka AI…"
           />
           <button 
             type="submit" 
             disabled={isTyping || !draft.trim()} 
-            className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-gradient-to-br from-sky-500 to-blue-600 px-0 text-sm font-black text-white shadow-[0_10px_24px_rgba(37,99,235,0.22)] transition hover:to-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="grid h-12 w-12 shrink-0 place-items-center rounded-[20px] bg-gradient-to-br from-sky-400 via-blue-600 to-blue-800 px-0 text-sm font-black text-white shadow-[0_12px_28px_rgba(37,99,235,0.28)] transition hover:to-blue-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
             aria-label="Kirim pesan"
           >
             <Send size={18} />
