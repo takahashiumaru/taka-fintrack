@@ -4405,39 +4405,43 @@ function ReportsView({ analytics, transactions }: { analytics: ReturnType<typeof
         <ReportStat label="Rasio Hemat" value={`${analytics.savingsRatio}%`} icon={ShieldCheck} tone="blue" />
       </section>
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
-        <section className="relative overflow-hidden rounded-[30px] bg-[#071A33] p-4 text-white shadow-[0_24px_70px_rgba(15,23,42,0.20)] ring-1 ring-sky-400/20">
-          <div className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full bg-sky-400/20 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-28 left-0 h-64 w-64 rounded-full bg-blue-600/18 blur-3xl" />
-          <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <section className="relative overflow-hidden rounded-[32px] border border-sky-100/80 bg-white p-4 text-slate-950 shadow-[0_26px_80px_rgba(37,99,235,0.14)] dark:border-sky-400/15 dark:bg-[#071A33] dark:text-white dark:shadow-[0_26px_80px_rgba(0,0,0,0.32)]">
+          <div className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full bg-sky-300/35 blur-3xl dark:bg-sky-400/18" />
+          <div className="pointer-events-none absolute -bottom-28 left-0 h-64 w-64 rounded-full bg-blue-500/12 blur-3xl dark:bg-blue-600/18" />
+          <div className="relative flex items-start justify-between gap-3">
             <div>
-              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-sky-200/80">Cashflow bulanan</p>
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-sky-600 dark:text-sky-200/80">Cashflow bulanan</p>
               <h3 className="mt-1 text-xl font-black tracking-tight">Tren 6 Bulan</h3>
+              <p className="mt-1 text-xs font-bold text-slate-500 dark:text-sky-100/60">Income dan expense dalam juta rupiah</p>
             </div>
-            <div className="flex gap-2 text-[11px] font-black">
-              <span className="rounded-full bg-emerald-400/14 px-3 py-1.5 text-emerald-100 ring-1 ring-emerald-300/20">Income</span>
-              <span className="rounded-full bg-rose-400/14 px-3 py-1.5 text-rose-100 ring-1 ring-rose-300/20">Expense</span>
-            </div>
+            <span className="rounded-2xl bg-sky-50 px-3 py-2 text-right text-[11px] font-black text-sky-700 ring-1 ring-sky-100 dark:bg-white/10 dark:text-sky-100 dark:ring-white/12">6M</span>
           </div>
-          <div className="relative mt-4 h-[340px] rounded-[24px] bg-white/[0.04] p-1 ring-1 ring-white/10 sm:p-3">
+          <div className="relative mt-4 flex flex-wrap gap-2 text-[11px] font-black">
+            <span className="inline-flex items-center gap-2 rounded-full bg-cyan-50 px-3 py-1.5 text-cyan-700 ring-1 ring-cyan-100 dark:bg-cyan-400/12 dark:text-cyan-100 dark:ring-cyan-300/20"><span className="h-2 w-2 rounded-full bg-cyan-400" />Income</span>
+            <span className="inline-flex items-center gap-2 rounded-full bg-rose-50 px-3 py-1.5 text-rose-700 ring-1 ring-rose-100 dark:bg-rose-400/12 dark:text-rose-100 dark:ring-rose-300/20"><span className="h-2 w-2 rounded-full bg-rose-400" />Expense</span>
+          </div>
+          <div className="relative mt-4 h-[340px] rounded-[26px] bg-gradient-to-b from-sky-50/90 to-white p-1 ring-1 ring-sky-100/80 dark:from-white/[0.06] dark:to-white/[0.02] dark:ring-white/10 sm:p-3">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={analytics.trend} margin={{ top: 18, right: 10, left: -18, bottom: 0 }}>
+              <AreaChart data={analytics.trend} margin={{ top: 18, right: 10, left: -18, bottom: 0 }}>
                 <defs>
                   <linearGradient id="trendIncomeGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#14B8A6" stopOpacity={0.32} />
-                    <stop offset="95%" stopColor="#14B8A6" stopOpacity={0.02} />
+                    <stop offset="0%" stopColor="#22D3EE" stopOpacity={0.32} />
+                    <stop offset="70%" stopColor="#22D3EE" stopOpacity={0.06} />
+                    <stop offset="100%" stopColor="#22D3EE" stopOpacity={0} />
                   </linearGradient>
                   <linearGradient id="trendExpenseGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#FB7185" stopOpacity={0.28} />
-                    <stop offset="95%" stopColor="#FB7185" stopOpacity={0.01} />
+                    <stop offset="0%" stopColor="#FB7185" stopOpacity={0.24} />
+                    <stop offset="75%" stopColor="#FB7185" stopOpacity={0.04} />
+                    <stop offset="100%" stopColor="#FB7185" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid vertical={false} stroke="rgba(148, 163, 184, 0.18)" strokeDasharray="4 8" />
-                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: "#BAE6FD", fontSize: 12, fontWeight: 800 }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: "#94A3B8", fontSize: 11, fontWeight: 700 }} />
+                <CartesianGrid vertical={false} stroke="currentColor" strokeOpacity={0.12} strokeDasharray="4 10" />
+                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: "currentColor", opacity: 0.62, fontSize: 12, fontWeight: 900 }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: "currentColor", opacity: 0.42, fontSize: 11, fontWeight: 800 }} />
                 <Tooltip content={<ChartTooltip suffix=" jt" />} />
-                <Line type="monotone" dataKey="income" name="Income" stroke="#22D3EE" strokeWidth={4} dot={{ r: 4, fill: "#22D3EE", stroke: "#071A33", strokeWidth: 2 }} activeDot={{ r: 7 }} isAnimationActive />
-                <Line type="monotone" dataKey="expense" name="Expense" stroke="#FB7185" strokeWidth={4} dot={{ r: 4, fill: "#FB7185", stroke: "#071A33", strokeWidth: 2 }} activeDot={{ r: 7 }} isAnimationActive />
-              </LineChart>
+                <Area type="monotone" dataKey="income" name="Income" stroke="#22D3EE" strokeWidth={4.5} fill="url(#trendIncomeGradient)" dot={{ r: 0 }} activeDot={{ r: 7, fill: "#22D3EE", stroke: "#fff", strokeWidth: 3 }} isAnimationActive />
+                <Area type="monotone" dataKey="expense" name="Expense" stroke="#FB7185" strokeWidth={4.5} fill="url(#trendExpenseGradient)" dot={{ r: 0 }} activeDot={{ r: 7, fill: "#FB7185", stroke: "#fff", strokeWidth: 3 }} isAnimationActive />
+              </AreaChart>
             </ResponsiveContainer>
           </div>
         </section>
@@ -4460,34 +4464,41 @@ function ReportsView({ analytics, transactions }: { analytics: ReturnType<typeof
           </div>
         </section>
       </div>
-      <section className="relative overflow-hidden rounded-[30px] bg-[#071A33] p-4 text-white shadow-[0_24px_70px_rgba(15,23,42,0.20)] ring-1 ring-sky-400/20">
-        <div className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full bg-cyan-400/18 blur-3xl" />
-        <div className="relative flex items-center justify-between gap-3">
+      <section className="relative overflow-hidden rounded-[32px] border border-sky-100/80 bg-white p-4 text-slate-950 shadow-[0_26px_80px_rgba(37,99,235,0.14)] dark:border-sky-400/15 dark:bg-[#071A33] dark:text-white dark:shadow-[0_26px_80px_rgba(0,0,0,0.32)]">
+        <div className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full bg-cyan-300/30 blur-3xl dark:bg-cyan-400/18" />
+        <div className="relative flex items-start justify-between gap-3">
           <div>
-            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-sky-200/80">Harian</p>
+            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-sky-600 dark:text-sky-200/80">Harian</p>
             <h3 className="mt-1 text-xl font-black tracking-tight">Income vs Expense</h3>
+            <p className="mt-1 text-xs font-bold text-slate-500 dark:text-sky-100/60">Pergerakan cashflow 7 hari terakhir</p>
           </div>
-          <span className="rounded-full bg-white/10 px-3 py-1.5 text-[11px] font-black text-sky-100 ring-1 ring-white/14">7 Hari</span>
+          <span className="rounded-2xl bg-sky-50 px-3 py-2 text-[11px] font-black text-sky-700 ring-1 ring-sky-100 dark:bg-white/10 dark:text-sky-100 dark:ring-white/12">7 Hari</span>
         </div>
-        <div className="relative mt-4 h-[300px] rounded-[24px] bg-white/[0.04] p-1 ring-1 ring-white/10 sm:p-3">
+        <div className="relative mt-4 flex flex-wrap gap-2 text-[11px] font-black">
+          <span className="inline-flex items-center gap-2 rounded-full bg-cyan-50 px-3 py-1.5 text-cyan-700 ring-1 ring-cyan-100 dark:bg-cyan-400/12 dark:text-cyan-100 dark:ring-cyan-300/20"><span className="h-2 w-2 rounded-full bg-cyan-400" />Income</span>
+          <span className="inline-flex items-center gap-2 rounded-full bg-rose-50 px-3 py-1.5 text-rose-700 ring-1 ring-rose-100 dark:bg-rose-400/12 dark:text-rose-100 dark:ring-rose-300/20"><span className="h-2 w-2 rounded-full bg-rose-400" />Expense</span>
+        </div>
+        <div className="relative mt-4 h-[300px] rounded-[26px] bg-gradient-to-b from-sky-50/90 to-white p-1 ring-1 ring-sky-100/80 dark:from-white/[0.06] dark:to-white/[0.02] dark:ring-white/10 sm:p-3">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={analytics.weekly} margin={{ top: 12, right: 8, left: -18, bottom: 0 }}>
               <defs>
                 <linearGradient id="incomeGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#22C55E" stopOpacity={0.34} />
-                  <stop offset="95%" stopColor="#22C55E" stopOpacity={0} />
+                  <stop offset="0%" stopColor="#22D3EE" stopOpacity={0.32} />
+                  <stop offset="70%" stopColor="#22D3EE" stopOpacity={0.06} />
+                  <stop offset="100%" stopColor="#22D3EE" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="expenseGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#FF6B6B" stopOpacity={0.28} />
-                  <stop offset="95%" stopColor="#FF6B6B" stopOpacity={0} />
+                  <stop offset="0%" stopColor="#FB7185" stopOpacity={0.24} />
+                  <stop offset="75%" stopColor="#FB7185" stopOpacity={0.04} />
+                  <stop offset="100%" stopColor="#FB7185" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid vertical={false} stroke="rgba(148, 163, 184, 0.18)" strokeDasharray="4 8" />
-              <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: "#BAE6FD", fontSize: 12, fontWeight: 800 }} />
-              <YAxis axisLine={false} tickLine={false} tick={{ fill: "#94A3B8", fontSize: 11, fontWeight: 700 }} />
+              <CartesianGrid vertical={false} stroke="currentColor" strokeOpacity={0.12} strokeDasharray="4 10" />
+              <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: "currentColor", opacity: 0.62, fontSize: 12, fontWeight: 900 }} />
+              <YAxis axisLine={false} tickLine={false} tick={{ fill: "currentColor", opacity: 0.42, fontSize: 11, fontWeight: 800 }} />
               <Tooltip content={<ChartTooltip />} />
-              <Area type="monotone" dataKey="income" name="Income" stroke="#22D3EE" strokeWidth={4} fill="url(#incomeGradient)" dot={{ r: 3, fill: "#22D3EE" }} isAnimationActive />
-              <Area type="monotone" dataKey="expense" name="Expense" stroke="#FB7185" strokeWidth={4} fill="url(#expenseGradient)" dot={{ r: 3, fill: "#FB7185" }} isAnimationActive />
+              <Area type="monotone" dataKey="income" name="Income" stroke="#22D3EE" strokeWidth={4.5} fill="url(#incomeGradient)" dot={{ r: 0 }} activeDot={{ r: 7, fill: "#22D3EE", stroke: "#fff", strokeWidth: 3 }} isAnimationActive />
+              <Area type="monotone" dataKey="expense" name="Expense" stroke="#FB7185" strokeWidth={4.5} fill="url(#expenseGradient)" dot={{ r: 0 }} activeDot={{ r: 7, fill: "#FB7185", stroke: "#fff", strokeWidth: 3 }} isAnimationActive />
             </AreaChart>
           </ResponsiveContainer>
         </div>
