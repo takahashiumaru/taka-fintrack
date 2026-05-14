@@ -35,6 +35,7 @@ import {
   RefreshCw,
   ScanLine,
   Search,
+  Send,
   Settings,
   ShieldCheck,
   Sparkles,
@@ -3195,34 +3196,37 @@ function TransactionsView({
         </div>
       </section>
 
-      <section className={clsx("transaction-form-sheet min-w-0 rounded-[28px] border border-white/70 bg-white/90 p-3 shadow-soft backdrop-blur dark:border-sky-400/20 dark:bg-slate-950/82 sm:p-4", "fixed inset-x-0 bottom-0 z-[1550] max-h-[86dvh] overflow-y-auto rounded-b-none border-x-0 border-b-0 px-4 pb-[calc(18px+env(safe-area-inset-bottom))] transition-transform duration-300 xl:static xl:max-h-none xl:overflow-visible xl:rounded-[28px] xl:border xl:p-4", showMobileTransactionSheet || editingTransaction ? "translate-y-0" : "translate-y-[110%] xl:translate-y-0")}>
+      {(showMobileTransactionSheet || editingTransaction) && (
+        <button
+          type="button"
+          aria-label="Tutup form transaksi"
+          onClick={() => { cancelEditTransaction(); setShowMobileTransactionSheet(false); }}
+          className="fixed inset-0 z-[1540] bg-slate-950/45 backdrop-blur-sm xl:hidden"
+        />
+      )}
+      <section className={clsx("transaction-form-sheet min-w-0 rounded-[28px] border border-white/70 bg-white/95 p-0 shadow-soft backdrop-blur dark:border-sky-400/20 dark:bg-slate-950/95 sm:p-0", "fixed inset-x-0 bottom-0 z-[1550] flex max-h-[86dvh] flex-col overflow-hidden rounded-b-none border-x-0 border-b-0 transition-transform duration-300 xl:static xl:max-h-none xl:overflow-visible xl:rounded-[28px] xl:border xl:p-4", showMobileTransactionSheet || editingTransaction ? "translate-y-0" : "translate-y-[110%] xl:translate-y-0")}>
+        <div className="sticky top-0 z-10 bg-white/96 px-4 pb-3 pt-3 backdrop-blur-xl dark:bg-slate-950/96 xl:static xl:bg-transparent xl:p-0 xl:backdrop-blur-none">
         <div className="mx-auto mb-3 h-1.5 w-14 rounded-full bg-slate-300 xl:hidden" />
         <div className="flex items-start justify-between gap-3">
-          <SectionTitle title={editingTransaction ? "Edit Transaksi" : "Tambah Manual"} eyebrow={editingTransaction ? "ubah data" : "bottom sheet mobile"} />
+          <SectionTitle title={editingTransaction ? "Edit Transaksi" : "Tambah Transaksi"} eyebrow={editingTransaction ? "ubah data" : "catat income/expense"} />
           <button type="button" onClick={() => { cancelEditTransaction(); setShowMobileTransactionSheet(false); }} className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-black text-slate-600 transition hover:bg-slate-200 dark:bg-white/10 dark:text-slate-100">
             {editingTransaction ? "Batal" : "Tutup"}
           </button>
         </div>
-        <div className="mb-3 grid grid-cols-5 gap-1.5 xl:hidden">
-          {transactionFormSteps.map((step, index) => (
-            <button key={step.label} type="button" onClick={() => setTransactionFormStep(index)} className={clsx("rounded-2xl px-2 py-2 text-left transition", index === transactionFormStep ? "bg-blue-600 text-white shadow-lg" : "bg-slate-100 text-slate-500 dark:bg-white/8 dark:text-slate-300")}>
-              <span className="block text-[10px] font-black">{index + 1}</span>
-              <span className="hidden text-[9px] font-bold min-[390px]:block">{step.label}</span>
-            </button>
-          ))}
         </div>
+        <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-4 pb-3 xl:overflow-visible xl:p-0">
         <form className="mt-4 space-y-3" onSubmit={submitTransaction}>
-          <div className={clsx("xl:block", transactionFormStep === 0 ? "block" : "hidden xl:block")}>
+          <div>
           <SegmentedControl
             options={["Expense", "Income"]}
             active={transactionType === "expense" ? "Expense" : "Income"}
             onChange={(option) => setTransactionType(option === "Income" ? "income" : "expense")}
           />
           </div>
-          <div className={clsx("xl:block", transactionFormStep === 1 ? "block" : "hidden xl:block")}>
+          <div>
           <EditableField label="Nominal" inputMode="numeric" value={amount} placeholder="Rp 125.000" onChange={setAmount} />
           </div>
-          <div className={clsx("space-y-3 xl:block", transactionFormStep === 2 ? "block" : "hidden xl:block")}>
+          <div>
           <CustomSelect
             label="Kategori"
             value={categoryId}
@@ -3230,7 +3234,7 @@ function TransactionsView({
             options={availableCategories.map((category) => ({ value: String(category.id), label: category.name }))}
           />
           </div>
-          <div className={clsx("space-y-3 xl:block", transactionFormStep === 3 ? "block" : "hidden xl:block")}>
+          <div className="space-y-3">
           <EditableField label="Merchant" value={merchant} placeholder="Kopi Kenangan" onChange={setMerchant} />
           <CustomSelect
             label="Akun / Dompet Pembayaran"
@@ -3245,21 +3249,18 @@ function TransactionsView({
               {error || message}
             </div>
           )}
-          <div className="grid grid-cols-2 gap-2 xl:hidden">
-            <button type="button" onClick={() => setTransactionFormStep((step) => Math.max(0, step - 1))} disabled={transactionFormStep === 0} className="rounded-xl bg-slate-100 py-3 text-sm font-black text-slate-600 disabled:opacity-40 dark:bg-white/10 dark:text-slate-100">Back</button>
-            <button type="button" onClick={() => setTransactionFormStep((step) => Math.min(lastTransactionFormStep, step + 1))} disabled={transactionFormStep === lastTransactionFormStep} className="rounded-xl bg-blue-50 py-3 text-sm font-black text-blue-700 disabled:opacity-40 dark:bg-sky-400/10 dark:text-sky-100">Next</button>
-          </div>
           <button
             type="submit"
             disabled={isSavingTransaction}
-            className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-400 via-blue-500 to-blue-700 px-4 py-3.5 text-sm font-black text-white shadow-[0_16px_34px_rgba(37,99,235,0.30)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_42px_rgba(37,99,235,0.38)] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+            className="sticky bottom-0 -mx-4 mt-4 flex w-[calc(100%+2rem)] items-center justify-center gap-2 border-t border-slate-100 bg-gradient-to-r from-sky-400 via-blue-500 to-blue-700 px-4 py-3.5 pb-[calc(14px+env(safe-area-inset-bottom))] text-sm font-black text-white shadow-[0_-12px_34px_rgba(37,99,235,0.16)] transition disabled:cursor-not-allowed disabled:opacity-60 dark:border-sky-400/15 xl:static xl:mx-0 xl:w-full xl:rounded-xl xl:border-0 xl:pb-3.5 xl:shadow-[0_16px_34px_rgba(37,99,235,0.30)]"
           >
             <Plus size={18} />
             {isSavingTransaction ? "Menyimpan..." : editingTransaction ? "Update Transaksi" : "Simpan Transaksi"}
           </button>
         </form>
+        </div>
 
-        <form className="category-form-card mt-5 rounded-[24px] border border-blue-100 bg-gradient-to-br from-blue-50 to-white p-3 shadow-[0_14px_34px_rgba(37,99,235,0.08)] dark:border-sky-400/25 dark:bg-slate-950/90 dark:from-slate-900/95 dark:to-slate-950/95 dark:shadow-[0_18px_44px_rgba(14,165,233,0.10)]" onSubmit={submitCategory}>
+        <form className="category-form-card mx-4 mb-4 mt-2 hidden rounded-[24px] xl:block border border-blue-100 bg-gradient-to-br from-blue-50 to-white p-3 shadow-[0_14px_34px_rgba(37,99,235,0.08)] dark:border-sky-400/25 dark:bg-slate-950/90 dark:from-slate-900/95 dark:to-slate-950/95 dark:shadow-[0_18px_44px_rgba(14,165,233,0.10)]" onSubmit={submitCategory}>
           <p className="text-sm font-black text-taka-ink dark:text-white">Tambah Kategori</p>
           <div className="mt-3 space-y-3">
             <EditableField label="Nama" value={categoryName} placeholder="Contoh: Kosan" onChange={setCategoryName} />
@@ -4191,43 +4192,43 @@ function ChatView({ transactions, sessionReady }: { transactions: Transaction[];
       </section>
 
       {/* Chat area — fills viewport on mobile, fixed height on desktop */}
-      <section className="chat-shell relative flex min-h-0 min-w-0 max-w-full flex-col overflow-hidden rounded-xl border border-white/70 bg-white/88 p-3 shadow-soft backdrop-blur dark:border-sky-400/20 dark:bg-slate-950/78 sm:p-4 xl:h-[620px] xl:min-h-0">
-        <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-2.5 dark:border-sky-400/15">
+      <section className="chat-shell relative flex min-h-0 min-w-0 max-w-full flex-col overflow-hidden rounded-[28px] border border-white/70 bg-white/90 p-3 shadow-soft backdrop-blur dark:border-sky-400/20 dark:bg-slate-950/82 sm:p-4 xl:h-[620px] xl:min-h-0">
+        <div className="flex items-center justify-between gap-3 border-b border-sky-100/80 pb-2.5 dark:border-sky-400/15">
           <div className="flex items-center gap-3">
-            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-taka-navy text-white xl:h-11 xl:w-11">
+            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-sky-400 to-blue-700 text-white shadow-[0_10px_24px_rgba(37,99,235,0.22)] xl:h-11 xl:w-11">
               <Bot size={20} />
             </div>
             <div>
-              <p className="text-sm font-black text-taka-ink xl:text-base">Sesi Mei 2026</p>
-              <p className="text-[11px] font-bold text-blue-600 xl:text-xs">Streaming ready</p>
+              <p className="text-sm font-black text-taka-ink dark:text-white xl:text-base">Taka AI</p>
+              <p className="text-[11px] font-bold text-blue-600 dark:text-sky-300 xl:text-xs">Asisten finansial aktif</p>
             </div>
           </div>
           <button
             type="button"
             onClick={() => setConfirmClear(true)}
             title="Hapus riwayat chat"
-            className="chat-clear-button grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-rose-100 bg-rose-50 text-rose-500 shadow-sm transition hover:bg-rose-100 hover:text-rose-600 active:scale-95 xl:h-10 xl:w-10"
+            className="chat-clear-button grid h-9 w-9 shrink-0 place-items-center rounded-2xl border border-rose-100 bg-rose-50 text-rose-500 shadow-sm transition hover:bg-rose-100 hover:text-rose-600 active:scale-95 dark:border-rose-300/20 dark:bg-rose-400/10 dark:text-rose-200 xl:h-10 xl:w-10"
           >
             <Trash2 size={16} />
           </button>
         </div>
 
         {/* Mobile inline suggested questions — horizontal scroll pills */}
-        <div className="no-scrollbar chat-suggestions-row relative z-10 -mx-3 mb-2 flex shrink-0 gap-2 overflow-x-auto px-3 py-1.5 xl:hidden">
+        <div className="no-scrollbar chat-suggestions-row relative z-10 -mx-1 flex shrink-0 gap-2 overflow-x-auto px-1 py-2 xl:hidden">
           {suggestedQuestions.map((question) => (
             <button
               key={question}
               type="button"
               disabled={isTyping}
               onClick={() => sendMessage(question)}
-              className="chat-suggestion-pill shrink-0 rounded-full border border-sky-200 bg-sky-50 px-3.5 py-2 text-xs font-bold text-sky-700 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="chat-suggestion-pill shrink-0 rounded-full border border-sky-200 bg-sky-50/90 px-3.5 py-2 text-xs font-bold text-sky-700 shadow-sm transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 dark:border-sky-400/20 dark:bg-sky-400/10 dark:text-sky-100"
             >
               {question}
             </button>
           ))}
         </div>
 
-        <div ref={scrollRef} className="no-scrollbar chat-messages-scroll min-h-0 flex-1 space-y-2 overflow-y-auto py-2 scroll-smooth xl:py-4">
+        <div ref={scrollRef} className="no-scrollbar chat-messages-scroll min-h-0 flex-1 space-y-2 overflow-y-auto py-3 scroll-smooth xl:py-4">
           {messages.map((message, index) => (
             <div
               key={`${message.role}-${index}`}
@@ -4238,10 +4239,10 @@ function ChatView({ transactions, sessionReady }: { transactions: Transaction[];
             >
               <div
                 className={clsx(
-                  "max-w-[86%] rounded-xl px-3.5 py-2.5 text-sm font-semibold leading-5",
+                  "max-w-[86%] px-3.5 py-2.5 text-sm font-semibold leading-5 shadow-sm",
                   message.role === "user"
-                    ? "bg-sky-600 text-white"
-                    : "bg-sky-50 text-slate-800 ring-1 ring-sky-100 dark:bg-slate-800/90 dark:text-slate-100 dark:ring-sky-400/15",
+                    ? "rounded-[22px_22px_6px_22px] bg-gradient-to-br from-sky-500 to-blue-700 text-white"
+                    : "rounded-[22px_22px_22px_6px] bg-white text-slate-800 ring-1 ring-sky-100 dark:bg-slate-800/90 dark:text-slate-100 dark:ring-sky-400/15",
                 )}
               >
                 {(() => {
@@ -4269,7 +4270,7 @@ function ChatView({ transactions, sessionReady }: { transactions: Transaction[];
           ))}
           {isTyping && (
             <div className="flex justify-start">
-              <div className="max-w-[86%] rounded-xl bg-sky-50 px-4 py-3 text-sm font-semibold leading-6 text-slate-800 ring-1 ring-sky-100 dark:bg-slate-800/90 dark:text-slate-100 dark:ring-sky-400/15">
+              <div className="max-w-[86%] rounded-[22px_22px_22px_6px] bg-white px-4 py-3 text-sm font-semibold leading-6 text-slate-800 shadow-sm ring-1 ring-sky-100 dark:bg-slate-800/90 dark:text-slate-100 dark:ring-sky-400/15">
                 {typingPreview ? (
                   <span>
                     {typingPreview.split('\n').map((line, j, arr) => [
@@ -4317,7 +4318,7 @@ function ChatView({ transactions, sessionReady }: { transactions: Transaction[];
           </div>
         )}
         <form
-          className="flex gap-2 border-t border-slate-100 pt-2 dark:border-sky-400/15 xl:pt-4"
+          className="flex gap-2 border-t border-sky-100/80 pt-3 dark:border-sky-400/15 xl:pt-4"
           onSubmit={(event) => {
             event.preventDefault();
             sendMessage(draft);
@@ -4327,15 +4328,16 @@ function ChatView({ transactions, sessionReady }: { transactions: Transaction[];
             value={draft}
             disabled={isTyping}
             onChange={(event) => setDraft(event.target.value)}
-            className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-800 outline-none transition focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-sky-400/20 dark:bg-slate-900/80 dark:text-slate-100 dark:placeholder:text-slate-400 dark:focus:border-sky-400 dark:focus:ring-sky-400/10 xl:py-3"
-            placeholder="Tanya kondisi keuanganmu"
+            className="min-w-0 flex-1 rounded-full border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-sky-400/20 dark:bg-slate-900/80 dark:text-slate-100 dark:placeholder:text-slate-400 dark:focus:border-sky-400 dark:focus:ring-sky-400/10"
+            placeholder="Tanya Taka AI…"
           />
           <button 
             type="submit" 
             disabled={isTyping || !draft.trim()} 
-            className="rounded-lg bg-gradient-to-br from-sky-500 to-blue-600 px-4 py-2.5 text-sm font-black text-white shadow-[0_10px_24px_rgba(37,99,235,0.22)] transition disabled:opacity-50 disabled:cursor-not-allowed hover:to-blue-700 xl:py-3"
+            className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-gradient-to-br from-sky-500 to-blue-600 px-0 text-sm font-black text-white shadow-[0_10px_24px_rgba(37,99,235,0.22)] transition hover:to-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+            aria-label="Kirim pesan"
           >
-            Kirim
+            <Send size={18} />
           </button>
         </form>
       </section>

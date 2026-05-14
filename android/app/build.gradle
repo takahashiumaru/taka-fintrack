@@ -18,6 +18,9 @@ android {
     }
     buildTypes {
         release {
+            // Keep release APK directly installable for internal testing.
+            // For Play Store/public distribution, replace this with a private release keystore.
+            signingConfig signingConfigs.debug
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
