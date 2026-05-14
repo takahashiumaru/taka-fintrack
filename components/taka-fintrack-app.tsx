@@ -4405,44 +4405,64 @@ function ReportsView({ analytics, transactions }: { analytics: ReturnType<typeof
         <ReportStat label="Rasio Hemat" value={`${analytics.savingsRatio}%`} icon={ShieldCheck} tone="blue" />
       </section>
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
-        <section className="rounded-xl border border-white/70 bg-white/86 p-4 shadow-soft backdrop-blur">
-          <SectionHeader title="Tren 6 Bulan" action="Bulanan" />
-          <div className="mt-4 h-[340px]">
+        <section className="relative overflow-hidden rounded-[30px] border border-white/75 bg-gradient-to-br from-white/96 via-blue-50/80 to-sky-50/70 p-4 shadow-[0_24px_70px_rgba(37,99,235,0.14)] backdrop-blur-xl dark:border-sky-400/20 dark:from-slate-950/96 dark:via-slate-900/92 dark:to-slate-950/94">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <SectionTitle title="Tren 6 Bulan" eyebrow="cashflow bulanan" />
+            <div className="flex gap-2 text-[11px] font-black">
+              <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-emerald-700 ring-1 ring-emerald-100 dark:bg-emerald-400/12 dark:text-emerald-100 dark:ring-emerald-300/20">Income</span>
+              <span className="rounded-full bg-rose-50 px-3 py-1.5 text-rose-700 ring-1 ring-rose-100 dark:bg-rose-400/12 dark:text-rose-100 dark:ring-rose-300/20">Expense</span>
+            </div>
+          </div>
+          <div className="mt-5 h-[360px] rounded-[26px] bg-white/72 p-2 ring-1 ring-blue-100/70 dark:bg-slate-950/45 dark:ring-sky-400/15 sm:p-4">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={analytics.trend}>
-                <CartesianGrid vertical={false} stroke="#E2E8F0" strokeDasharray="3 3" />
+              <AreaChart data={analytics.trend} margin={{ top: 16, right: 8, left: -18, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="trendIncomeGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#14B8A6" stopOpacity={0.32} />
+                    <stop offset="95%" stopColor="#14B8A6" stopOpacity={0.02} />
+                  </linearGradient>
+                  <linearGradient id="trendExpenseGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#FB7185" stopOpacity={0.28} />
+                    <stop offset="95%" stopColor="#FB7185" stopOpacity={0.01} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid vertical={false} stroke="#DBEAFE" strokeDasharray="4 6" />
                 <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: "#64748B", fontSize: 12, fontWeight: 700 }} />
                 <YAxis axisLine={false} tickLine={false} tick={{ fill: "#94A3B8", fontSize: 11, fontWeight: 700 }} />
                 <Tooltip content={<ChartTooltip suffix=" jt" />} />
-                <Line type="monotone" dataKey="income" name="Income" stroke="#22C55E" strokeWidth={4} dot={{ r: 4, fill: "#22C55E" }} isAnimationActive={false} />
-                <Line type="monotone" dataKey="expense" name="Expense" stroke="#FF6B6B" strokeWidth={4} dot={{ r: 4, fill: "#FF6B6B" }} isAnimationActive={false} />
-              </LineChart>
+                <Area type="monotone" dataKey="income" name="Income" stroke="#14B8A6" strokeWidth={4} fill="url(#trendIncomeGradient)" dot={{ r: 4, fill: "#14B8A6", stroke: "#fff", strokeWidth: 2 }} activeDot={{ r: 6 }} isAnimationActive />
+                <Area type="monotone" dataKey="expense" name="Expense" stroke="#FB7185" strokeWidth={4} fill="url(#trendExpenseGradient)" dot={{ r: 4, fill: "#FB7185", stroke: "#fff", strokeWidth: 2 }} activeDot={{ r: 6 }} isAnimationActive />
+              </AreaChart>
             </ResponsiveContainer>
           </div>
         </section>
 
-        <section className="rounded-xl border border-white/70 bg-white/86 p-4 shadow-soft backdrop-blur">
-          <SectionHeader title="Breakdown" action={currency.format(totalExpense)} />
-          <div className="mt-4 space-y-3">
+        <section className="rounded-[30px] border border-white/75 bg-white/90 p-4 shadow-[0_24px_70px_rgba(37,99,235,0.10)] backdrop-blur-xl dark:border-sky-400/20 dark:bg-slate-950/90">
+          <SectionTitle title="Breakdown" eyebrow={currency.format(totalExpense)} />
+          <div className="mt-5 space-y-3">
             {analytics.categoryBreakdown.map((item) => (
-              <div key={item.name}>
+              <div key={item.name} className="rounded-[22px] bg-blue-50/70 p-3 ring-1 ring-blue-100/70 dark:bg-sky-400/8 dark:ring-sky-400/14">
                 <div className="flex items-center justify-between gap-3 text-sm">
-                  <span className="font-bold text-slate-600">{item.name}</span>
+                  <span className="flex min-w-0 items-center gap-2 font-black text-slate-700 dark:text-slate-100"><span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: item.color }} /> <span className="truncate">{item.name}</span></span>
                   <span className="font-black text-taka-ink">{currency.format(item.amount)}</span>
                 </div>
-                <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
-                  <div className="h-full rounded-full" style={{ width: `${item.value}%`, backgroundColor: item.color }} />
+                <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-white/80 dark:bg-slate-900/90">
+                  <div className="h-full rounded-full transition-[width] duration-700" style={{ width: `${item.value}%`, backgroundColor: item.color }} />
                 </div>
               </div>
             ))}
+            {analytics.categoryBreakdown.length === 0 && <div className="rounded-[24px] bg-blue-50 p-5 text-center text-sm font-bold text-slate-500 dark:bg-slate-950/70 dark:text-slate-300">Belum ada kategori expense bulan ini.</div>}
           </div>
         </section>
       </div>
-      <section className="rounded-xl border border-white/70 bg-white/86 p-4 shadow-soft backdrop-blur">
-        <SectionHeader title="Income vs Expense" action="Harian" />
-        <div className="mt-4 h-[280px]">
+      <section className="rounded-[30px] border border-white/75 bg-gradient-to-br from-white/96 to-blue-50/80 p-4 shadow-[0_24px_70px_rgba(37,99,235,0.12)] backdrop-blur-xl dark:border-sky-400/20 dark:from-slate-950/96 dark:to-slate-900/92">
+        <div className="flex items-center justify-between gap-3">
+          <SectionTitle title="Income vs Expense" eyebrow="harian" />
+          <span className="rounded-full bg-blue-50 px-3 py-1.5 text-[11px] font-black text-blue-700 ring-1 ring-blue-100 dark:bg-sky-400/12 dark:text-sky-100 dark:ring-sky-300/20">7 Hari</span>
+        </div>
+        <div className="mt-5 h-[300px] rounded-[26px] bg-white/72 p-2 ring-1 ring-blue-100/70 dark:bg-slate-950/45 dark:ring-sky-400/15 sm:p-4">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={analytics.weekly}>
+            <AreaChart data={analytics.weekly} margin={{ top: 12, right: 8, left: -18, bottom: 0 }}>
               <defs>
                 <linearGradient id="incomeGradient" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#22C55E" stopOpacity={0.34} />
@@ -4453,12 +4473,12 @@ function ReportsView({ analytics, transactions }: { analytics: ReturnType<typeof
                   <stop offset="95%" stopColor="#FF6B6B" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid vertical={false} stroke="#E2E8F0" strokeDasharray="3 3" />
+              <CartesianGrid vertical={false} stroke="#DBEAFE" strokeDasharray="4 6" />
               <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: "#64748B", fontSize: 12, fontWeight: 700 }} />
               <YAxis axisLine={false} tickLine={false} tick={{ fill: "#94A3B8", fontSize: 11, fontWeight: 700 }} />
               <Tooltip content={<ChartTooltip />} />
-              <Area type="monotone" dataKey="income" name="Income" stroke="#22C55E" strokeWidth={3} fill="url(#incomeGradient)" isAnimationActive={false} />
-              <Area type="monotone" dataKey="expense" name="Expense" stroke="#FF6B6B" strokeWidth={3} fill="url(#expenseGradient)" isAnimationActive={false} />
+              <Area type="monotone" dataKey="income" name="Income" stroke="#14B8A6" strokeWidth={4} fill="url(#incomeGradient)" dot={{ r: 3, fill: "#14B8A6" }} isAnimationActive />
+              <Area type="monotone" dataKey="expense" name="Expense" stroke="#FB7185" strokeWidth={4} fill="url(#expenseGradient)" dot={{ r: 3, fill: "#FB7185" }} isAnimationActive />
             </AreaChart>
           </ResponsiveContainer>
         </div>
