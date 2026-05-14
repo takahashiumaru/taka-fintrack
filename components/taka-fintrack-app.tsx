@@ -4405,17 +4405,22 @@ function ReportsView({ analytics, transactions }: { analytics: ReturnType<typeof
         <ReportStat label="Rasio Hemat" value={`${analytics.savingsRatio}%`} icon={ShieldCheck} tone="blue" />
       </section>
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
-        <section className="relative overflow-hidden rounded-[30px] border border-white/75 bg-gradient-to-br from-white/96 via-blue-50/80 to-sky-50/70 p-4 shadow-[0_24px_70px_rgba(37,99,235,0.14)] backdrop-blur-xl dark:border-sky-400/20 dark:from-slate-950/96 dark:via-slate-900/92 dark:to-slate-950/94">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <SectionTitle title="Tren 6 Bulan" eyebrow="cashflow bulanan" />
+        <section className="relative overflow-hidden rounded-[30px] bg-[#071A33] p-4 text-white shadow-[0_24px_70px_rgba(15,23,42,0.20)] ring-1 ring-sky-400/20">
+          <div className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full bg-sky-400/20 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-28 left-0 h-64 w-64 rounded-full bg-blue-600/18 blur-3xl" />
+          <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-sky-200/80">Cashflow bulanan</p>
+              <h3 className="mt-1 text-xl font-black tracking-tight">Tren 6 Bulan</h3>
+            </div>
             <div className="flex gap-2 text-[11px] font-black">
-              <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-emerald-700 ring-1 ring-emerald-100 dark:bg-emerald-400/12 dark:text-emerald-100 dark:ring-emerald-300/20">Income</span>
-              <span className="rounded-full bg-rose-50 px-3 py-1.5 text-rose-700 ring-1 ring-rose-100 dark:bg-rose-400/12 dark:text-rose-100 dark:ring-rose-300/20">Expense</span>
+              <span className="rounded-full bg-emerald-400/14 px-3 py-1.5 text-emerald-100 ring-1 ring-emerald-300/20">Income</span>
+              <span className="rounded-full bg-rose-400/14 px-3 py-1.5 text-rose-100 ring-1 ring-rose-300/20">Expense</span>
             </div>
           </div>
-          <div className="mt-5 h-[360px] rounded-[26px] bg-white/72 p-2 ring-1 ring-blue-100/70 dark:bg-slate-950/45 dark:ring-sky-400/15 sm:p-4">
+          <div className="relative mt-4 h-[340px] rounded-[24px] bg-white/[0.04] p-1 ring-1 ring-white/10 sm:p-3">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={analytics.trend} margin={{ top: 16, right: 8, left: -18, bottom: 0 }}>
+              <LineChart data={analytics.trend} margin={{ top: 18, right: 10, left: -18, bottom: 0 }}>
                 <defs>
                   <linearGradient id="trendIncomeGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#14B8A6" stopOpacity={0.32} />
@@ -4426,13 +4431,13 @@ function ReportsView({ analytics, transactions }: { analytics: ReturnType<typeof
                     <stop offset="95%" stopColor="#FB7185" stopOpacity={0.01} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid vertical={false} stroke="#DBEAFE" strokeDasharray="4 6" />
-                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: "#64748B", fontSize: 12, fontWeight: 700 }} />
+                <CartesianGrid vertical={false} stroke="rgba(148, 163, 184, 0.18)" strokeDasharray="4 8" />
+                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: "#BAE6FD", fontSize: 12, fontWeight: 800 }} />
                 <YAxis axisLine={false} tickLine={false} tick={{ fill: "#94A3B8", fontSize: 11, fontWeight: 700 }} />
                 <Tooltip content={<ChartTooltip suffix=" jt" />} />
-                <Area type="monotone" dataKey="income" name="Income" stroke="#14B8A6" strokeWidth={4} fill="url(#trendIncomeGradient)" dot={{ r: 4, fill: "#14B8A6", stroke: "#fff", strokeWidth: 2 }} activeDot={{ r: 6 }} isAnimationActive />
-                <Area type="monotone" dataKey="expense" name="Expense" stroke="#FB7185" strokeWidth={4} fill="url(#trendExpenseGradient)" dot={{ r: 4, fill: "#FB7185", stroke: "#fff", strokeWidth: 2 }} activeDot={{ r: 6 }} isAnimationActive />
-              </AreaChart>
+                <Line type="monotone" dataKey="income" name="Income" stroke="#22D3EE" strokeWidth={4} dot={{ r: 4, fill: "#22D3EE", stroke: "#071A33", strokeWidth: 2 }} activeDot={{ r: 7 }} isAnimationActive />
+                <Line type="monotone" dataKey="expense" name="Expense" stroke="#FB7185" strokeWidth={4} dot={{ r: 4, fill: "#FB7185", stroke: "#071A33", strokeWidth: 2 }} activeDot={{ r: 7 }} isAnimationActive />
+              </LineChart>
             </ResponsiveContainer>
           </div>
         </section>
@@ -4455,12 +4460,16 @@ function ReportsView({ analytics, transactions }: { analytics: ReturnType<typeof
           </div>
         </section>
       </div>
-      <section className="rounded-[30px] border border-white/75 bg-gradient-to-br from-white/96 to-blue-50/80 p-4 shadow-[0_24px_70px_rgba(37,99,235,0.12)] backdrop-blur-xl dark:border-sky-400/20 dark:from-slate-950/96 dark:to-slate-900/92">
-        <div className="flex items-center justify-between gap-3">
-          <SectionTitle title="Income vs Expense" eyebrow="harian" />
-          <span className="rounded-full bg-blue-50 px-3 py-1.5 text-[11px] font-black text-blue-700 ring-1 ring-blue-100 dark:bg-sky-400/12 dark:text-sky-100 dark:ring-sky-300/20">7 Hari</span>
+      <section className="relative overflow-hidden rounded-[30px] bg-[#071A33] p-4 text-white shadow-[0_24px_70px_rgba(15,23,42,0.20)] ring-1 ring-sky-400/20">
+        <div className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full bg-cyan-400/18 blur-3xl" />
+        <div className="relative flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-sky-200/80">Harian</p>
+            <h3 className="mt-1 text-xl font-black tracking-tight">Income vs Expense</h3>
+          </div>
+          <span className="rounded-full bg-white/10 px-3 py-1.5 text-[11px] font-black text-sky-100 ring-1 ring-white/14">7 Hari</span>
         </div>
-        <div className="mt-5 h-[300px] rounded-[26px] bg-white/72 p-2 ring-1 ring-blue-100/70 dark:bg-slate-950/45 dark:ring-sky-400/15 sm:p-4">
+        <div className="relative mt-4 h-[300px] rounded-[24px] bg-white/[0.04] p-1 ring-1 ring-white/10 sm:p-3">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={analytics.weekly} margin={{ top: 12, right: 8, left: -18, bottom: 0 }}>
               <defs>
@@ -4473,11 +4482,11 @@ function ReportsView({ analytics, transactions }: { analytics: ReturnType<typeof
                   <stop offset="95%" stopColor="#FF6B6B" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid vertical={false} stroke="#DBEAFE" strokeDasharray="4 6" />
-              <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: "#64748B", fontSize: 12, fontWeight: 700 }} />
+              <CartesianGrid vertical={false} stroke="rgba(148, 163, 184, 0.18)" strokeDasharray="4 8" />
+              <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: "#BAE6FD", fontSize: 12, fontWeight: 800 }} />
               <YAxis axisLine={false} tickLine={false} tick={{ fill: "#94A3B8", fontSize: 11, fontWeight: 700 }} />
               <Tooltip content={<ChartTooltip />} />
-              <Area type="monotone" dataKey="income" name="Income" stroke="#14B8A6" strokeWidth={4} fill="url(#incomeGradient)" dot={{ r: 3, fill: "#14B8A6" }} isAnimationActive />
+              <Area type="monotone" dataKey="income" name="Income" stroke="#22D3EE" strokeWidth={4} fill="url(#incomeGradient)" dot={{ r: 3, fill: "#22D3EE" }} isAnimationActive />
               <Area type="monotone" dataKey="expense" name="Expense" stroke="#FB7185" strokeWidth={4} fill="url(#expenseGradient)" dot={{ r: 3, fill: "#FB7185" }} isAnimationActive />
             </AreaChart>
           </ResponsiveContainer>
