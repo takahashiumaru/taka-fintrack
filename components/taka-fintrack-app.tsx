@@ -2412,8 +2412,6 @@ function HeroBalance({ analytics, transactions, onNavigate }: { analytics: Retur
 
   return (
     <section className="relative overflow-hidden rounded-[26px] bg-[#F8FAFC] p-3 shadow-[0_24px_70px_rgba(37,99,235,0.13)] ring-1 ring-[#DBEAFE] sm:rounded-[34px] sm:p-6 lg:p-7">
-      <div className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-[#60A5FA]/35 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-24 left-10 h-72 w-72 rounded-full bg-[#39C7A5]/18 blur-3xl" />
       <div className="relative grid gap-5 lg:grid-cols-[minmax(0,1fr)_390px]">
         <div className="space-y-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -2467,8 +2465,6 @@ function SummaryGrid({ analytics }: { analytics: ReturnType<typeof getFinanceAna
           key={card.label}
           className="group relative min-w-[76vw] snap-start overflow-hidden rounded-[26px] border border-blue-100/80 bg-gradient-to-br from-white via-blue-50/60 to-slate-100 p-4 shadow-[0_18px_42px_rgba(37,99,235,0.10)] transition hover:-translate-y-1 hover:shadow-[0_24px_56px_rgba(37,99,235,0.15)] dark:border-transparent dark:bg-[#061427] dark:bg-none dark:shadow-[inset_0_1px_0_rgba(14,165,233,0.08),0_20px_52px_rgba(2,6,23,0.45)] md:min-w-0 md:rounded-[32px] md:p-5"
         >
-          <div className={clsx("pointer-events-none absolute -right-12 -top-14 h-32 w-32 rounded-full blur-2xl", card.glow)} />
-          <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-sky-300/40 to-transparent dark:via-sky-300/16" />
           <div className="relative flex items-start justify-between gap-3">
             <div className={clsx("grid h-14 w-14 place-items-center rounded-[22px] bg-gradient-to-br text-white shadow-[0_16px_34px_rgba(14,165,233,0.20)] ring-1 ring-white/25 dark:ring-0 dark:shadow-[0_18px_38px_rgba(14,165,233,0.22)]", card.iconClass)}>
               <card.icon size={24} strokeWidth={2.7} />
