@@ -2979,7 +2979,7 @@ function TransactionsView({
 
   function startEditTransaction(transaction: Transaction) {
     setEditingTransaction(transaction);
-    setShowMobileTransactionSheet(true);
+    window.setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" }), 30);
     setTransactionType(transaction.type);
     setAmount(String(transaction.amount));
     setMerchant(transaction.merchant);
@@ -3165,7 +3165,7 @@ function TransactionsView({
 
         <div className="mt-3 flex items-center justify-between gap-2">
           <p className="text-xs font-bold text-slate-400">{filteredTransactions.length} transaksi</p>
-          <button type="button" onClick={() => { cancelEditTransaction(); setShowMobileTransactionSheet(true); }} className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-sky-400 to-blue-700 px-3 py-2 text-xs font-black text-white shadow-[0_10px_22px_rgba(37,99,235,0.24)] active:scale-95 xl:hidden">
+          <button type="button" onClick={() => { cancelEditTransaction(); window.setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" }), 30); }} className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-sky-400 to-blue-700 px-3 py-2 text-xs font-black text-white shadow-[0_10px_22px_rgba(37,99,235,0.24)] active:scale-95 xl:hidden">
             <Plus size={14} /> Tambah
           </button>
         </div>
@@ -3196,25 +3196,18 @@ function TransactionsView({
         </div>
       </section>
 
-      {(showMobileTransactionSheet || editingTransaction) && (
-        <button
-          type="button"
-          aria-label="Tutup form transaksi"
-          onClick={() => { cancelEditTransaction(); setShowMobileTransactionSheet(false); }}
-          className="fixed inset-0 z-[1540] bg-slate-950/45 backdrop-blur-sm xl:hidden"
-        />
-      )}
-      <section className={clsx("transaction-form-sheet min-w-0 rounded-[28px] border border-white/70 bg-white/95 p-0 shadow-soft backdrop-blur dark:border-sky-400/20 dark:bg-slate-950/95 sm:p-0", "fixed inset-x-0 bottom-0 z-[1550] flex max-h-[86dvh] flex-col overflow-hidden rounded-b-none border-x-0 border-b-0 transition-transform duration-300 xl:static xl:max-h-none xl:overflow-visible xl:rounded-[28px] xl:border xl:p-4", showMobileTransactionSheet || editingTransaction ? "translate-y-0" : "translate-y-[110%] xl:translate-y-0")}>
-        <div className="sticky top-0 z-10 bg-white/96 px-4 pb-3 pt-3 backdrop-blur-xl dark:bg-slate-950/96 xl:static xl:bg-transparent xl:p-0 xl:backdrop-blur-none">
-        <div className="mx-auto mb-3 h-1.5 w-14 rounded-full bg-slate-300 xl:hidden" />
+      <section className="transaction-form-sheet min-w-0 rounded-[28px] border border-white/70 bg-white/95 p-4 shadow-soft backdrop-blur dark:border-sky-400/20 dark:bg-slate-950/95">
+        <div>
         <div className="flex items-start justify-between gap-3">
           <SectionTitle title={editingTransaction ? "Edit Transaksi" : "Tambah Transaksi"} eyebrow={editingTransaction ? "ubah data" : "catat income/expense"} />
-          <button type="button" onClick={() => { cancelEditTransaction(); setShowMobileTransactionSheet(false); }} className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-black text-slate-600 transition hover:bg-slate-200 dark:bg-white/10 dark:text-slate-100">
-            {editingTransaction ? "Batal" : "Tutup"}
-          </button>
+          {editingTransaction && (
+            <button type="button" onClick={cancelEditTransaction} className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-black text-slate-600 transition hover:bg-slate-200 dark:bg-white/10 dark:text-slate-100">
+              Batal
+            </button>
+          )}
         </div>
         </div>
-        <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-4 pb-3 xl:overflow-visible xl:p-0">
+        <div>
         <form className="mt-4 space-y-3" onSubmit={submitTransaction}>
           <div>
           <SegmentedControl
@@ -3252,7 +3245,7 @@ function TransactionsView({
           <button
             type="submit"
             disabled={isSavingTransaction}
-            className="sticky bottom-0 -mx-4 mt-4 flex w-[calc(100%+2rem)] items-center justify-center gap-2 border-t border-slate-100 bg-gradient-to-r from-sky-400 via-blue-500 to-blue-700 px-4 py-3.5 pb-[calc(14px+env(safe-area-inset-bottom))] text-sm font-black text-white shadow-[0_-12px_34px_rgba(37,99,235,0.16)] transition disabled:cursor-not-allowed disabled:opacity-60 dark:border-sky-400/15 xl:static xl:mx-0 xl:w-full xl:rounded-xl xl:border-0 xl:pb-3.5 xl:shadow-[0_16px_34px_rgba(37,99,235,0.30)]"
+            className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-400 via-blue-500 to-blue-700 px-4 py-3.5 text-sm font-black text-white shadow-[0_16px_34px_rgba(37,99,235,0.30)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_42px_rgba(37,99,235,0.38)] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
           >
             <Plus size={18} />
             {isSavingTransaction ? "Menyimpan..." : editingTransaction ? "Update Transaksi" : "Simpan Transaksi"}
@@ -3260,7 +3253,7 @@ function TransactionsView({
         </form>
         </div>
 
-        <form className="category-form-card mx-4 mb-4 mt-2 hidden rounded-[24px] xl:block border border-blue-100 bg-gradient-to-br from-blue-50 to-white p-3 shadow-[0_14px_34px_rgba(37,99,235,0.08)] dark:border-sky-400/25 dark:bg-slate-950/90 dark:from-slate-900/95 dark:to-slate-950/95 dark:shadow-[0_18px_44px_rgba(14,165,233,0.10)]" onSubmit={submitCategory}>
+        <form className="category-form-card mt-5 rounded-[24px] border border-blue-100 bg-gradient-to-br from-blue-50 to-white p-3 shadow-[0_14px_34px_rgba(37,99,235,0.08)] dark:border-sky-400/25 dark:bg-slate-950/90 dark:from-slate-900/95 dark:to-slate-950/95 dark:shadow-[0_18px_44px_rgba(14,165,233,0.10)]" onSubmit={submitCategory}>
           <p className="text-sm font-black text-taka-ink dark:text-white">Tambah Kategori</p>
           <div className="mt-3 space-y-3">
             <EditableField label="Nama" value={categoryName} placeholder="Contoh: Kosan" onChange={setCategoryName} />
