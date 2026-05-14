@@ -1204,18 +1204,23 @@ export function TakaFinTrackApp() {
   }, [sessionReady]);
 
   const canUsePullToRefresh = sessionReady && !isAuthChecking && !showSplash && dataStatus !== "loading";
-  const pullProgress = Math.min(1, pullDistance / 96);
-  const pullLabel = isPullRefreshing ? "Memuat ulang data..." : pullDistance > 96 ? "Lepas untuk refresh" : "Tarik untuk refresh";
+  const pullRefreshThreshold = 56;
+  const pullProgress = Math.min(1, pullDistance / pullRefreshThreshold);
+  const pullLabel = isPullRefreshing ? "Memuat ulang data..." : pullDistance > pullRefreshThreshold ? "Lepas untuk refresh" : "Tarik untuk refresh";
 
   const handlePullStart = useCallback((event: ReactTouchEvent<HTMLElement>) => {
-    if (!canUsePullToRefresh || event.touches.length !== 1 || window.scrollY > 0) return;
+    const chatScroller = activeView === "chat" ? document.querySelector<HTMLElement>(".chat-messages-scroll") : null;
+    const isAtTop = activeView === "chat" ? (chatScroller?.scrollTop ?? 0) <= 2 : window.scrollY <= 2;
+    if (!canUsePullToRefresh || event.touches.length !== 1 || !isAtTop) return;
     pullStartYRef.current = event.touches[0].clientY;
     isPullingRef.current = false;
-  }, [canUsePullToRefresh]);
+  }, [activeView, canUsePullToRefresh]);
 
   const handlePullMove = useCallback((event: ReactTouchEvent<HTMLElement>) => {
     if (pullStartYRef.current === null || isPullRefreshing) return;
-    if (window.scrollY > 0) {
+    const chatScroller = activeView === "chat" ? document.querySelector<HTMLElement>(".chat-messages-scroll") : null;
+    const isStillAtTop = activeView === "chat" ? (chatScroller?.scrollTop ?? 0) <= 2 : window.scrollY <= 2;
+    if (!isStillAtTop) {
       pullStartYRef.current = null;
       isPullingRef.current = false;
       setPullDistance(0);
@@ -1229,8 +1234,9 @@ export function TakaFinTrackApp() {
     }
 
     isPullingRef.current = true;
+    event.preventDefault();
     setPullDistance(Math.min(128, delta * 0.45));
-  }, [isPullRefreshing]);
+  }, [activeView, isPullRefreshing]);
 
   const handlePullEnd = useCallback(async () => {
     if (!isPullingRef.current) {
@@ -1238,7 +1244,7 @@ export function TakaFinTrackApp() {
       return;
     }
 
-    const shouldRefresh = pullDistance > 96 && !isPullRefreshing;
+    const shouldRefresh = pullDistance > pullRefreshThreshold && !isPullRefreshing;
     pullStartYRef.current = null;
     isPullingRef.current = false;
 
@@ -1257,7 +1263,7 @@ export function TakaFinTrackApp() {
         setPullDistance(0);
       }, 260);
     }
-  }, [isPullRefreshing, pullDistance, refreshFinanceData]);
+  }, [isPullRefreshing, pullDistance, pullRefreshThreshold, refreshFinanceData]);
 
   const loadMoreTransactions = useCallback(async () => {
     if (!sessionReady || isLoadingMoreTransactions || !transactionsPagination.hasMore || !transactionsPagination.nextPage) return;
@@ -1447,7 +1453,7 @@ export function TakaFinTrackApp() {
             className="flex items-center gap-2 rounded-full border border-white/70 bg-white/92 px-4 py-2 text-xs font-black text-blue-700 shadow-[0_16px_36px_rgba(37,99,235,0.20)] backdrop-blur-xl dark:border-sky-400/20 dark:bg-slate-950/90 dark:text-sky-100"
             style={{ transform: `translateY(${Math.min(38, pullDistance * 0.24)}px)`, opacity: Math.max(0.35, pullProgress) }}
           >
-            <RefreshCw size={15} className={clsx("transition-transform", isPullRefreshing ? "animate-spin" : pullDistance > 96 ? "rotate-180" : "rotate-0")} />
+            <RefreshCw size={15} className={clsx("transition-transform", isPullRefreshing ? "animate-spin" : pullDistance > pullRefreshThreshold ? "rotate-180" : "rotate-0")} />
             <span>{pullLabel}</span>
           </div>
         </div>

@@ -466,19 +466,16 @@ button {
   isolation: isolate;
 }
 
-.chat-suggestions-row::after {
-  content: "";
-  position: sticky;
-  right: -1px;
-  width: 18px;
-  flex: 0 0 18px;
-  margin-left: -18px;
-  pointer-events: none;
-  background: transparent;
+.chat-suggestions-row::after,
+.chat-shell::before,
+.chat-shell::after {
+  content: none !important;
+  display: none !important;
 }
 
-:root[data-theme="dark"] .chat-suggestions-row::after {
-  background: transparent;
+.chat-shell {
+  overflow: hidden;
+  clip-path: inset(0 round 28px);
 }
 
 .chat-suggestion-button,
