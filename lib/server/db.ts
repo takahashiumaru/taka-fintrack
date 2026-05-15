@@ -79,6 +79,13 @@ async function createSchema() {
       transaction_date DATETIME NULL,
       source ENUM('Manual','Scan') NOT NULL DEFAULT 'Manual',
       payment_account VARCHAR(80) NOT NULL DEFAULT 'Cash',
+      receipt_total_amount DECIMAL(14,2) NULL,
+      receipt_selected_amount DECIMAL(14,2) NULL,
+      receipt_split_mode ENUM('full_receipt','selected_items') NOT NULL DEFAULT 'full_receipt',
+      receipt_items_json JSON NULL,
+      receipt_selected_items_json JSON NULL,
+      receipt_adjustment_amount DECIMAL(14,2) NULL,
+      receipt_adjustment_note VARCHAR(190) NULL,
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       PRIMARY KEY (id),
@@ -92,6 +99,13 @@ async function createSchema() {
 
   await addColumnIfMissing("transactions", "category_id", "ADD COLUMN category_id BIGINT UNSIGNED NULL AFTER user_id");
   await addColumnIfMissing("transactions", "payment_account", "ADD COLUMN payment_account VARCHAR(80) NOT NULL DEFAULT 'Cash' AFTER source");
+  await addColumnIfMissing("transactions", "receipt_total_amount", "ADD COLUMN receipt_total_amount DECIMAL(14,2) NULL AFTER payment_account");
+  await addColumnIfMissing("transactions", "receipt_selected_amount", "ADD COLUMN receipt_selected_amount DECIMAL(14,2) NULL AFTER receipt_total_amount");
+  await addColumnIfMissing("transactions", "receipt_split_mode", "ADD COLUMN receipt_split_mode ENUM('full_receipt','selected_items') NOT NULL DEFAULT 'full_receipt' AFTER receipt_selected_amount");
+  await addColumnIfMissing("transactions", "receipt_items_json", "ADD COLUMN receipt_items_json JSON NULL AFTER receipt_split_mode");
+  await addColumnIfMissing("transactions", "receipt_selected_items_json", "ADD COLUMN receipt_selected_items_json JSON NULL AFTER receipt_items_json");
+  await addColumnIfMissing("transactions", "receipt_adjustment_amount", "ADD COLUMN receipt_adjustment_amount DECIMAL(14,2) NULL AFTER receipt_selected_items_json");
+  await addColumnIfMissing("transactions", "receipt_adjustment_note", "ADD COLUMN receipt_adjustment_note VARCHAR(190) NULL AFTER receipt_adjustment_amount");
   await addIndexIfMissing("transactions", "transactions_category_id_idx", "ADD INDEX transactions_category_id_idx (category_id)");
   await addIndexIfMissing("transactions", "transactions_date_idx", "ADD INDEX transactions_date_idx (transaction_date)");
   await addIndexIfMissing(

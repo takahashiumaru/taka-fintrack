@@ -197,9 +197,9 @@ export async function POST(req: NextRequest) {
 
 Analisis teks hasil OCR dan/atau gambar struk berikut. Jika gambar tersedia, prioritaskan gambar karena OCR bisa salah atau kosong. Tentukan apakah ini struk transaksi atau bukan.
 
-Jika ini struk transaksi, ambil data penting seperti nama toko, tanggal, waktu, daftar barang, jumlah, harga, subtotal, diskon, pajak, total akhir, metode pembayaran, dan akun/dompet pembayaran yang dipakai.
+Jika ini struk transaksi, ambil data penting seperti nama toko, tanggal, waktu, daftar barang, jumlah, harga, subtotal, diskon, pajak, total akhir, metode pembayaran, dan akun/dompet pembayaran yang dipakai. Fokus utama: ekstrak SEMUA line item pembelian agar user bisa memilih item miliknya dari struk bersama.
 
-Jika data tidak tersedia, isi dengan null. Jangan mengarang data. Harga harus berupa angka integer tanpa titik atau koma. Kembalikan hanya JSON valid tanpa penjelasan tambahan.
+Jika data tidak tersedia, isi dengan null. Jangan mengarang data. Harga harus berupa angka integer tanpa titik atau koma. Jangan masukkan baris SUBTOTAL/TOTAL/PPN/PAJAK/DISKON/ADMIN/PEMBAYARAN/KEMBALIAN sebagai item. Untuk setiap item, quantity = jumlah barang, unit_price = harga per unit, total_price = total baris item. Jika hanya total baris terlihat, isi total_price dan hitung unit_price bila quantity jelas. Kembalikan hanya JSON valid tanpa penjelasan tambahan.
 
 Format output wajib:
 

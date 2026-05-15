@@ -4,6 +4,7 @@ import { getAuthenticatedUser, normalizeString } from "@/lib/server/auth";
 import { ensureUserCategories, type CategoryRow } from "@/lib/server/categories";
 import { ensureSchema, getPool } from "@/lib/server/db";
 import { apiError, readJson } from "@/lib/server/http";
+import { normalizeReceiptMetadata, parseJsonArray } from "@/lib/server/receipt-metadata";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,6 +20,13 @@ type TransactionRow = RowDataPacket & {
   transaction_date: string | null;
   source: "Manual" | "Scan";
   payment_account: string;
+  receipt_total_amount: number | null;
+  receipt_selected_amount: number | null;
+  receipt_split_mode: "full_receipt" | "selected_items";
+  receipt_items_json: string | null;
+  receipt_selected_items_json: string | null;
+  receipt_adjustment_amount: number | null;
+  receipt_adjustment_note: string | null;
   created_at: string;
 };
 
@@ -48,6 +56,13 @@ export async function GET(request: Request) {
         t.transaction_date,
         t.source,
         t.payment_account,
+        t.receipt_total_amount,
+        t.receipt_selected_amount,
+        t.receipt_split_mode,
+        t.receipt_items_json,
+        t.receipt_selected_items_json,
+        t.receipt_adjustment_amount,
+        t.receipt_adjustment_note,
         t.created_at
       FROM transactions t
       LEFT JOIN categories c
@@ -94,6 +109,10 @@ export async function POST(request: Request) {
   if (!Number.isFinite(amount) || amount <= 0) return apiError("Nominal belum valid.");
   if (!type) return apiError("Tipe transaksi belum valid.");
 
+  const receiptResult = normalizeReceiptMetadata(body, amount);
+  if (receiptResult.error || !receiptResult.metadata) return apiError(receiptResult.error || "Metadata struk belum valid.");
+  const receiptMetadata = receiptResult.metadata;
+
   await ensureSchema();
   await ensureUserCategories(user.id);
 
@@ -122,10 +141,10 @@ export async function POST(request: Request) {
 
   const [result] = await pool.execute<ResultSetHeader>(
     `
-      INSERT INTO transactions (user_id, category_id, merchant, category, amount, type, transaction_date, source, payment_account)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO transactions (user_id, category_id, merchant, category, amount, type, transaction_date, source, payment_account, receipt_total_amount, receipt_selected_amount, receipt_split_mode, receipt_items_json, receipt_selected_items_json, receipt_adjustment_amount, receipt_adjustment_note)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
-    [user.id, resolvedCategoryId, merchant, categoryName, Math.round(amount), type, transactionDate, source, paymentAccount],
+    [user.id, resolvedCategoryId, merchant, categoryName, Math.round(amount), type, transactionDate, source, paymentAccount, receiptMetadata.receiptTotalAmount, receiptMetadata.receiptSelectedAmount, receiptMetadata.receiptSplitMode, receiptMetadata.receiptItemsJson, receiptMetadata.receiptSelectedItemsJson, receiptMetadata.receiptAdjustmentAmount, receiptMetadata.receiptAdjustmentNote],
   );
   const [rows] = await pool.execute<TransactionRow[]>(
     `
@@ -140,6 +159,13 @@ export async function POST(request: Request) {
         t.transaction_date,
         t.source,
         t.payment_account,
+        t.receipt_total_amount,
+        t.receipt_selected_amount,
+        t.receipt_split_mode,
+        t.receipt_items_json,
+        t.receipt_selected_items_json,
+        t.receipt_adjustment_amount,
+        t.receipt_adjustment_note,
         t.created_at
       FROM transactions t
       LEFT JOIN categories c
@@ -166,6 +192,13 @@ function toTransaction(row: TransactionRow) {
     transactionDate: row.transaction_date,
     source: row.source,
     paymentAccount: row.payment_account || "Cash",
+    receiptSplitMode: row.receipt_split_mode || "full_receipt",
+    receiptTotalAmount: row.receipt_total_amount === null ? null : Number(row.receipt_total_amount),
+    receiptSelectedAmount: row.receipt_selected_amount === null ? null : Number(row.receipt_selected_amount),
+    receiptItems: parseJsonArray(row.receipt_items_json),
+    receiptSelectedItems: parseJsonArray(row.receipt_selected_items_json),
+    receiptAdjustmentAmount: row.receipt_adjustment_amount === null ? null : Number(row.receipt_adjustment_amount),
+    receiptAdjustmentNote: row.receipt_adjustment_note,
     createdAt: row.created_at,
   };
 }
