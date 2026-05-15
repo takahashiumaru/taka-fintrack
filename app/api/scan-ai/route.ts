@@ -10,6 +10,21 @@ const maxRawTextLength = 12_000;
 const maxImageDataLength = 8_000_000;
 const maxRequestsPerMinute = 10;
 const aiTimeoutMs = 30_000;
+const maxMoneyAmount = 1_000_000_000;
+const allowedCategories = new Set([
+  "Makanan & Minuman",
+  "Belanja Bulanan",
+  "Transportasi",
+  "Tagihan & Utilitas",
+  "Hiburan",
+  "Kesehatan",
+  "Gaji / Pendapatan",
+  "Bonus",
+  "Investasi",
+]);
+const allowedPaymentAccounts = new Set([
+  "Cash", "QRIS", "BCA", "BNI", "BRI", "Mandiri", "BSI", "CIMB Niaga", "PermataBank", "Danamon", "Bank Jago", "Krom Bank", "Jenius", "SeaBank", "blu by BCA Digital", "Bank Neo Commerce", "Allo Bank", "Bank Saqu", "LINE Bank", "Superbank", "GoPay", "OVO", "DANA", "ShopeePay", "LinkAja", "AstraPay", "Sakuku", "i.saku", "Kartu Kredit", "Kartu Debit", "Transfer Bank", "Lainnya",
+]);
 
 type ScanItem = {
   name: string | null;
@@ -50,6 +65,62 @@ function asNullableNumber(value: unknown) {
   return null;
 }
 
+function clampMoney(value: unknown) {
+  const parsed = asNullableNumber(value);
+  if (parsed === null) return null;
+
+  return Math.min(maxMoneyAmount, Math.max(0, Math.round(parsed)));
+}
+
+function clampQuantity(value: unknown) {
+  const parsed = asNullableNumber(value);
+  if (parsed === null) return null;
+
+  return Math.min(10_000, Math.max(0, parsed));
+}
+
+function normalizeIsoDate(value: unknown) {
+  const text = asNullableString(value);
+  if (!text) return null;
+
+  const yyyyMmDd = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (yyyyMmDd) {
+    const date = new Date(`${text}T00:00:00Z`);
+    return Number.isNaN(date.getTime()) ? null : text;
+  }
+
+  const parsed = new Date(text);
+  if (Number.isNaN(parsed.getTime())) return null;
+
+  return parsed.toISOString().slice(0, 10);
+}
+
+function normalizeTime(value: unknown) {
+  const text = asNullableString(value);
+  if (!text) return null;
+
+  const match = text.match(/^(\d{1,2}):(\d{2})(?::\d{2})?/);
+  if (!match) return null;
+
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (hour > 23 || minute > 59) return null;
+
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
+function normalizeAllowedString(value: unknown, allowed: Set<string>) {
+  const text = asNullableString(value);
+  if (!text) return null;
+
+  let exact: string | null = null;
+  allowed.forEach((candidate) => {
+    if (!exact && candidate.toLowerCase() === text.toLowerCase()) exact = candidate;
+  });
+
+  return exact;
+}
+
 function normalizeScanResult(value: unknown, rawText: string): ScanResult | null {
   if (!value || typeof value !== "object") return null;
 
@@ -58,33 +129,37 @@ function normalizeScanResult(value: unknown, rawText: string): ScanResult | null
   const items = Array.isArray(input.items)
     ? input.items.slice(0, 40).map((item) => {
         const row = item && typeof item === "object" ? item as Record<string, unknown> : {};
+        const quantity = clampQuantity(row.quantity);
+        const unitPrice = clampMoney(row.unit_price);
+        const totalPrice = clampMoney(row.total_price);
 
         return {
-          name: asNullableString(row.name),
-          quantity: asNullableNumber(row.quantity),
-          unit_price: asNullableNumber(row.unit_price),
-          total_price: asNullableNumber(row.total_price),
+          name: asNullableString(row.name)?.slice(0, 120) ?? null,
+          quantity,
+          unit_price: unitPrice,
+          total_price: totalPrice ?? (quantity && unitPrice ? clampMoney(quantity * unitPrice) : null),
         };
       }).filter((item) => item.name || item.quantity || item.unit_price || item.total_price)
     : [];
   const confidence = asNullableNumber(input.confidence);
+  const currency = asNullableString(input.currency)?.toUpperCase();
 
   return {
     is_transaction: isTransaction,
-    merchant: asNullableString(input.merchant),
-    transaction_date: asNullableString(input.transaction_date),
-    transaction_time: asNullableString(input.transaction_time),
+    merchant: asNullableString(input.merchant)?.slice(0, 160) ?? null,
+    transaction_date: normalizeIsoDate(input.transaction_date),
+    transaction_time: normalizeTime(input.transaction_time),
     items: isTransaction ? items : [],
-    subtotal: asNullableNumber(input.subtotal),
-    discount: asNullableNumber(input.discount),
-    tax: asNullableNumber(input.tax),
-    grand_total: asNullableNumber(input.grand_total),
-    payment_method: asNullableString(input.payment_method),
-    payment_account: asNullableString(input.payment_account),
-    currency: asNullableString(input.currency) || "IDR",
+    subtotal: clampMoney(input.subtotal),
+    discount: clampMoney(input.discount),
+    tax: clampMoney(input.tax),
+    grand_total: clampMoney(input.grand_total),
+    payment_method: asNullableString(input.payment_method)?.slice(0, 80) ?? null,
+    payment_account: normalizeAllowedString(input.payment_account, allowedPaymentAccounts),
+    currency: currency === "IDR" ? "IDR" : "IDR",
     confidence: Math.max(0, Math.min(1, confidence ?? 0)),
-    raw_text: asNullableString(input.raw_text) || rawText,
-    category_suggestion: asNullableString(input.category_suggestion),
+    raw_text: (asNullableString(input.raw_text) || rawText).slice(0, maxRawTextLength),
+    category_suggestion: normalizeAllowedString(input.category_suggestion, allowedCategories),
   };
 }
 

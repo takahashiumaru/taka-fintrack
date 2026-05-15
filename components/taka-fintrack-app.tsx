@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent, TouchEvent as ReactTouchEvent } from "react";
 import { createPortal } from "react-dom";
 import clsx from "clsx";
+import { authStorageKey, clearStoredAuthTokenFallback } from "@/lib/client/session-storage";
 import type { LucideIcon } from "lucide-react";
 import {
   ArrowDownRight,
@@ -262,8 +263,6 @@ type ThemeMode = "light" | "dark";
 
 const viewStorageKey = "taka-fintrack.active-view";
 const themeStorageKey = "taka-fintrack.theme";
-const authStorageKey = "taka-fintrack.auth-user";
-const authTokenStorageKey = "taka-fintrack.auth-token-session-fallback";
 const chatHistoryStorageKey = "taka-fintrack.chat-history";
 const forgotPasswordCooldownStorageKey = "taka-fintrack.forgot-password-cooldown-until";
 const forgotPasswordCooldownSeconds = 60;
@@ -436,15 +435,6 @@ function getStoredUser() {
 async function apiRequest<T>(url: string, init: RequestInit = {}) {
   const headers = new Headers(init.headers);
 
-  if (!headers.has("Authorization") && typeof window !== "undefined") {
-    try {
-      const token = window.sessionStorage.getItem(authTokenStorageKey);
-      if (token) headers.set("Authorization", `Bearer ${token}`);
-    } catch {
-      // Ignore private browsing/storage restrictions.
-    }
-  }
-
   if (!headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
@@ -544,6 +534,20 @@ function getFullMonthLabel(date: Date) {
   return new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric" }).format(date);
 }
 
+function getShortDateLabel(date: Date) {
+  return new Intl.DateTimeFormat("id-ID", { day: "2-digit", month: "short" }).format(date);
+}
+
+function getStartOfWeekMonday(date: Date) {
+  const start = new Date(date);
+  start.setHours(0, 0, 0, 0);
+  const day = start.getDay();
+  const daysSinceMonday = day === 0 ? 6 : day - 1;
+  start.setDate(start.getDate() - daysSinceMonday);
+
+  return start;
+}
+
 function getSoftColor(color: string) {
   if (/^#[0-9A-Fa-f]{6}$/.test(color)) return `${color}1A`;
 
@@ -565,18 +569,33 @@ function getFinanceAnalytics(transactions: Transaction[]) {
     .reduce((total, transaction) => total + transaction.amount, 0);
   const balance = income - expense;
   const savingsRatio = income > 0 ? Math.max(0, Math.round((balance / income) * 100)) : 0;
+  const weekStart = getStartOfWeekMonday(now);
   const weekly = Array.from({ length: 7 }, (_, index) => {
-    const date = new Date(now);
-    date.setDate(now.getDate() - (6 - index));
+    const date = new Date(weekStart);
+    date.setDate(weekStart.getDate() + index);
 
     const dayTransactions = transactions.filter((transaction) => isSameDay(getTransactionDate(transaction), date));
+    const incomeAmount = dayTransactions.filter((item) => item.type === "income").reduce((total, item) => total + item.amount, 0);
+    const expenseAmount = dayTransactions.filter((item) => item.type === "expense").reduce((total, item) => total + item.amount, 0);
 
     return {
       day: getDayLabel(date),
-      income: Math.round(dayTransactions.filter((item) => item.type === "income").reduce((total, item) => total + item.amount, 0) / 1000),
-      expense: Math.round(dayTransactions.filter((item) => item.type === "expense").reduce((total, item) => total + item.amount, 0) / 1000),
+      dateLabel: getShortDateLabel(date),
+      income: Math.round(incomeAmount / 1000),
+      expense: Math.round(expenseAmount / 1000),
+      incomeAmount,
+      expenseAmount,
+      netAmount: incomeAmount - expenseAmount,
     };
   });
+  const weeklyTotals = weekly.reduce(
+    (totals, item) => ({
+      income: totals.income + item.incomeAmount,
+      expense: totals.expense + item.expenseAmount,
+      net: totals.net + item.netAmount,
+    }),
+    { income: 0, expense: 0, net: 0 },
+  );
   const expenseByCategory = currentMonthTransactions
     .filter((transaction) => transaction.type === "expense")
     .reduce<Record<string, { name: string; amount: number; color: string }>>((groups, transaction) => {
@@ -616,6 +635,7 @@ function getFinanceAnalytics(transactions: Transaction[]) {
     scanCount,
     currentMonthCount: currentMonthTransactions.length,
     weekly,
+    weeklyTotals,
     categoryBreakdown,
     trend,
   };
@@ -1137,9 +1157,10 @@ export function TakaFinTrackApp() {
     setTheme((currentTheme) => (currentTheme === "dark" ? "light" : "dark"));
   }, []);
   const handleAuthenticated = useCallback((session: AuthSession) => {
+    clearStoredAuthTokenFallback();
+
     try {
       window.localStorage.setItem(authStorageKey, JSON.stringify(session.user));
-      if (session.token) window.sessionStorage.setItem(authTokenStorageKey, session.token);
     } catch {
       // Ignore private browsing/storage restrictions.
     }
@@ -1166,11 +1187,11 @@ export function TakaFinTrackApp() {
   const clearClientSession = useCallback(() => {
     try {
       window.localStorage.removeItem(authStorageKey);
-      window.localStorage.removeItem("taka-fintrack.auth-token-fallback");
-      window.sessionStorage.removeItem(authTokenStorageKey);
     } catch {
       // Ignore private browsing/storage restrictions.
     }
+
+    clearStoredAuthTokenFallback();
   }, []);
 
   const handleLogout = useCallback(async () => {
@@ -1371,9 +1392,10 @@ export function TakaFinTrackApp() {
         setCurrentUser(response.user);
         setSessionReady(true);
 
+        clearStoredAuthTokenFallback();
+
         try {
           window.localStorage.setItem(authStorageKey, JSON.stringify(response.user));
-          if (response.token) window.sessionStorage.setItem(authTokenStorageKey, response.token);
         } catch {
           // Ignore private browsing/storage restrictions.
         }
@@ -1671,11 +1693,10 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (session: AuthSessio
 
       try {
         window.localStorage.removeItem(authStorageKey);
-        window.localStorage.removeItem("taka-fintrack.auth-token-fallback");
-        window.sessionStorage.removeItem(authTokenStorageKey);
       } catch {
         // Ignore private browsing/storage restrictions.
       }
+      clearStoredAuthTokenFallback();
 
       const session = await apiRequest<AuthSession>(isRegister ? "/api/auth/register" : "/api/auth/login", {
         method: "POST",
@@ -2407,6 +2428,7 @@ function DashboardView({
     <div className="space-y-3 sm:space-y-5">
       <HeroBalance analytics={analytics} transactions={transactions} onNavigate={onNavigate} />
       <SummaryGrid analytics={analytics} />
+      <MobileWeeklyHistory analytics={analytics} />
       <div className="grid gap-5 max-lg:hidden xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
         <div className="space-y-5">
           <WeeklyChart data={analytics.weekly} />
@@ -2465,7 +2487,7 @@ function HeroBalance({ analytics, transactions, onNavigate }: { analytics: Retur
 }
 
 function MetricPill({ label, value, tone }: { label: string; value: number; tone: "green" | "red" }) { return (<div className="rounded-[22px] bg-white/12 p-4"><p className="text-xs font-bold uppercase tracking-[0.1em] text-white/60">{label}</p><p className={clsx("mt-2 text-lg font-black", tone === "green" ? "text-[#BFF4E7]" : "text-[#FFD4DA]")}><AnimatedCurrency value={value} /></p></div>); }
-function MiniPhoneStat({ label, value, color }: { label: string; value: number; color: string }) { return (<div className="rounded-[20px] bg-white p-3 shadow-sm dark:bg-slate-900/92 dark:ring-1 dark:ring-sky-400/10"><p className="text-[10px] font-bold uppercase tracking-[0.08em] text-[#64748B] dark:text-slate-300">{label}</p><p className="mt-1 truncate text-xs font-black" style={{ color }}>{currency.format(value)}</p></div>); }
+function MiniPhoneStat({ label, value, color }: { label: string; value: number; color: string }) { return (<div className="rounded-[20px] bg-white p-3 shadow-sm dark:bg-[#071B33] dark:shadow-none"><p className="text-[10px] font-black uppercase tracking-[0.08em] text-[#64748B] dark:text-[#D9F3FF]">{label}</p><p className="mt-1 truncate text-xs font-black" style={{ color }}>{currency.format(value)}</p></div>); }
 
 function SummaryGrid({ analytics }: { analytics: ReturnType<typeof getFinanceAnalytics> }) {
   const cards = [
@@ -2493,6 +2515,49 @@ function SummaryGrid({ analytics }: { analytics: ReturnType<typeof getFinanceAna
           </div>
         </div>
       ))}
+    </section>
+  );
+}
+
+function MobileWeeklyHistory({ analytics }: { analytics: ReturnType<typeof getFinanceAnalytics> }) {
+  return (
+    <section className="overflow-hidden rounded-[26px] border border-sky-100/80 bg-gradient-to-br from-white via-sky-50/80 to-blue-50 p-4 shadow-[0_18px_46px_rgba(37,99,235,0.12)] dark:border-transparent dark:bg-[#061427] dark:bg-none dark:shadow-[0_22px_54px_rgba(2,6,23,0.48)] lg:hidden">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="inline-flex items-center gap-2 rounded-full bg-sky-100 px-3 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-blue-700 ring-1 ring-sky-200/70 dark:border-0 dark:bg-[#0B2A44] dark:text-[#EAF8FF] dark:ring-0">
+            <CalendarDays size={13} /> Senin–Minggu
+          </p>
+          <h3 className="mt-3 text-xl font-black tracking-tight text-slate-950 dark:text-[#F8FCFF]">History 1 Minggu</h3>
+        </div>
+        <div className="rounded-2xl bg-white/80 px-3 py-2 text-right shadow-sm ring-1 ring-sky-100 dark:bg-[#071B33] dark:ring-0">
+          <p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 dark:text-[#D9F3FF]">Total</p>
+          <p className={clsx("text-sm font-black", analytics.weeklyTotals.net >= 0 ? "text-emerald-600 dark:text-[#BDF8E6]" : "text-rose-600 dark:text-[#FFD6DD]")}>{currency.format(analytics.weeklyTotals.net)}</p>
+        </div>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <MiniPhoneStat label="Income Minggu" value={analytics.weeklyTotals.income} color="#2DB87D" />
+        <MiniPhoneStat label="Expense Minggu" value={analytics.weeklyTotals.expense} color="#FB7185" />
+      </div>
+
+      <div className="mt-4 space-y-2">
+        {analytics.weekly.map((item) => (
+          <div key={`${item.day}-${item.dateLabel}`} className="rounded-[20px] bg-white/78 p-3 ring-1 ring-sky-100/70 dark:bg-[#071B33] dark:ring-0">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-black text-slate-950 dark:text-[#F8FCFF]">{item.day}</p>
+                <p className="text-[11px] font-bold text-slate-500 dark:text-[#C8EFFF]">{item.dateLabel}</p>
+              </div>
+              <div className="text-right">
+                <p className={clsx("text-sm font-black", item.netAmount >= 0 ? "text-emerald-600 dark:text-[#BDF8E6]" : "text-rose-600 dark:text-[#FFD6DD]")}>{currency.format(item.netAmount)}</p>
+                <p className="mt-0.5 text-[10px] font-bold text-slate-500 dark:text-[#C8EFFF]">
+                  +{currency.format(item.incomeAmount)} / -{currency.format(item.expenseAmount)}
+                </p>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
     </section>
   );
 }
@@ -3449,18 +3514,10 @@ function ScanView({
 
       setCameraMessage("Memproses teks dengan Taka AI...");
       try {
-        const scanHeaders = new Headers({ "Content-Type": "application/json" });
-        try {
-          const token = window.sessionStorage.getItem(authTokenStorageKey);
-          if (token) scanHeaders.set("Authorization", `Bearer ${token}`);
-        } catch {
-          // Ignore private browsing/storage restrictions.
-        }
-
         const aiResponse = await fetch("/api/scan-ai", {
           method: "POST",
           credentials: "include",
-          headers: scanHeaders,
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ rawText, imageData: preprocessed }),
         });
 
@@ -3478,6 +3535,11 @@ function ScanView({
                finalTotal = itemsData.reduce((sum: number, item: any) => sum + (item.qty * item.price), 0);
             }
 
+            const aiConfidenceRaw = Number(aiData.confidence);
+            const aiConfidence = Number.isFinite(aiConfidenceRaw)
+              ? Math.round(aiConfidenceRaw <= 1 ? aiConfidenceRaw * 100 : aiConfidenceRaw)
+              : 0;
+
             parsedReceipt = {
               merchant: aiData.merchant || "Struk Belanja",
               date: aiData.transaction_date ? `${aiData.transaction_date} ${aiData.transaction_time || ""}`.trim() : "Tanggal tidak terbaca",
@@ -3486,7 +3548,7 @@ function ScanView({
               subtotal: aiData.subtotal || 0,
               discount: aiData.discount || 0,
               total: finalTotal,
-              confidence: aiData.confidence || 95,
+              confidence: Math.max(0, Math.min(100, aiConfidence)),
               source: "ai",
               categorySuggestion: aiData.category_suggestion || null,
               items: itemsData,
@@ -3517,8 +3579,9 @@ function ScanView({
 
       if (parsedReceipt.source === "ocr" || parsedReceipt.source === "ai") {
         const itemCount = parsedReceipt.items.length;
+        const reviewPrefix = parsedReceipt.confidence < 70 ? "Perlu review manual — " : "";
         setCameraMessage(
-          `Scan selesai! ${itemCount} item terdeteksi, total ${currency.format(parsedReceipt.total)}. Confidence: ${parsedReceipt.confidence}%`
+          `${reviewPrefix}Scan selesai! ${itemCount} item terdeteksi, total ${currency.format(parsedReceipt.total)}. Confidence: ${parsedReceipt.confidence}%`
         );
       } else {
         setCameraMessage("Gagal menganalisa struk. Pastikan .env.local memiliki GEMINI_API_KEY untuk fitur AI.");
@@ -4119,18 +4182,10 @@ function ChatView({ transactions, sessionReady }: { transactions: Transaction[];
         content: m.text
       }))];
 
-      const chatHeaders = new Headers({ 'Content-Type': 'application/json' });
-      try {
-        const token = window.sessionStorage.getItem(authTokenStorageKey);
-        if (token) chatHeaders.set('Authorization', `Bearer ${token}`);
-      } catch {
-        // Ignore private browsing/storage restrictions.
-      }
-
       const response = await fetch('/api/chat', {
         method: 'POST',
         credentials: 'include',
-        headers: chatHeaders,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: chatHistory
         })
@@ -4375,7 +4430,7 @@ function ReportsView({ analytics, transactions, statements }: { analytics: Retur
     try {
       const response = await fetch(url, {
         method: "GET",
-        headers: { "Authorization": `Bearer ${window.sessionStorage.getItem(authTokenStorageKey)}` }
+        credentials: "include",
       });
       if (!response.ok) throw new Error("Gagal download");
 
