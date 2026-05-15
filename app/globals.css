@@ -51,10 +51,14 @@
 html {
   scroll-behavior: smooth;
   width: 100%;
+  min-height: 100%;
   overflow-x: hidden;
   scrollbar-width: none;
+  background-color: var(--bg);
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  overscroll-behavior-x: none;
+  overscroll-behavior-y: none;
 }
 
 html::-webkit-scrollbar,
@@ -69,13 +73,17 @@ body {
   margin: 0;
   min-height: 100svh;
   overflow-x: hidden;
+  overscroll-behavior-x: none;
+  overscroll-behavior-y: none;
   scrollbar-width: none;
   color: var(--text);
+  background-color: var(--bg);
   background:
     radial-gradient(circle at 14% 6%, color-mix(in srgb, var(--primary-bright) 20%, transparent), transparent 28rem),
     radial-gradient(circle at 88% 8%, color-mix(in srgb, var(--primary) 9%, transparent), transparent 24rem),
     radial-gradient(circle at 50% 95%, color-mix(in srgb, var(--primary-bright) 8%, transparent), transparent 28rem),
     linear-gradient(135deg, var(--bg) 0%, var(--bg-2) 52%, var(--bg) 100%);
+  background-attachment: fixed;
   transition: background 180ms ease, color 180ms ease;
 }
 
@@ -559,8 +567,15 @@ button {
 }
 
 @media (max-width: 767px) {
+  html,
+  body {
+    background-color: var(--bg) !important;
+    overscroll-behavior: none;
+  }
+
   .finance-app-shell {
     padding-bottom: max(10rem, calc(8.5rem + env(safe-area-inset-bottom))) !important;
+    background-color: var(--bg) !important;
   }
 }
 
@@ -829,6 +844,13 @@ body {
 
 .finance-app-shell {
   min-height: 100svh;
+  background:
+    radial-gradient(circle at 14% 6%, color-mix(in srgb, var(--primary-bright) 20%, transparent), transparent 28rem),
+    radial-gradient(circle at 88% 8%, color-mix(in srgb, var(--primary) 9%, transparent), transparent 24rem),
+    radial-gradient(circle at 50% 95%, color-mix(in srgb, var(--primary-bright) 8%, transparent), transparent 28rem),
+    linear-gradient(135deg, var(--bg) 0%, var(--bg-2) 52%, var(--bg) 100%);
+  background-attachment: fixed;
+  overscroll-behavior-y: none;
 }
 
 .native-summary-scroll {
