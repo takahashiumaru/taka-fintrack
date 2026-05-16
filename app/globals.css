@@ -868,9 +868,10 @@ body {
 .taka-mobile-nav {
   bottom: max(0.625rem, env(safe-area-inset-bottom)) !important;
   padding-bottom: max(0.375rem, env(safe-area-inset-bottom));
+  overflow: visible;
   transform: translateZ(0);
   will-change: transform;
-  contain: layout paint;
+  contain: layout;
 }
 
 @supports (height: 100dvh) {
