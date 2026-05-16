@@ -98,9 +98,10 @@ async function emailStatement(user: UserRow, year: number, month: number, fileNa
 }
 
 async function renderStatementPdf(input: { filePath: string; user: UserRow; year: number; month: number; transactions: TxRow[]; totalIncome: number; totalExpense: number; netCashflow: number; openingBalance: number; closingBalance: number; incomeByCategory: SummaryRow[]; expenseByCategory: SummaryRow[]; topExpenseCategory: SummaryRow | null }) {
-  const doc = new PDFDocument({ size: "A4", margin: 42, font: "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", info: { Title: `FinTrack Statement ${input.year}-${input.month}` } });
-  doc.registerFont("Regular", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
-  doc.registerFont("Bold", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf");
+  const fontSet = await resolveStatementFonts();
+  const doc = new PDFDocument({ size: "A4", margin: 42, font: fontSet.regular, info: { Title: `FinTrack Statement ${input.year}-${input.month}` } });
+  doc.registerFont("Regular", fontSet.regular);
+  doc.registerFont("Bold", fontSet.bold);
   const chunks: Buffer[] = [];
   doc.on("data", (chunk: Buffer) => chunks.push(chunk));
   const done = new Promise<Buffer>((resolve) => doc.on("end", () => resolve(Buffer.concat(chunks))));
@@ -149,6 +150,39 @@ async function renderStatementPdf(input: { filePath: string; user: UserRow; year
   doc.fillColor(muted).fontSize(8).text(`Dibuat otomatis oleh Taka FinTrack pada ${formatDate(new Date())}. Laporan ini bersifat informasi pribadi dan hanya untuk pemilik akun.`, 42, 782, { width: 508, align: "center" });
   doc.end();
   await fs.writeFile(input.filePath, await done, { mode: 0o600 });
+}
+
+async function resolveStatementFonts() {
+  const candidates = [
+    {
+      regular: "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+      bold: "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    },
+    {
+      regular: "/System/Library/Fonts/Supplemental/Arial.ttf",
+      bold: "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+    },
+  ];
+
+  for (const candidate of candidates) {
+    if (await fileExists(candidate.regular) && await fileExists(candidate.bold)) {
+      return candidate;
+    }
+  }
+
+  return {
+    regular: "Helvetica",
+    bold: "Helvetica-Bold",
+  };
+}
+
+async function fileExists(filePath: string) {
+  try {
+    await fs.access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function drawCard(doc: PDFKit.PDFDocument, x: number, y: number, w: number, h: number, label: string, value: string, color: string, size = 12) {

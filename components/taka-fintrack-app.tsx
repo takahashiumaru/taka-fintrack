@@ -779,7 +779,8 @@ export function TakaFinTrackApp() {
             ref={contentScrollerRef}
             className={clsx(
               "no-scrollbar min-h-0 flex-1 overscroll-contain pb-[calc(96px+env(safe-area-inset-bottom))] lg:overflow-visible lg:pb-0",
-              activeView === "chat" ? "overflow-hidden" : "overflow-y-auto",
+              activeView === "chat" || activeView === "profile" ? "overflow-hidden" : "overflow-y-auto",
+              activeView === "profile" ? "pb-0" : "",
               activeView === "scan" ? "scan-view-scroll" : "",
             )}
           >
@@ -805,23 +806,30 @@ export function TakaFinTrackApp() {
           <div className={activeView === "chat" ? "chat-view-frame block h-full min-h-0" : "hidden"} aria-hidden={activeView !== "chat"}>
             <ChatView transactions={transactions} sessionReady={sessionReady} />
           </div>
-          {activeView === "profile" && profileScreen === "overview" && (
-            <ProfileView
-              user={currentUser}
-              theme={theme}
-              onToggleTheme={toggleTheme}
-              onUserUpdate={handleUserUpdate}
-              onOpenReports={() => setProfileScreen("reports")}
-              onLogout={handleLogout}
-            />
-          )}
-          {activeView === "profile" && profileScreen === "reports" && (
-            <ProfileReportsView
-              analytics={analytics}
-              transactions={transactions}
-              statements={statements}
-              onBack={() => setProfileScreen("overview")}
-            />
+          {activeView === "profile" && (
+            <div
+              key={profileScreen}
+              className="profile-view-scroll no-scrollbar h-full min-h-0 overflow-y-auto overscroll-contain pb-[calc(96px+env(safe-area-inset-bottom))] lg:h-auto lg:overflow-visible lg:pb-0"
+            >
+              {profileScreen === "overview" && (
+                <ProfileView
+                  user={currentUser}
+                  theme={theme}
+                  onToggleTheme={toggleTheme}
+                  onUserUpdate={handleUserUpdate}
+                  onOpenReports={() => setProfileScreen("reports")}
+                  onLogout={handleLogout}
+                />
+              )}
+              {profileScreen === "reports" && (
+                <ProfileReportsView
+                  analytics={analytics}
+                  transactions={transactions}
+                  statements={statements}
+                  onBack={() => setProfileScreen("overview")}
+                />
+              )}
+            </div>
           )}
           </div>
         </section>
@@ -4029,53 +4037,76 @@ function ProfileReportsView({
 function ReportsView({ analytics, transactions, statements }: { analytics: ReturnType<typeof getFinanceAnalytics>; transactions: Transaction[]; statements: MonthlyStatement[] }) {
   const totalExpense = analytics.categoryBreakdown.reduce((total, item) => total + item.amount, 0);
 
+  async function downloadBlob(blob: Blob, fileName: string) {
+    const isNativeApp = Boolean((window as typeof window & { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.());
+
+    if (isNativeApp) {
+      try {
+        const [{ Filesystem, Directory }, { Share }] = await Promise.all([
+          import("@capacitor/filesystem"),
+          import("@capacitor/share"),
+        ]);
+
+        const reader = new FileReader();
+        const base64Data = await new Promise<string>((resolve, reject) => {
+          reader.onload = () => {
+            const result = reader.result as string;
+            const base64 = result.split(",")[1];
+            resolve(base64);
+          };
+          reader.onerror = () => reject(new Error("Gagal membaca file"));
+          reader.readAsDataURL(blob);
+        });
+
+        const saved = await Filesystem.writeFile({
+          path: fileName,
+          data: base64Data,
+          directory: Directory.Cache,
+          recursive: true,
+        });
+
+        await Share.share({
+          title: fileName,
+          text: `File laporan: ${fileName}`,
+          url: saved.uri,
+          dialogTitle: "Simpan atau bagikan laporan",
+        });
+      } catch (error) {
+        console.error("Native download error:", error);
+        throw error;
+      }
+      return;
+    }
+
+    // Web download fallback
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = objectUrl;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    
+    setTimeout(() => {
+      a.remove();
+      URL.revokeObjectURL(objectUrl);
+    }, 250);
+  }
+
   async function downloadStatement(id: number, fileName: string, url: string) {
     try {
       const response = await fetch(url, {
         method: "GET",
         credentials: "include",
       });
-      if (!response.ok) throw new Error("Gagal download");
 
-      const blob = await response.blob();
-      const isNativeApp = Boolean((window as typeof window & { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.());
-
-      if (isNativeApp) {
-        const [{ Filesystem, Directory }, { Share }] = await Promise.all([
-          import("@capacitor/filesystem"),
-          import("@capacitor/share"),
-        ]);
-        const arrayBuffer = await blob.arrayBuffer();
-        const bytes = new Uint8Array(arrayBuffer);
-        let binary = "";
-        const chunkSize = 0x8000;
-        for (let index = 0; index < bytes.length; index += chunkSize) {
-          binary += String.fromCharCode(...Array.from(bytes.subarray(index, index + chunkSize)));
-        }
-        const saved = await Filesystem.writeFile({
-          path: fileName,
-          data: btoa(binary),
-          directory: Directory.Documents,
-          recursive: true,
-        });
-        await Share.share({
-          title: "Taka FinTrack E-Statement",
-          text: `E-Statement ${fileName}`,
-          url: saved.uri,
-          dialogTitle: "Simpan atau bagikan PDF statement",
-        });
-        return;
+      if (!response.ok) {
+        throw new Error(`Download failed with status ${response.status}`);
       }
 
-      const objectUrl = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = objectUrl;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(objectUrl);
-    } catch {
+      const blob = await response.blob();
+      await downloadBlob(blob, fileName);
+    } catch (error) {
+      console.error("Download error:", error);
       alert("Gagal mengunduh statement. Coba update aplikasi atau buka lewat browser.");
     }
   }
@@ -4094,14 +4125,12 @@ function ReportsView({ analytics, transactions, statements }: { analytics: Retur
     ];
     const csvContent = rows.map((row) => row.map(escapeCsvCell).join(",")).join("\n");
     const blob = new Blob([`\uFEFF${csvContent}`], { type: "application/vnd.ms-excel;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `taka-fintrack-laporan-${getDateInputValue()}.xls`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
+    const fileName = `taka-fintrack-laporan-${getDateInputValue()}.xls`;
+    
+    downloadBlob(blob, fileName).catch((err) => {
+      console.error("Export Excel error:", err);
+      alert("Gagal export laporan.");
+    });
   }
 
   return (
