@@ -380,6 +380,7 @@ export function TakaFinTrackApp() {
   const [showSplash, setShowSplash] = useState(true);
   const [pullDistance, setPullDistance] = useState(0);
   const [isPullRefreshing, setIsPullRefreshing] = useState(false);
+  const contentScrollerRef = useRef<HTMLDivElement>(null);
   const pullStartYRef = useRef<number | null>(null);
   const isPullingRef = useRef(false);
   const activeMeta = navItems.find((item) => item.key === activeView) ?? navItems[0];
@@ -707,6 +708,10 @@ export function TakaFinTrackApp() {
     }
   }, [theme]);
 
+  useEffect(() => {
+    contentScrollerRef.current?.scrollTo({ top: 0, behavior: "auto" });
+  }, [activeView]);
+
 
   if (isAuthChecking && !currentUser) {
     return <AuthLoadingScreen />;
@@ -767,7 +772,14 @@ export function TakaFinTrackApp() {
               {dataError}
             </div>
           )}
-          <div className={clsx("no-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[calc(96px+env(safe-area-inset-bottom))] lg:overflow-visible lg:pb-0", activeView === "chat" ? "pb-3" : "", activeView === "scan" ? "scan-view-scroll" : "") }>
+          <div
+            ref={contentScrollerRef}
+            className={clsx(
+              "no-scrollbar min-h-0 flex-1 overscroll-contain pb-[calc(96px+env(safe-area-inset-bottom))] lg:overflow-visible lg:pb-0",
+              activeView === "chat" ? "overflow-hidden" : "overflow-y-auto",
+              activeView === "scan" ? "scan-view-scroll" : "",
+            )}
+          >
           {activeView === "dashboard" && <DashboardView analytics={analytics} transactions={transactions} dataStatus={dataStatus} onNavigate={changeView} />}
           {activeView === "transactions" && (
             <TransactionsView
@@ -787,7 +799,7 @@ export function TakaFinTrackApp() {
           <div className={activeView === "scan" ? "block" : "hidden"} aria-hidden={activeView !== "scan"}>
             <ScanView categories={categories} sessionReady={sessionReady} onCreateTransaction={createTransaction} onNavigate={changeView} />
           </div>
-          <div className={activeView === "chat" ? "chat-view-frame block" : "hidden"} aria-hidden={activeView !== "chat"}>
+          <div className={activeView === "chat" ? "chat-view-frame block h-full min-h-0" : "hidden"} aria-hidden={activeView !== "chat"}>
             <ChatView transactions={transactions} sessionReady={sessionReady} />
           </div>
           {activeView === "reports" && <ReportsView analytics={analytics} transactions={transactions} statements={statements} />}
