@@ -961,9 +961,9 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (session: AuthSessio
   }
 
   return (
-    <main className="finance-app-shell min-h-screen px-3 py-3 sm:px-4 lg:p-6">
-      <div className="mx-auto grid min-h-[calc(100vh-24px)] w-full max-w-[1180px] gap-4 lg:min-h-[calc(100vh-48px)] lg:grid-cols-[minmax(0,0.96fr)_minmax(0,1.04fr)]">
-        <section className="flex min-w-0 flex-col rounded-xl border border-white/70 bg-white/86 p-4 shadow-soft backdrop-blur sm:p-6 lg:p-8">
+    <main className="finance-app-shell fixed inset-0 h-[100dvh] overflow-hidden px-3 py-[calc(8px+env(safe-area-inset-top))] sm:px-4 lg:relative lg:inset-auto lg:h-auto lg:min-h-screen lg:overflow-x-hidden lg:p-6">
+      <div className="auth-mobile-shell no-scrollbar mx-auto grid h-full min-h-0 w-full max-w-[1180px] gap-3 overflow-hidden overscroll-none pb-[calc(18px+env(safe-area-inset-bottom))] lg:min-h-[calc(100vh-48px)] lg:grid-cols-[minmax(0,0.96fr)_minmax(0,1.04fr)] lg:gap-4 lg:overflow-visible lg:pb-0">
+        <section className="auth-mobile-card flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-white/70 bg-white/86 p-3 shadow-soft backdrop-blur sm:p-6 lg:overflow-visible lg:p-8">
           <div className="flex items-center gap-3">
             <AppLogo size={48} />
             <div>
@@ -972,7 +972,7 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (session: AuthSessio
             </div>
           </div>
 
-          <div className="mt-8 grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1">
+          <div className="mt-5 grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1 sm:mt-8">
             <button
               type="button"
               onClick={() => switchMode("login")}
@@ -995,14 +995,14 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (session: AuthSessio
             </button>
           </div>
 
-          <div className="mt-7">
+          <div className="mt-5 sm:mt-7">
             <p className="text-[11px] font-black uppercase tracking-[0.12em] text-blue-600">
               {isForgot ? "Reset akses" : isRegister ? "Akun baru" : "Selamat datang"}
             </p>
-            <h1 className="mt-1 text-3xl font-black leading-tight text-taka-ink sm:text-4xl">
+            <h1 className="mt-1 text-2xl font-black leading-tight text-taka-ink sm:text-4xl">
               {isForgot ? "Lupa password?" : isRegister ? "Buat akun Taka" : "Masuk ke akunmu"}
             </h1>
-            <p className="mt-3 text-sm font-semibold leading-6 text-slate-500">
+            <p className="mt-2 text-sm font-semibold leading-6 text-slate-500 sm:mt-3">
               {isForgot
                 ? "Masukkan email akunmu. Kami akan mengirim instruksi reset password dengan tampilan email profesional."
                 : isRegister
@@ -1011,7 +1011,7 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (session: AuthSessio
             </p>
           </div>
 
-          <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
+          <form className="mt-5 space-y-3.5 sm:mt-6 sm:space-y-4" onSubmit={handleSubmit}>
             {isRegister && (
               <AuthField
                 id="name"
@@ -1184,7 +1184,7 @@ function AuthField({
             placeholder={placeholder}
             autoComplete={autoComplete}
             onChange={(event) => onChange(event.target.value)}
-            className="h-12 w-full rounded-lg border border-slate-200 bg-slate-50 pl-3 pr-10 text-sm font-bold text-taka-ink outline-none transition placeholder:text-slate-400 focus:border-blue-300 focus:bg-white"
+            className="h-11 w-full rounded-lg border border-slate-200 bg-slate-50 pl-3 pr-10 text-base font-bold text-taka-ink outline-none transition placeholder:text-slate-400 focus:border-blue-300 focus:bg-white sm:h-12 sm:text-sm"
           />
           {isPassword && (
             <button

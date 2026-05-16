@@ -586,7 +586,18 @@ button {
   .scan-view-scroll {
     padding-bottom: calc(120px + env(safe-area-inset-bottom)) !important;
   }
+
+  .auth-mobile-shell,
+  .auth-mobile-card {
+    touch-action: pan-y;
+    overscroll-behavior: none;
+  }
+
+  .auth-mobile-card {
+    max-height: calc(100dvh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  }
 }
+
 
 :root[data-theme="dark"] .finance-app-shell [class*="bg-white/86"],
 :root[data-theme="dark"] .finance-app-shell [class*="bg-white/92"] {
@@ -883,6 +894,20 @@ body {
   .finance-app-shell {
     min-height: 100dvh;
   }
+}
+
+html.auth-scroll-lock,
+body.auth-scroll-lock {
+  width: 100%;
+  height: 100%;
+  overflow: hidden !important;
+  overscroll-behavior: none !important;
+  touch-action: none;
+}
+
+.auth-reset-page,
+.auth-reset-card {
+  overscroll-behavior: none;
 }
 
 @media (max-width: 430px) {
