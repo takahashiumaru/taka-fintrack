@@ -732,16 +732,16 @@ export function TakaFinTrackApp() {
       )}
       <main
         className={clsx(
-          "finance-app-shell w-full max-w-full px-3 sm:px-4 lg:min-h-screen lg:overflow-x-hidden lg:p-6",
-          activeView === "chat" ? "pb-[calc(72px+env(safe-area-inset-bottom))]" : "pb-[calc(120px+env(safe-area-inset-bottom))]",
-          activeView === "chat" ? "h-[100dvh] overflow-hidden pt-[calc(8px+env(safe-area-inset-top))]" : "min-h-screen overflow-x-hidden pt-[calc(10px+env(safe-area-inset-top))]",
+          "finance-app-shell h-[100dvh] w-full max-w-full overflow-hidden px-3 sm:px-4 lg:h-auto lg:min-h-screen lg:overflow-x-hidden lg:p-6",
+          activeView === "chat" ? "pb-0" : "pb-0",
+          activeView === "chat" ? "pt-[calc(8px+env(safe-area-inset-top))]" : activeView === "scan" ? "pt-[calc(6px+env(safe-area-inset-top))]" : "pt-[calc(10px+env(safe-area-inset-top))]",
         )}
         onTouchStart={handlePullStart}
         onTouchMove={handlePullMove}
         onTouchEnd={handlePullEnd}
         onTouchCancel={handlePullEnd}
       >
-      <div className={clsx("mx-auto grid w-full max-w-[1500px] items-start gap-3 lg:grid-cols-[278px_minmax(0,1fr)] lg:gap-4", activeView === "chat" ? "h-full min-h-0 lg:h-auto" : "") }>
+      <div className={clsx("mx-auto grid h-full min-h-0 w-full max-w-[1500px] items-start gap-3 lg:h-auto lg:grid-cols-[278px_minmax(0,1fr)] lg:gap-4", activeView === "chat" ? "lg:h-auto" : "") }>
         <Sidebar
           activeView={activeView}
           onChange={changeView}
@@ -750,7 +750,7 @@ export function TakaFinTrackApp() {
           scanCount={analytics.scanCount}
           healthScore={analytics.savingsRatio}
         />
-        <section className="flex min-h-0 min-w-0 flex-col gap-3 lg:block lg:space-y-4">
+        <section className="flex h-full min-h-0 min-w-0 flex-col gap-3 lg:block lg:h-auto lg:space-y-4">
           <TopBar
             title={activeMeta.label}
             user={currentUser}
@@ -767,7 +767,7 @@ export function TakaFinTrackApp() {
               {dataError}
             </div>
           )}
-          <div className={clsx(activeView === "chat" ? "no-scrollbar min-h-0 flex-1 overflow-y-auto pb-3 overscroll-contain lg:overflow-visible lg:pb-0" : "") }>
+          <div className={clsx("no-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[calc(96px+env(safe-area-inset-bottom))] lg:overflow-visible lg:pb-0", activeView === "chat" ? "pb-3" : "", activeView === "scan" ? "scan-view-scroll" : "") }>
           {activeView === "dashboard" && <DashboardView analytics={analytics} transactions={transactions} dataStatus={dataStatus} onNavigate={changeView} />}
           {activeView === "transactions" && (
             <TransactionsView
@@ -3094,12 +3094,12 @@ function ScanView({
   }, [receiptPreviewUrl, scanStatus, startReceiptScan]);
 
   return (
-    <div className="relative grid gap-4 xl:grid-cols-[minmax(0,1fr)_460px]">
-      <section className="rounded-xl border border-white/70 bg-white/86 p-3 shadow-soft backdrop-blur sm:p-4">
+    <div className="relative grid gap-3 xl:grid-cols-[minmax(0,1fr)_460px]">
+      <section className="rounded-xl border border-white/70 bg-white/86 p-2.5 shadow-soft backdrop-blur sm:p-4">
         <SectionTitle title="Scan Struk" eyebrow="JPEG / PNG • max 10MB" />
-        <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px] 2xl:grid-cols-[minmax(0,1fr)_380px]">
-          <div className="rounded-xl border border-dashed border-blue-300 bg-blue-50 p-3 sm:p-4">
-            <div className="relative h-[360px] overflow-hidden rounded-xl bg-slate-950 shadow-inner sm:h-[420px] lg:h-[500px]">
+        <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_340px] 2xl:grid-cols-[minmax(0,1fr)_380px]">
+          <div className="rounded-xl border border-dashed border-blue-300 bg-blue-50 p-2.5 sm:p-4">
+            <div className="receipt-camera-frame relative overflow-hidden rounded-xl bg-slate-950 shadow-inner sm:h-[420px] lg:h-[500px]">
               {receiptPreviewUrl ? (
                 <div
                   className="absolute inset-0 bg-contain bg-center bg-no-repeat"
@@ -3170,11 +3170,11 @@ function ScanView({
                   </div>
                 </div>
               )}
-              <div className="absolute bottom-4 left-4 right-4 rounded-lg bg-white/92 px-3 py-2 text-xs font-bold leading-5 text-slate-700 shadow-sm">
+              <div className="absolute bottom-2 left-2 right-2 rounded-lg bg-white/92 px-2.5 py-1.5 text-[11px] font-bold leading-4 text-slate-700 shadow-sm sm:bottom-4 sm:left-4 sm:right-4 sm:px-3 sm:py-2 sm:text-xs sm:leading-5">
                 {cameraMessage}
               </div>
             </div>
-            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
               <input
                 ref={cameraInputRef}
                 type="file"
@@ -4081,7 +4081,7 @@ function MobileNav({
   onChange: (view: ViewKey) => void;
 }) {
   return (
-    <nav className="taka-mobile-nav fixed bottom-[calc(10px+env(safe-area-inset-bottom))] left-3 right-3 z-40 grid grid-cols-5 items-center gap-1 rounded-[28px] border border-white/80 bg-white/90 p-1.5 shadow-[0_18px_45px_rgba(37,99,235,0.18)] backdrop-blur-xl lg:hidden dark:border-sky-400/20 dark:bg-slate-950/88">
+    <nav className="taka-mobile-nav fixed left-3 right-3 z-40 grid grid-cols-5 items-center gap-1 rounded-[28px] border border-white/80 bg-white/90 p-1.5 shadow-[0_18px_45px_rgba(37,99,235,0.18)] backdrop-blur-xl lg:hidden dark:border-sky-400/20 dark:bg-slate-950/88">
       {navItems.map((item) => {
         const isCenterAction = item.key === "scan";
         const isActive = activeView === item.key;
