@@ -1,6 +1,6 @@
 // Pure helpers, constants, and types extracted from taka-fintrack-app.tsx.
 
-export type ViewKey = "dashboard" | "transactions" | "scan" | "chat" | "reports";
+export type ViewKey = "dashboard" | "transactions" | "scan" | "chat" | "profile";
 export type AuthMode = "login" | "register" | "forgot";
 
 export type AuthUser = {
@@ -891,4 +891,3 @@ export function parseReceiptText(rawText: string): ScannedReceipt {
     items,
   };
 }
-

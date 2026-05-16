@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ChangeEvent, FormEvent, TouchEvent as ReactTouchEvent } from "react";
+import type { ChangeEvent, FormEvent, ReactNode, TouchEvent as ReactTouchEvent } from "react";
 import { createPortal } from "react-dom";
 import clsx from "clsx";
 import { authStorageKey, clearStoredAuthTokenFallback } from "@/lib/client/session-storage";
@@ -14,7 +14,6 @@ import {
   Bot,
   CalendarDays,
   Camera,
-  ChartNoAxesColumnIncreasing,
   Check,
   ChevronLeft,
   ChevronRight,
@@ -44,6 +43,7 @@ import {
   Trash2,
   TrendingDown,
   TrendingUp,
+  UserRound,
   WalletCards,
   X,
 } from "lucide-react";
@@ -172,7 +172,7 @@ const navItems: Array<{ key: ViewKey; label: string; icon: LucideIcon }> = [
   { key: "transactions", label: "Transaksi", icon: ReceiptText },
   { key: "scan", label: "Scan", icon: Camera },
   { key: "chat", label: "AI Chat", icon: MessageCircle },
-  { key: "reports", label: "Laporan", icon: ChartNoAxesColumnIncreasing },
+  { key: "profile", label: "Profile", icon: UserRound },
 ];
 
 function getForgotPasswordCooldownRemaining() {
@@ -223,10 +223,12 @@ function getInitialView() {
   if (typeof window === "undefined") return "dashboard";
 
   const hashView = window.location.hash.replace("#", "");
+  if (hashView === "reports") return "profile";
   if (isViewKey(hashView)) return hashView;
 
   try {
     const savedView = window.localStorage.getItem(viewStorageKey);
+    if (savedView === "reports") return "profile";
     if (isViewKey(savedView)) return savedView;
   } catch {
     return "dashboard";
@@ -366,6 +368,7 @@ function getCameraErrorMessage(error: unknown) {
 
 export function TakaFinTrackApp() {
   const [activeView, setActiveView] = useState<ViewKey>(getInitialView);
+  const [profileScreen, setProfileScreen] = useState<"overview" | "reports">("overview");
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [theme, setTheme] = useState<ThemeMode>(getInitialTheme);
   const [sessionReady, setSessionReady] = useState(false);
@@ -387,6 +390,7 @@ export function TakaFinTrackApp() {
   const analytics = useMemo(() => getFinanceAnalytics(transactions), [transactions]);
   const changeView = useCallback((view: ViewKey) => {
     setActiveView(view);
+    setProfileScreen("overview");
   }, []);
   const toggleTheme = useCallback(() => {
     setTheme((currentTheme) => (currentTheme === "dark" ? "light" : "dark"));
@@ -757,12 +761,11 @@ export function TakaFinTrackApp() {
         />
         <section className="flex h-full min-h-0 min-w-0 flex-col gap-3 lg:block lg:h-auto lg:space-y-4">
           <TopBar
-            title={activeMeta.label}
+            title={activeView === "profile" && profileScreen === "reports" ? "Laporan" : activeMeta.label}
             user={currentUser}
             sessionReady={sessionReady}
-            onUserUpdate={handleUserUpdate}
             onAddTransaction={() => changeView("transactions")}
-            onLogout={handleLogout}
+            onOpenProfile={() => changeView("profile")}
             theme={theme}
             onToggleTheme={toggleTheme}
             compactMobile={activeView === "chat"}
@@ -802,7 +805,24 @@ export function TakaFinTrackApp() {
           <div className={activeView === "chat" ? "chat-view-frame block h-full min-h-0" : "hidden"} aria-hidden={activeView !== "chat"}>
             <ChatView transactions={transactions} sessionReady={sessionReady} />
           </div>
-          {activeView === "reports" && <ReportsView analytics={analytics} transactions={transactions} statements={statements} />}
+          {activeView === "profile" && profileScreen === "overview" && (
+            <ProfileView
+              user={currentUser}
+              theme={theme}
+              onToggleTheme={toggleTheme}
+              onUserUpdate={handleUserUpdate}
+              onOpenReports={() => setProfileScreen("reports")}
+              onLogout={handleLogout}
+            />
+          )}
+          {activeView === "profile" && profileScreen === "reports" && (
+            <ProfileReportsView
+              analytics={analytics}
+              transactions={transactions}
+              statements={statements}
+              onBack={() => setProfileScreen("overview")}
+            />
+          )}
           </div>
         </section>
       </div>
@@ -1369,9 +1389,8 @@ function Sidebar({
 function TopBar({
   title,
   user,
-  onUserUpdate,
   onAddTransaction,
-  onLogout,
+  onOpenProfile,
   theme,
   onToggleTheme,
   compactMobile = false,
@@ -1379,9 +1398,8 @@ function TopBar({
   title: string;
   user: AuthUser;
   sessionReady: boolean;
-  onUserUpdate: (updates: Partial<AuthUser>) => void;
   onAddTransaction: () => void;
-  onLogout: () => void;
+  onOpenProfile: () => void;
   theme: ThemeMode;
   onToggleTheme: () => void;
   compactMobile?: boolean;
@@ -1410,252 +1428,20 @@ function TopBar({
         >
           {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
         </button>
-        <ProfileMenu user={user} onUserUpdate={onUserUpdate} onLogout={onLogout} />
+        <button
+          type="button"
+          onClick={onOpenProfile}
+          className="profile-trigger grid h-10 w-10 place-items-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:border-sky-300 hover:text-sky-600 sm:h-11 sm:w-11"
+          aria-label="Buka profile"
+        >
+          <AvatarCircle user={user} size="sm" className="ring-0" />
+        </button>
         <button type="button" onClick={onAddTransaction} className="hidden items-center gap-2 rounded-lg bg-taka-navy px-4 py-3 text-sm font-extrabold text-white shadow-float transition hover:bg-blue-700 sm:flex">
           <Plus size={18} />
           Tambah
         </button>
       </div>
     </header>
-  );
-}
-
-function ProfileMenu({
-  user,
-  onUserUpdate,
-  onLogout,
-}: {
-  user: AuthUser;
-  onUserUpdate: (updates: Partial<AuthUser>) => void;
-  onLogout: () => void;
-}) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
-  const [isSavingProfile, setIsSavingProfile] = useState(false);
-  const [isSavingPassword, setIsSavingPassword] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-
-  async function saveProfile(updates: Partial<AuthUser>) {
-    setIsSavingProfile(true);
-
-    try {
-      const response = await apiRequest<{ user: AuthUser }>("/api/users/profile", {
-        method: "PATCH",
-        body: JSON.stringify(updates),
-      });
-
-      onUserUpdate(response.user);
-      setError("");
-      return response.user;
-    } catch (error) {
-      setMessage("");
-      setError(error instanceof Error ? error.message : "Profil gagal disimpan.");
-      return null;
-    } finally {
-      setIsSavingProfile(false);
-    }
-  }
-
-  function handleAvatarUpload(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-
-    if (!file) return;
-
-    if (!file.type.startsWith("image/")) {
-      setError("File harus berupa gambar.");
-      setMessage("");
-      return;
-    }
-
-    if (file.size > 2 * 1024 * 1024) {
-      setError("Ukuran foto maksimal 2MB untuk session lokal.");
-      setMessage("");
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result !== "string") {
-        setError("Foto belum bisa dibaca.");
-        setMessage("");
-        return;
-      }
-
-      void saveProfile({ avatarUrl: reader.result }).then((updatedUser) => {
-        if (updatedUser) {
-          setMessage("Foto profil diperbarui.");
-        }
-      });
-    };
-    reader.onerror = () => {
-      setError("Foto gagal dibaca. Coba file lain.");
-      setMessage("");
-    };
-    reader.readAsDataURL(file);
-  }
-
-  async function resetAvatar() {
-    const updatedUser = await saveProfile({ avatarUrl: null });
-
-    if (updatedUser) {
-      setMessage("Foto profil direset.");
-    }
-  }
-
-  async function savePassword() {
-    if (newPassword.length < 6) {
-      setError("Password baru minimal 6 karakter.");
-      setMessage("");
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      setError("Konfirmasi password belum sama.");
-      setMessage("");
-      return;
-    }
-
-    setIsSavingPassword(true);
-
-    try {
-      await apiRequest<{ ok: true }>("/api/users/password", {
-        method: "PATCH",
-        body: JSON.stringify({ password: newPassword }),
-      });
-
-      setNewPassword("");
-      setConfirmPassword("");
-      setError("");
-      setMessage("Password berhasil disimpan.");
-    } catch (error) {
-      setMessage("");
-      setError(error instanceof Error ? error.message : "Password gagal disimpan.");
-    } finally {
-      setIsSavingPassword(false);
-    }
-  }
-
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setIsOpen((current) => !current)}
-        className="profile-trigger grid h-10 w-10 place-items-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:border-sky-300 hover:text-sky-600 sm:h-11 sm:w-11"
-        aria-label="Profil"
-      >
-        <AvatarCircle user={user} size="sm" className="ring-0" />
-      </button>
-
-      {isOpen && (
-        <>
-          <button
-            type="button"
-            aria-label="Tutup menu profil"
-            className="fixed inset-0 z-[900] cursor-default bg-transparent"
-            onClick={() => setIsOpen(false)}
-          />
-          <div className="profile-modal fixed right-3 top-24 z-[1300] max-h-[calc(100vh-8rem)] w-72 max-w-[calc(100vw-1.5rem)] overflow-y-auto rounded-xl border border-white/80 bg-white p-4 text-left shadow-[0_18px_60px_rgba(15,23,42,0.25)] backdrop-blur">
-          <div className="flex items-center gap-3">
-            <AvatarCircle user={user} size="lg" />
-            <div className="min-w-0">
-              <p className="truncate text-sm font-black text-taka-ink">{user.name}</p>
-              <p className="truncate text-xs font-bold text-slate-500">{user.email}</p>
-            </div>
-          </div>
-
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            <label className="inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-lg bg-taka-navy px-3 py-2 text-xs font-black text-white transition hover:bg-blue-700">
-              <Camera size={15} />
-              {isSavingProfile ? "Menyimpan..." : "Ganti Foto"}
-              <input type="file" accept="image/*" className="sr-only" onChange={handleAvatarUpload} disabled={isSavingProfile} />
-            </label>
-            <button
-              type="button"
-              onClick={resetAvatar}
-              disabled={isSavingProfile}
-              className="inline-flex min-h-10 items-center justify-center rounded-lg bg-slate-100 px-3 py-2 text-xs font-black text-slate-600 transition hover:bg-slate-200"
-            >
-              Reset
-            </button>
-          </div>
-          <p className="mt-2 text-[11px] font-bold text-slate-400">JPG/PNG max 2MB.</p>
-
-          <div className="mt-4 border-t border-slate-100 pt-4">
-            <div className="flex items-center gap-2">
-              <Settings size={16} className="text-blue-600" />
-              <p className="text-sm font-black text-taka-ink">Ganti Password</p>
-            </div>
-            <div className="mt-3 space-y-2">
-              <div className="relative">
-                <input
-                  type={showPassword ? "text" : "password"}
-                  value={newPassword}
-                  onChange={(event) => setNewPassword(event.target.value)}
-                  className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 pl-3 pr-10 text-xs font-bold text-taka-ink outline-none transition placeholder:text-slate-400 focus:border-blue-300 focus:bg-white"
-                  placeholder="Password baru"
-                  autoComplete="new-password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                >
-                  {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
-                </button>
-              </div>
-              <div className="relative">
-                <input
-                  type={showPassword ? "text" : "password"}
-                  value={confirmPassword}
-                  onChange={(event) => setConfirmPassword(event.target.value)}
-                  className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 pl-3 pr-10 text-xs font-bold text-taka-ink outline-none transition placeholder:text-slate-400 focus:border-blue-300 focus:bg-white"
-                  placeholder="Konfirmasi password"
-                  autoComplete="new-password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                >
-                  {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
-                </button>
-              </div>
-              <button
-                type="button"
-                onClick={savePassword}
-                disabled={isSavingPassword}
-                className="flex min-h-10 w-full items-center justify-center gap-2 rounded-lg bg-blue-500 px-3 py-2 text-xs font-black text-white transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <Check size={15} />
-                {isSavingPassword ? "Menyimpan..." : "Simpan Password"}
-              </button>
-            </div>
-          </div>
-
-          {(message || error) && (
-            <div className={clsx("mt-3 rounded-lg px-3 py-2 text-xs font-bold", error ? "bg-rose-50 text-rose-600" : "bg-blue-50 text-blue-700")}>
-              {error || message}
-            </div>
-          )}
-
-          <div className="mt-4 border-t border-slate-100 pt-4 lg:hidden">
-            <button
-              type="button"
-              onClick={onLogout}
-              className="flex w-full items-center justify-center gap-2 rounded-lg border border-rose-100 bg-rose-50 px-3 py-2.5 text-xs font-black text-rose-600 transition hover:bg-rose-100"
-            >
-              <LogOut size={15} />
-              Keluar dari Taka
-            </button>
-          </div>
-          </div>
-        </>
-      )}
-    </div>
   );
 }
 
@@ -1674,6 +1460,7 @@ function DashboardView({
     <div className="space-y-3 sm:space-y-5">
       <HeroBalance analytics={analytics} transactions={transactions} onNavigate={onNavigate} />
       <SummaryGrid analytics={analytics} />
+      <MobileRecentTransactions transactions={transactions} dataStatus={dataStatus} onNavigate={onNavigate} />
       <MobileWeeklyHistory analytics={analytics} />
       <div className="grid gap-5 max-lg:hidden xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
         <div className="space-y-5">
@@ -1743,7 +1530,7 @@ function SummaryGrid({ analytics }: { analytics: ReturnType<typeof getFinanceAna
   ];
 
   return (
-    <section className="grid gap-3 md:grid-cols-3">
+    <section className="hidden gap-3 lg:grid lg:grid-cols-3">
       {cards.map((card) => (
         <div
           key={card.label}
@@ -1765,44 +1552,153 @@ function SummaryGrid({ analytics }: { analytics: ReturnType<typeof getFinanceAna
   );
 }
 
-function MobileWeeklyHistory({ analytics }: { analytics: ReturnType<typeof getFinanceAnalytics> }) {
+function MobileRecentTransactions({
+  transactions,
+  dataStatus,
+  onNavigate,
+}: {
+  transactions: Transaction[];
+  dataStatus: "idle" | "loading" | "ready" | "error";
+  onNavigate: (view: ViewKey) => void;
+}) {
+  const latestTransactions = transactions.slice(0, 5);
+
   return (
-    <section className="overflow-hidden rounded-[26px] border border-sky-100/80 bg-gradient-to-br from-white via-sky-50/80 to-blue-50 p-4 shadow-[0_18px_46px_rgba(37,99,235,0.12)] dark:border-transparent dark:bg-[#061427] dark:bg-none dark:shadow-[0_22px_54px_rgba(2,6,23,0.48)] lg:hidden">
+    <section className="overflow-hidden rounded-[26px] border border-sky-100/80 bg-gradient-to-br from-white via-sky-50/80 to-blue-50 p-4 shadow-[0_18px_46px_rgba(37,99,235,0.12)] dark:border-[#123255] dark:bg-[#061427] dark:bg-none dark:shadow-[0_22px_54px_rgba(2,6,23,0.48)] lg:hidden">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-500 dark:text-[#C8EFFF]">Aktivitas terbaru</p>
+          <h3 className="mt-1 text-xl font-black tracking-tight text-slate-950 dark:text-[#F8FCFF]">5 Transaksi Terakhir</h3>
+        </div>
+        <button
+          type="button"
+          onClick={() => onNavigate("transactions")}
+          className="rounded-full bg-white/80 px-3 py-1.5 text-[11px] font-black text-blue-700 ring-1 ring-sky-100 transition hover:bg-white dark:bg-white/[0.08] dark:text-[#EAF8FF] dark:ring-white/[0.08]"
+        >
+          Lihat semua
+        </button>
+      </div>
+
+      <div className="mt-4 overflow-hidden rounded-[24px] bg-white shadow-[0_16px_34px_rgba(37,99,235,0.10)] ring-1 ring-sky-100/90 dark:bg-[#071B33] dark:ring-1 dark:ring-[#123255] dark:shadow-none">
+        {latestTransactions.map((item, index) => {
+          const isIncome = item.type === "income";
+          const amount = `${isIncome ? "+" : "-"}${currency.format(item.amount)}`;
+
+          return (
+            <div
+              key={item.id}
+              className={clsx(
+                "flex items-center gap-3 px-4 py-3.5",
+                index > 0 && "border-t border-sky-100/80 dark:border-[#123255]",
+              )}
+            >
+              <div
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl"
+                style={{ backgroundColor: getSoftColor(item.categoryColor), color: item.categoryColor }}
+              >
+                {isIncome ? <TrendingUp size={17} /> : <CreditCard size={17} />}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-black text-slate-950 dark:text-[#F8FCFF]">{item.merchant}</p>
+                <p className="mt-0.5 truncate text-[11px] font-bold text-slate-500 dark:text-[#C8EFFF]">
+                  {item.category} · {item.date}
+                </p>
+              </div>
+              <p className={clsx("shrink-0 text-sm font-black", isIncome ? "text-emerald-600 dark:text-[#BDF8E6]" : "text-rose-600 dark:text-[#FFD6DD]")}>
+                {amount}
+              </p>
+            </div>
+          );
+        })}
+
+        {latestTransactions.length === 0 && (
+          <div className="p-5 text-center text-sm font-bold text-slate-500 dark:text-[#C8EFFF]">
+            {dataStatus === "loading" ? "Memuat transaksi..." : "Belum ada transaksi terbaru."}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function MobileWeeklyHistory({ analytics }: { analytics: ReturnType<typeof getFinanceAnalytics> }) {
+  const highestExpense = Math.max(...analytics.weekly.map((item) => item.expenseAmount), 1);
+  const weeklyTone = analytics.weeklyTotals.net >= 0 ? "surplus" : "defisit";
+
+  return (
+    <section className="overflow-hidden rounded-[26px] bg-white p-4 shadow-[0_18px_42px_rgba(37,99,235,0.10)] ring-1 ring-sky-100/90 dark:bg-[#071B33] dark:ring-1 dark:ring-[#123255] dark:shadow-[0_18px_44px_rgba(2,6,23,0.42)] lg:hidden">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="inline-flex items-center gap-2 rounded-full bg-sky-100 px-3 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-blue-700 ring-1 ring-sky-200/70 dark:border-0 dark:bg-[#0B2A44] dark:text-[#EAF8FF] dark:ring-0">
             <CalendarDays size={13} /> Senin–Minggu
           </p>
-          <h3 className="mt-3 text-xl font-black tracking-tight text-slate-950 dark:text-[#F8FCFF]">History 1 Minggu</h3>
+          <h3 className="mt-3 text-xl font-black tracking-tight text-slate-950 dark:text-[#F8FCFF]">Riwayat Minggu Ini</h3>
         </div>
-        <div className="rounded-2xl bg-white/80 px-3 py-2 text-right shadow-sm ring-1 ring-sky-100 dark:bg-[#071B33] dark:ring-0">
-          <p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 dark:text-[#D9F3FF]">Total</p>
-          <p className={clsx("text-sm font-black", analytics.weeklyTotals.net >= 0 ? "text-emerald-600 dark:text-[#BDF8E6]" : "text-rose-600 dark:text-[#FFD6DD]")}>{currency.format(analytics.weeklyTotals.net)}</p>
+        <div
+          className={clsx(
+            "rounded-full px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.12em] ring-1",
+            weeklyTone === "surplus"
+              ? "bg-emerald-50 text-emerald-700 ring-emerald-100 dark:bg-emerald-400/[0.12] dark:text-[#BDF8E6] dark:ring-emerald-300/20"
+              : "bg-rose-50 text-rose-700 ring-rose-100 dark:bg-rose-400/[0.12] dark:text-[#FFD6DD] dark:ring-rose-300/20",
+          )}
+        >
+          {weeklyTone}
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-2">
-        <MiniPhoneStat label="Income Minggu" value={analytics.weeklyTotals.income} color="#2DB87D" />
-        <MiniPhoneStat label="Expense Minggu" value={analytics.weeklyTotals.expense} color="#FB7185" />
+      <div className="mt-4 overflow-hidden rounded-[24px] bg-gradient-to-br from-[#0EA5E9] via-[#2563EB] to-[#1D4ED8] p-4 text-white shadow-[0_18px_38px_rgba(37,99,235,0.24)] dark:from-[#0C8ED1] dark:via-[#2563EB] dark:to-[#1E40AF]">
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-black uppercase tracking-[0.14em] text-white/65">Total minggu ini</p>
+            <p className="mt-1 text-2xl font-black tracking-tight">{currency.format(analytics.weeklyTotals.net)}</p>
+          </div>
+          <div className="rounded-2xl bg-white/[0.12] px-3 py-2 text-right ring-1 ring-white/[0.14]">
+            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-white/65">7 hari</p>
+            <p className="mt-0.5 text-xs font-bold text-white/95">Cashflow</p>
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <div className="rounded-[18px] bg-white/[0.12] p-3 ring-1 ring-white/[0.12]">
+            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-white/65">Masuk</p>
+            <p className="mt-1 truncate text-sm font-black text-[#BFF4E7]">{currency.format(analytics.weeklyTotals.income)}</p>
+          </div>
+          <div className="rounded-[18px] bg-white/[0.12] p-3 ring-1 ring-white/[0.12]">
+            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-white/65">Keluar</p>
+            <p className="mt-1 truncate text-sm font-black text-[#FFD4DA]">{currency.format(analytics.weeklyTotals.expense)}</p>
+          </div>
+        </div>
       </div>
 
-      <div className="mt-4 space-y-2">
-        {analytics.weekly.map((item) => (
-          <div key={`${item.day}-${item.dateLabel}`} className="rounded-[20px] bg-white/78 p-3 ring-1 ring-sky-100/70 dark:bg-[#071B33] dark:ring-0">
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-sm font-black text-slate-950 dark:text-[#F8FCFF]">{item.day}</p>
-                <p className="text-[11px] font-bold text-slate-500 dark:text-[#C8EFFF]">{item.dateLabel}</p>
-              </div>
-              <div className="text-right">
-                <p className={clsx("text-sm font-black", item.netAmount >= 0 ? "text-emerald-600 dark:text-[#BDF8E6]" : "text-rose-600 dark:text-[#FFD6DD]")}>{currency.format(item.netAmount)}</p>
-                <p className="mt-0.5 text-[10px] font-bold text-slate-500 dark:text-[#C8EFFF]">
-                  +{currency.format(item.incomeAmount)} / -{currency.format(item.expenseAmount)}
+      <div className="mt-4 overflow-hidden border-t border-sky-100/80 dark:border-[#123255]">
+        {analytics.weekly.map((item, index) => {
+          const hasActivity = item.incomeAmount > 0 || item.expenseAmount > 0;
+          const expenseWidth = item.expenseAmount > 0 ? `${Math.max(10, Math.round((item.expenseAmount / highestExpense) * 100))}%` : "0%";
+
+          return (
+            <div key={`${item.day}-${item.dateLabel}`} className={clsx("relative px-1 py-3.5", index > 0 && "border-t border-sky-100/80 dark:border-[#123255]")}>
+              {item.expenseAmount > 0 && (
+                <div className="pointer-events-none absolute inset-y-0 left-0 bg-gradient-to-r from-rose-50/90 to-transparent dark:from-rose-400/10" style={{ width: expenseWidth }} />
+              )}
+              <div className="relative flex items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="w-11 shrink-0">
+                    <p className="text-sm font-black text-slate-950 dark:text-[#F8FCFF]">{item.day}</p>
+                    <p className="text-[11px] font-bold text-slate-500 dark:text-[#C8EFFF]">{item.dateLabel}</p>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-[11px] font-bold text-slate-500 dark:text-[#C8EFFF]">
+                      {hasActivity ? `Masuk ${currency.format(item.incomeAmount)} · Keluar ${currency.format(item.expenseAmount)}` : "Belum ada transaksi"}
+                    </p>
+                  </div>
+                </div>
+                <p className={clsx("shrink-0 text-sm font-black", item.netAmount >= 0 ? "text-emerald-600 dark:text-[#BDF8E6]" : "text-rose-600 dark:text-[#FFD6DD]")}>
+                  {currency.format(item.netAmount)}
                 </p>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </section>
   );
@@ -3298,7 +3194,7 @@ function ScanView({
         </div>
       </section>
 
-      <section className="rounded-xl border border-white/70 bg-white/86 p-4 shadow-soft backdrop-blur">
+      <section className="rounded-[24px] border border-white/70 bg-white/86 p-4 shadow-[0_14px_32px_rgba(37,99,235,0.08)] backdrop-blur">
         <SectionHeader title="Item Struk" action={hasScannedReceipt ? `${receiptItems.length} item` : "0 item"} />
         {hasScannedReceipt ? (
           <div className="mt-4 space-y-3">
@@ -3814,6 +3710,322 @@ function escapeCsvCell(value: string | number) {
   return `"${text}"`;
 }
 
+function ProfileView({
+  user,
+  theme,
+  onToggleTheme,
+  onUserUpdate,
+  onOpenReports,
+  onLogout,
+}: {
+  user: AuthUser;
+  theme: ThemeMode;
+  onToggleTheme: () => void;
+  onUserUpdate: (updates: Partial<AuthUser>) => void;
+  onOpenReports: () => void;
+  onLogout: () => void;
+}) {
+  const [isPasswordOpen, setIsPasswordOpen] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isSavingPassword, setIsSavingPassword] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+  async function saveProfile(updates: Partial<AuthUser>) {
+    setIsSavingProfile(true);
+
+    try {
+      const response = await apiRequest<{ user: AuthUser }>("/api/users/profile", {
+        method: "PATCH",
+        body: JSON.stringify(updates),
+      });
+
+      onUserUpdate(response.user);
+      setError("");
+      return response.user;
+    } catch (error) {
+      setMessage("");
+      setError(error instanceof Error ? error.message : "Profil gagal disimpan.");
+      return null;
+    } finally {
+      setIsSavingProfile(false);
+    }
+  }
+
+  function handleAvatarUpload(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setError("File harus berupa gambar.");
+      setMessage("");
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      setError("Ukuran foto maksimal 2MB untuk session lokal.");
+      setMessage("");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result !== "string") {
+        setError("Foto belum bisa dibaca.");
+        setMessage("");
+        return;
+      }
+
+      void saveProfile({ avatarUrl: reader.result }).then((updatedUser) => {
+        if (updatedUser) {
+          setMessage("Foto profil diperbarui.");
+        }
+      });
+    };
+    reader.onerror = () => {
+      setError("Foto gagal dibaca. Coba file lain.");
+      setMessage("");
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function resetAvatar() {
+    const updatedUser = await saveProfile({ avatarUrl: null });
+
+    if (updatedUser) {
+      setMessage("Foto profil direset.");
+    }
+  }
+
+  async function savePassword() {
+    if (newPassword.length < 6) {
+      setError("Password baru minimal 6 karakter.");
+      setMessage("");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setError("Konfirmasi password belum sama.");
+      setMessage("");
+      return;
+    }
+
+    setIsSavingPassword(true);
+
+    try {
+      await apiRequest<{ ok: true }>("/api/users/password", {
+        method: "PATCH",
+        body: JSON.stringify({ password: newPassword }),
+      });
+
+      setNewPassword("");
+      setConfirmPassword("");
+      setError("");
+      setMessage("Password berhasil disimpan.");
+      setIsPasswordOpen(false);
+    } catch (error) {
+      setMessage("");
+      setError(error instanceof Error ? error.message : "Password gagal disimpan.");
+    } finally {
+      setIsSavingPassword(false);
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      <section className="overflow-hidden rounded-[24px] border border-sky-100/80 bg-white p-3.5 shadow-[0_14px_34px_rgba(37,99,235,0.10)] dark:border-transparent dark:bg-[#061427] dark:shadow-[0_18px_44px_rgba(2,6,23,0.42)]">
+        <div className="flex items-center gap-3">
+          <AvatarCircle user={user} size="md" />
+          <div className="min-w-0">
+            <p className="truncate text-base font-black text-slate-950 dark:text-[#F8FCFF]">{user.name}</p>
+            <p className="truncate text-xs font-bold text-slate-500 dark:text-[#C8EFFF]">{user.email}</p>
+          </div>
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <label className="inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-[16px] bg-gradient-to-br from-[#0EA5E9] to-[#2563EB] px-3 py-2 text-xs font-black text-white shadow-[0_12px_24px_rgba(37,99,235,0.20)]">
+            <Camera size={15} />
+            {isSavingProfile ? "Menyimpan..." : "Ganti Foto"}
+            <input type="file" accept="image/*" className="sr-only" onChange={handleAvatarUpload} disabled={isSavingProfile} />
+          </label>
+          <button
+            type="button"
+            onClick={resetAvatar}
+            disabled={isSavingProfile}
+            className="inline-flex min-h-10 items-center justify-center rounded-[16px] bg-white/86 px-3 py-2 text-xs font-black text-slate-600 ring-1 ring-sky-100 transition hover:bg-white disabled:opacity-60 dark:bg-white/[0.08] dark:text-sky-100 dark:ring-white/[0.08]"
+          >
+            Reset Foto
+          </button>
+        </div>
+        <p className="mt-2 text-[10px] font-bold text-slate-400 dark:text-sky-100/50">JPG/PNG maksimal 2MB.</p>
+      </section>
+
+      {(message || error) && (
+        <div className={clsx("rounded-[20px] px-4 py-3 text-sm font-bold", error ? "bg-rose-50 text-rose-600" : "bg-blue-50 text-blue-700")}>
+          {error || message}
+        </div>
+      )}
+
+      <ProfileSection title="Akun">
+        <ProfileListButton
+          icon={Settings}
+          title="Ganti Password"
+          description="Perbarui kata sandi akunmu"
+          onClick={() => setIsPasswordOpen((current) => !current)}
+        />
+        {isPasswordOpen && (
+          <div className="space-y-2 border-t border-sky-100/80 px-3.5 py-3.5 dark:border-white/[0.06]">
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={newPassword}
+                onChange={(event) => setNewPassword(event.target.value)}
+                className="h-10 w-full rounded-[16px] border border-slate-200 bg-white pl-4 pr-11 text-sm font-bold text-taka-ink outline-none transition placeholder:text-slate-400 focus:border-blue-300 dark:border-white/10 dark:bg-white/[0.06] dark:text-white"
+                placeholder="Password baru"
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                className="h-10 w-full rounded-[16px] border border-slate-200 bg-white pl-4 pr-11 text-sm font-bold text-taka-ink outline-none transition placeholder:text-slate-400 focus:border-blue-300 dark:border-white/10 dark:bg-white/[0.06] dark:text-white"
+                placeholder="Konfirmasi password"
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={savePassword}
+              disabled={isSavingPassword}
+              className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-[16px] bg-[#2563EB] px-4 py-2 text-sm font-black text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Check size={16} />
+              {isSavingPassword ? "Menyimpan..." : "Simpan Password"}
+            </button>
+          </div>
+        )}
+      </ProfileSection>
+
+      <ProfileSection title="Keuangan">
+        <ProfileListButton
+          icon={FileText}
+          title="Laporan"
+          description="Export, statement bulanan, dan analitik"
+          onClick={onOpenReports}
+        />
+      </ProfileSection>
+
+      <ProfileSection title="Preferensi">
+        <ProfileListButton
+          icon={theme === "dark" ? Sun : Moon}
+          title="Tema Aplikasi"
+          description={theme === "dark" ? "Saat ini mode gelap" : "Saat ini mode terang"}
+          onClick={onToggleTheme}
+          trailing={theme === "dark" ? "Gelap" : "Terang"}
+        />
+      </ProfileSection>
+
+      <button
+        type="button"
+        onClick={onLogout}
+        className="flex w-full items-center justify-center gap-2 rounded-[20px] border border-rose-100 bg-rose-50 px-4 py-3.5 text-sm font-black text-rose-600 transition hover:bg-rose-100 dark:border-rose-300/10 dark:bg-rose-400/10 dark:text-rose-100"
+      >
+        <LogOut size={18} />
+        Keluar dari Taka
+      </button>
+    </div>
+  );
+}
+
+function ProfileSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="overflow-hidden rounded-[22px] border border-sky-100/80 bg-white shadow-[0_12px_28px_rgba(37,99,235,0.07)] dark:border-transparent dark:bg-[#071B33]">
+      <div className="border-b border-sky-100/80 px-3.5 py-2.5 dark:border-white/[0.06]">
+        <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-500 dark:text-[#C8EFFF]">{title}</p>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function ProfileListButton({
+  icon: Icon,
+  title,
+  description,
+  onClick,
+  trailing,
+}: {
+  icon: LucideIcon;
+  title: string;
+  description: string;
+  onClick: () => void;
+  trailing?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-center gap-3 px-3.5 py-3 text-left transition hover:bg-sky-50/80 dark:hover:bg-white/[0.04]"
+    >
+      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[16px] bg-blue-50 text-blue-600 dark:bg-sky-500/12 dark:text-sky-200">
+        <Icon size={18} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-black text-slate-950 dark:text-[#F8FCFF]">{title}</span>
+        <span className="mt-0.5 block truncate text-[11px] font-bold text-slate-500 dark:text-[#C8EFFF]">{description}</span>
+      </span>
+      {trailing && <span className="shrink-0 rounded-full bg-sky-50 px-3 py-1 text-[11px] font-black text-blue-700 dark:bg-white/[0.08] dark:text-sky-100">{trailing}</span>}
+      {!trailing && <ChevronRight size={18} className="shrink-0 text-slate-300 dark:text-sky-100/40" />}
+    </button>
+  );
+}
+
+function ProfileReportsView({
+  analytics,
+  transactions,
+  statements,
+  onBack,
+}: {
+  analytics: ReturnType<typeof getFinanceAnalytics>;
+  transactions: Transaction[];
+  statements: MonthlyStatement[];
+  onBack: () => void;
+}) {
+  return (
+    <div className="space-y-4">
+      <button
+        type="button"
+        onClick={onBack}
+        className="inline-flex items-center gap-2 rounded-full bg-white/82 px-4 py-2 text-sm font-black text-blue-700 shadow-sm ring-1 ring-sky-100 transition hover:bg-white dark:bg-white/[0.08] dark:text-sky-100 dark:ring-white/[0.08]"
+      >
+        <ChevronLeft size={16} />
+        Kembali ke Profile
+      </button>
+      <ReportsView analytics={analytics} transactions={transactions} statements={statements} />
+    </div>
+  );
+}
+
 function ReportsView({ analytics, transactions, statements }: { analytics: ReturnType<typeof getFinanceAnalytics>; transactions: Transaction[]; statements: MonthlyStatement[] }) {
   const totalExpense = analytics.categoryBreakdown.reduce((total, item) => total + item.amount, 0);
 
@@ -3913,14 +4125,14 @@ function ReportsView({ analytics, transactions, statements }: { analytics: Retur
         </div>
       </section>
 
-      <section className="rounded-[28px] border border-white/70 bg-white/86 p-4 shadow-soft backdrop-blur dark:border-sky-400/15 dark:bg-[#071A33]/80">
-        <div className="flex items-center gap-2">
+      <section className="overflow-hidden rounded-[24px] border border-white/70 bg-white/86 shadow-[0_14px_32px_rgba(37,99,235,0.08)] backdrop-blur dark:border-sky-400/15 dark:bg-[#071A33]/80">
+        <div className="flex items-center gap-2 px-4 py-4">
           <FileText size={18} className="text-blue-600 dark:text-sky-300" />
           <h3 className="text-sm font-black text-taka-ink dark:text-sky-50">Monthly E-Statement</h3>
         </div>
-        <div className="mt-3 space-y-2">
+        <div className="divide-y divide-sky-100/80 border-t border-sky-100/80 dark:divide-white/[0.06] dark:border-white/[0.06]">
           {statements.length === 0 && (
-            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 p-6 text-center dark:border-white/10">
+            <div className="flex flex-col items-center justify-center p-6 text-center">
               <p className="text-[11px] font-bold text-slate-500 dark:text-sky-100/40">Belum ada laporan bulanan otomatis.</p>
             </div>
           )}
@@ -3929,7 +4141,7 @@ function ReportsView({ analytics, transactions, statements }: { analytics: Retur
               key={st.id}
               type="button"
               onClick={() => downloadStatement(st.id, st.fileName, st.downloadUrl)}
-              className="flex w-full items-center justify-between rounded-2xl border border-sky-100/50 bg-white p-3 shadow-sm transition active:scale-[0.98] dark:border-white/5 dark:bg-white/5"
+              className="flex w-full items-center justify-between px-4 py-3.5 transition hover:bg-sky-50/70 active:scale-[0.99] dark:hover:bg-white/[0.04]"
             >
               <div className="flex items-center gap-3">
                 <div className="grid h-10 w-10 place-items-center rounded-xl bg-blue-50 text-blue-600 dark:bg-sky-500/15 dark:text-sky-300">
@@ -4075,7 +4287,7 @@ function ReportStat({
   }[tone];
 
   return (
-    <div className="rounded-xl border border-white/70 bg-white/86 p-4 shadow-soft backdrop-blur">
+    <div className="rounded-[24px] border border-white/70 bg-white/86 p-4 shadow-[0_14px_32px_rgba(37,99,235,0.08)] backdrop-blur">
       <div className={clsx("grid h-11 w-11 place-items-center rounded-lg", toneClass)}>
         <Icon size={20} />
       </div>
