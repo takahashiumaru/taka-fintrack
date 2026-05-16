@@ -510,18 +510,24 @@ button {
   .chat-view-frame,
   .chat-layout {
     height: 100%;
+    min-height: 0;
+    overflow: hidden;
   }
 
   .chat-shell {
     height: 100% !important;
     min-height: 0 !important;
+    max-height: 100% !important;
+    overflow: hidden !important;
   }
 
   .chat-messages-scroll {
     flex: 1 1 auto !important;
     min-height: 0;
+    overflow-y: auto !important;
     padding-bottom: 0.5rem;
     overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
 }
 
@@ -575,12 +581,32 @@ button {
   html,
   body {
     background-color: var(--bg) !important;
+    height: 100%;
+    width: 100%;
+    overflow: hidden !important;
     overscroll-behavior: none;
   }
 
+  body {
+    position: fixed;
+    inset: 0;
+  }
+
   .finance-app-shell {
+    position: fixed !important;
+    inset: 0 !important;
+    height: 100dvh !important;
+    min-height: 100dvh !important;
+    max-height: 100dvh !important;
+    overflow: hidden !important;
     padding-bottom: 0 !important;
     background-color: var(--bg) !important;
+  }
+
+  .finance-app-shell > div {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
   }
 
   .scan-view-scroll {

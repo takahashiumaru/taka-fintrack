@@ -11,19 +11,29 @@ import type { LucideIcon } from "lucide-react";
 import {
   ArrowDownRight,
   ArrowUpRight,
+  Banknote,
   Bell,
   Bot,
+  BookOpen,
+  BusFront,
   CalendarDays,
   Camera,
+  Car,
   Check,
   ChevronLeft,
   ChevronRight,
+  Coffee,
   CreditCard,
   Eye,
   EyeOff,
   FileDown,
   FileText,
+  Fuel,
+  Gamepad2,
+  HeartPulse,
   Home,
+  House,
+  Landmark,
   LayoutDashboard,
   LogOut,
   MessageCircle,
@@ -31,6 +41,7 @@ import {
   MoreHorizontal,
   Paperclip,
   Pencil,
+  Plane,
   Plus,
   ReceiptText,
   RefreshCw,
@@ -39,11 +50,15 @@ import {
   Send,
   Settings,
   ShieldCheck,
+  ShoppingBag,
   Sparkles,
+  Smartphone,
   Sun,
   Trash2,
   TrendingDown,
   TrendingUp,
+  Utensils,
+  Wifi,
   UserRound,
   WalletCards,
   X,
@@ -337,6 +352,8 @@ const categoryData = [
   { name: "Hiburan", value: 14, amount: 553000, color: "#FF6B6B" },
   { name: "Lainnya", value: 10, amount: 396000, color: "#38BDF8" },
 ];
+
+const categoryColorPresets = ["#22C55E", "#0EA5E9", "#2563EB", "#8B5CF6", "#F59E0B", "#FB7185", "#14B8A6", "#64748B"];
 
 const trendData = [
   { month: "Des", income: 7.8, expense: 4.7 },
@@ -742,7 +759,7 @@ export function TakaFinTrackApp() {
       )}
       <main
         className={clsx(
-          "finance-app-shell h-[100dvh] w-full max-w-full overflow-hidden px-3 sm:px-4 lg:h-auto lg:min-h-screen lg:overflow-x-hidden lg:p-6",
+          "finance-app-shell fixed inset-0 h-[100dvh] w-full max-w-full overflow-hidden px-3 sm:px-4 lg:relative lg:inset-auto lg:h-auto lg:min-h-screen lg:overflow-x-hidden lg:p-6",
           activeView === "chat" ? "pb-0" : "pb-0",
           activeView === "chat" ? "pt-[calc(8px+env(safe-area-inset-top))]" : activeView === "scan" ? "pt-[calc(6px+env(safe-area-inset-top))]" : "pt-[calc(10px+env(safe-area-inset-top))]",
         )}
@@ -760,7 +777,7 @@ export function TakaFinTrackApp() {
           scanCount={analytics.scanCount}
           healthScore={analytics.savingsRatio}
         />
-        <section className="flex h-full min-h-0 min-w-0 flex-col gap-3 lg:block lg:h-auto lg:space-y-4">
+        <section className="flex h-full min-h-0 min-w-0 flex-col gap-3 overflow-hidden lg:block lg:h-auto lg:overflow-visible lg:space-y-4">
           <TopBar
             title={activeView === "profile" && profileScreen === "reports" ? "Laporan" : activeMeta.label}
             user={currentUser}
@@ -781,6 +798,7 @@ export function TakaFinTrackApp() {
             className={clsx(
               "no-scrollbar min-h-0 flex-1 overscroll-contain pb-[calc(96px+env(safe-area-inset-bottom))] lg:overflow-visible lg:pb-0",
               activeView === "chat" || activeView === "profile" ? "overflow-hidden" : "overflow-y-auto",
+              activeView === "chat" ? "pb-0" : "",
               activeView === "profile" ? "pb-0" : "",
               activeView === "scan" ? "scan-view-scroll" : "",
             )}
@@ -804,7 +822,7 @@ export function TakaFinTrackApp() {
           <div className={activeView === "scan" ? "block" : "hidden"} aria-hidden={activeView !== "scan"}>
             <ScanView categories={categories} sessionReady={sessionReady} onCreateTransaction={createTransaction} onNavigate={changeView} />
           </div>
-          <div className={activeView === "chat" ? "chat-view-frame block h-full min-h-0" : "hidden"} aria-hidden={activeView !== "chat"}>
+          <div className={activeView === "chat" ? "chat-view-frame block h-full min-h-0 overflow-hidden" : "hidden"} aria-hidden={activeView !== "chat"}>
             <ChatView transactions={transactions} sessionReady={sessionReady} />
           </div>
           {activeView === "profile" && (
@@ -1518,7 +1536,7 @@ function HeroBalance({ analytics, transactions, onNavigate }: { analytics: Retur
             <div className="mt-4 rounded-[28px] bg-gradient-to-br from-[#0EA5E9] to-[#2563EB] p-4 text-white shadow-[0_16px_34px_rgba(37,99,235,0.28)]"><p className="text-xs font-semibold text-white/70">Total balance</p><p className="mt-2 text-2xl font-black">{currency.format(analytics.balance)}</p><div className="mt-5 flex items-center justify-between text-[11px] font-bold text-white/75"><span>**** 4829</span><span>Taka Card</span></div></div>
             <div className="mt-4 grid grid-cols-2 gap-2"><MiniPhoneStat label="Income" value={analytics.income} color="#2DB87D" /><MiniPhoneStat label="Expense" value={analytics.expense} color="#FB7185" /></div>
             <div className="mt-4 rounded-[24px] bg-white p-3 shadow-sm dark:bg-slate-900/92 dark:ring-1 dark:ring-sky-400/10"><div className="flex items-center justify-between"><p className="text-sm font-black dark:text-white">Recent</p><span className="text-xs font-bold text-[#64748B] dark:text-slate-300">Today</span></div><div className="mt-3 space-y-2">
-              {latestTransactions.map((item) => (<div key={item.id} className="flex items-center gap-2"><span className="grid h-8 w-8 place-items-center rounded-xl" style={{ backgroundColor: getSoftColor(item.categoryColor), color: item.categoryColor }}>{item.type === "income" ? <TrendingUp size={15} /> : <CreditCard size={15} />}</span><div className="min-w-0 flex-1"><p className="truncate text-xs font-black dark:text-white">{item.merchant}</p><p className="truncate text-[10px] font-bold text-[#64748B] dark:text-slate-300">{item.category}</p></div><p className={clsx("text-[11px] font-black", item.type === "income" ? "text-[#39C7A5]" : "text-[#FF6375]")}>{item.type === "income" ? "+" : "-"}{currency.format(item.amount).replace("Rp", "")}</p></div>))}
+              {latestTransactions.map((item) => (<div key={item.id} className="flex items-center gap-2"><TransactionIconBadge item={item} size={15} className="h-8 w-8 rounded-xl" /><div className="min-w-0 flex-1"><p className="truncate text-xs font-black dark:text-white">{item.merchant}</p><p className="truncate text-[10px] font-bold text-[#64748B] dark:text-slate-300">{item.category}</p></div><p className={clsx("text-[11px] font-black", item.type === "income" ? "text-[#39C7A5]" : "text-[#FF6375]")}>{item.type === "income" ? "+" : "-"}{currency.format(item.amount).replace("Rp", "")}</p></div>))}
               {latestTransactions.length === 0 && <p className="rounded-2xl bg-[#F7F6FD] p-3 text-center text-xs font-bold text-[#64748B] dark:bg-slate-950 dark:text-slate-300">Belum ada transaksi</p>}
             </div></div>
           </div>
@@ -1601,12 +1619,7 @@ function MobileRecentTransactions({
                 index > 0 && "border-t border-sky-100/80 dark:border-[#123255]",
               )}
             >
-              <div
-                className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl"
-                style={{ backgroundColor: getSoftColor(item.categoryColor), color: item.categoryColor }}
-              >
-                {isIncome ? <TrendingUp size={17} /> : <CreditCard size={17} />}
-              </div>
+              <TransactionIconBadge item={item} size={17} className="h-10 w-10 rounded-2xl" />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-black text-slate-950 dark:text-[#F8FCFF]">{item.merchant}</p>
                 <p className="mt-0.5 truncate text-[11px] font-bold text-slate-500 dark:text-[#C8EFFF]">
@@ -1755,6 +1768,44 @@ function CategoryPanel({ data }: { data: Array<{ name: string; amount: number; c
 
 function RecentTransactions({ transactions, dataStatus, compact = false }: { transactions: Transaction[]; dataStatus: "idle" | "loading" | "ready" | "error"; compact?: boolean; }) { const visibleTransactions = transactions.slice(0, compact ? 6 : transactions.length); return (<section className="rounded-[30px] bg-white p-5 shadow-[0_16px_40px_rgba(37,99,235,0.08)] ring-1 ring-[#DBEAFE]"><SectionHeader title="Transaksi Terbaru" action="Lihat semua" /><div className="mt-4 space-y-2">{visibleTransactions.map((item) => <TransactionRow key={item.id} item={item} onDelete={undefined} />)}{visibleTransactions.length === 0 && (<div className="rounded-[24px] border border-dashed border-[#D7D3F5] bg-[#F7F6FD] p-5 text-center text-sm font-bold text-[#64748B]">{dataStatus === "loading" ? "Memuat transaksi..." : "Belum ada transaksi real di database."}</div>)}</div></section>); }
 
+function getTransactionIcon(item: Pick<Transaction, "type" | "category" | "merchant" | "paymentAccount">): LucideIcon {
+  const text = `${item.category} ${item.merchant} ${item.paymentAccount ?? ""}`.toLowerCase();
+
+  if (item.type === "income") {
+    if (/gaji|salary|upah|bonus|income|pemasukan|refund|cashback/.test(text)) return Banknote;
+    return WalletCards;
+  }
+
+  if (/makan|minum|food|drink|resto|restaurant|warung|bakso|ayam|nasi|kopi|coffee|cafe|starbucks|janji jiwa/.test(text)) return /kopi|coffee|cafe|starbucks/.test(text) ? Coffee : Utensils;
+  if (/ai|gpt|openai|chatgpt|claude|gemini|bot/.test(text)) return Bot;
+  if (/langganan|subscription|subscribe|netflix|spotify|youtube|icloud|storage|internet|wifi|pulsa|paket data/.test(text)) return /internet|wifi/.test(text) ? Wifi : Smartphone;
+  if (/transport|transportasi|gojek|grab|taxi|ojek|bus|kereta|mrt|krl|tol|parkir/.test(text)) return /bus|kereta|mrt|krl/.test(text) ? BusFront : Car;
+  if (/bp|bensin|bbm|shell|pertamina|fuel/.test(text)) return Fuel;
+  if (/belanja|shopping|shopee|tokopedia|lazada|mall|market|toko/.test(text)) return ShoppingBag;
+  if (/hiburan|game|gaming|steam|playstation|cinema|bioskop/.test(text)) return Gamepad2;
+  if (/sehat|kesehatan|obat|dokter|apotek|hospital|klinik/.test(text)) return HeartPulse;
+  if (/edukasi|belajar|kursus|buku|book|school|kuliah/.test(text)) return BookOpen;
+  if (/rumah|kos|kost|kontrakan|sewa|listrik|air|pln|pdam/.test(text)) return House;
+  if (/travel|hotel|pesawat|flight|plane|liburan/.test(text)) return Plane;
+  if (/bank|bca|bni|bri|mandiri|transfer|admin/.test(text)) return Landmark;
+  if (/tagihan|bill|invoice|receipt/.test(text)) return ReceiptText;
+
+  return CreditCard;
+}
+
+function TransactionIconBadge({ item, size = 17, className }: { item: Transaction; size?: number; className?: string }) {
+  const Icon = getTransactionIcon(item);
+
+  return (
+    <span
+      className={clsx("grid shrink-0 place-items-center rounded-2xl ring-1 ring-white/70 dark:ring-white/10", className ?? "h-10 w-10")}
+      style={{ backgroundColor: getSoftColor(item.categoryColor), color: item.categoryColor }}
+    >
+      <Icon size={size} strokeWidth={2.35} />
+    </span>
+  );
+}
+
 function TransactionRow({
   item,
   onEdit,
@@ -1801,9 +1852,7 @@ function TransactionRow({
       }}
       className="transaction-row-card grid min-w-0 cursor-pointer grid-cols-[40px_minmax(0,1fr)_auto] gap-2.5 rounded-[22px] border border-white/80 bg-white/94 p-3 shadow-[0_10px_28px_rgba(37,99,235,0.07)] transition active:scale-[0.99] hover:border-sky-200 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-300 dark:border-sky-400/15 dark:bg-white/8 sm:flex sm:items-center sm:p-3"
     >
-      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl sm:h-10 sm:w-10" style={{ backgroundColor: getSoftColor(item.categoryColor), color: item.categoryColor }}>
-        {isIncome ? <TrendingUp size={17} /> : <CreditCard size={17} />}
-      </div>
+      <TransactionIconBadge item={item} size={17} className="h-10 w-10 sm:h-10 sm:w-10" />
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
           <p className="truncate text-[13px] font-black text-taka-ink sm:text-sm">{item.merchant}</p>
@@ -2219,7 +2268,7 @@ function TransactionsView({
 
   function startEditTransaction(transaction: Transaction) {
     setEditingTransaction(transaction);
-    window.setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" }), 30);
+    setShowMobileTransactionSheet(true);
     setTransactionType(transaction.type);
     setAmount(String(transaction.amount));
     setMerchant(transaction.merchant);
@@ -2241,6 +2290,17 @@ function TransactionsView({
     setTransactionFormStep(0);
     setMessage("");
     setError("");
+  }
+
+  function openMobileTransactionForm() {
+    cancelEditTransaction();
+    setShowMobileTransactionSheet(true);
+    setTransactionFormStep(0);
+  }
+
+  function closeMobileTransactionForm() {
+    setShowMobileTransactionSheet(false);
+    if (editingTransaction) cancelEditTransaction();
   }
 
   async function submitTransaction(event: FormEvent<HTMLFormElement>) {
@@ -2330,6 +2390,7 @@ function TransactionsView({
   }
 
   const isCurrentMonth = isSameMonth(selectedMonth, new Date());
+  const isTransactionSheetOpen = showMobileTransactionSheet || Boolean(editingTransaction);
 
   return (
     <div className="grid min-w-0 gap-3 xl:grid-cols-[minmax(0,1fr)_360px] xl:gap-4">
@@ -2405,7 +2466,7 @@ function TransactionsView({
 
         <div className="mt-3 flex items-center justify-between gap-2">
           <p className="text-xs font-bold text-slate-400">{filteredTransactions.length} transaksi</p>
-          <button type="button" onClick={() => { cancelEditTransaction(); window.setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" }), 30); }} className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-sky-400 to-blue-700 px-3 py-2 text-xs font-black text-white shadow-[0_10px_22px_rgba(37,99,235,0.24)] active:scale-95 xl:hidden">
+          <button type="button" onClick={openMobileTransactionForm} className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-sky-400 to-blue-700 px-3 py-2 text-xs font-black text-white shadow-[0_10px_22px_rgba(37,99,235,0.24)] active:scale-95 xl:hidden">
             <Plus size={14} /> Tambah
           </button>
         </div>
@@ -2436,12 +2497,38 @@ function TransactionsView({
         </div>
       </section>
 
-      <section className="transaction-form-sheet min-w-0 rounded-[28px] border border-white/70 bg-white/95 p-4 shadow-soft backdrop-blur dark:border-sky-400/20 dark:bg-slate-950/95">
+      {isTransactionSheetOpen && (
+        <button
+          type="button"
+          onClick={closeMobileTransactionForm}
+          className="fixed inset-0 z-[70] bg-slate-950/34 backdrop-blur-[2px] xl:hidden"
+          aria-label="Tutup form transaksi"
+        />
+      )}
+
+      <section
+        className={clsx(
+          "transaction-form-sheet no-scrollbar min-w-0 rounded-[28px] border border-white/70 bg-white/95 p-4 shadow-soft backdrop-blur dark:border-sky-400/20 dark:bg-slate-950/95",
+          isTransactionSheetOpen
+            ? "fixed inset-x-3 bottom-[calc(92px+env(safe-area-inset-bottom))] top-[calc(86px+env(safe-area-inset-top))] z-[80] overflow-y-auto shadow-[0_24px_80px_rgba(15,23,42,0.28)] xl:static xl:max-h-none xl:overflow-visible"
+            : "hidden xl:block",
+        )}
+      >
         <div>
         <div className="flex items-start justify-between gap-3">
           <SectionTitle title={editingTransaction ? "Edit Transaksi" : "Tambah Transaksi"} eyebrow={editingTransaction ? "ubah data" : "catat income/expense"} />
+          {isTransactionSheetOpen && (
+            <button
+              type="button"
+              onClick={closeMobileTransactionForm}
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-slate-100 text-slate-500 transition active:scale-95 hover:bg-slate-200 dark:bg-white/10 dark:text-sky-100 xl:hidden"
+              aria-label="Tutup form transaksi"
+            >
+              <X size={17} />
+            </button>
+          )}
           {editingTransaction && (
-            <button type="button" onClick={cancelEditTransaction} className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-black text-slate-600 transition hover:bg-slate-200 dark:bg-white/10 dark:text-slate-100">
+            <button type="button" onClick={cancelEditTransaction} className="hidden rounded-lg bg-slate-100 px-3 py-2 text-xs font-black text-slate-600 transition hover:bg-slate-200 dark:bg-white/10 dark:text-slate-100 xl:inline-flex">
               Batal
             </button>
           )}
@@ -2497,23 +2584,60 @@ function TransactionsView({
           <p className="text-sm font-black text-taka-ink dark:text-white">Tambah Kategori</p>
           <div className="mt-3 space-y-3">
             <EditableField label="Nama" value={categoryName} placeholder="Contoh: Kosan" onChange={setCategoryName} />
-            <div className="grid grid-cols-[minmax(0,1fr)_56px] gap-2">
+            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_220px]">
               <CustomSelect
                 label="Tipe"
                 value={categoryType}
                 onChange={(value) => setCategoryType(value as CategoryType)}
                 options={[{ value: "expense", label: "Expense" }, { value: "income", label: "Income" }, { value: "both", label: "Both" }]}
               />
-              <label className="block">
-                <span className="text-xs font-black uppercase tracking-[0.1em] text-slate-400">Warna</span>
-                <input
-                  type="color"
-                  value={categoryColor}
-                  onChange={(event) => setCategoryColor(event.target.value)}
-                  className="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white p-1 dark:border-sky-400/20 dark:bg-slate-950/70"
-                  aria-label="Warna kategori"
-                />
-              </label>
+              <div className="block">
+                <span className="text-xs font-black uppercase tracking-[0.1em] text-slate-400 dark:text-slate-300">Warna</span>
+                <div className="mt-2 rounded-[18px] border border-slate-200 bg-white/92 p-2.5 shadow-sm dark:border-sky-400/20 dark:bg-slate-950/70">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="grid h-10 w-10 shrink-0 place-items-center rounded-[16px] text-white shadow-[0_10px_24px_rgba(37,99,235,0.16)] ring-1 ring-white/70"
+                      style={{ backgroundColor: categoryColor }}
+                    >
+                      <Sparkles size={16} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xs font-black text-slate-900 dark:text-white">Pilih warna</p>
+                      <p className="mt-0.5 font-mono text-[10px] font-black uppercase text-slate-400 dark:text-sky-100/60">{categoryColor}</p>
+                    </div>
+                    <label className="relative grid h-10 w-10 shrink-0 cursor-pointer place-items-center overflow-hidden rounded-[16px] border border-slate-200 bg-white shadow-sm dark:border-sky-400/20 dark:bg-white/8">
+                      <input
+                        type="color"
+                        value={categoryColor}
+                        onChange={(event) => setCategoryColor(event.target.value)}
+                        className="absolute -inset-1 h-[calc(100%+8px)] w-[calc(100%+8px)] cursor-pointer border-0 p-0"
+                        aria-label="Warna kategori"
+                      />
+                    </label>
+                  </div>
+                  <div className="mt-2 grid grid-cols-8 gap-1.5">
+                    {categoryColorPresets.map((color) => {
+                      const isSelected = color.toLowerCase() === categoryColor.toLowerCase();
+
+                      return (
+                        <button
+                          key={color}
+                          type="button"
+                          onClick={() => setCategoryColor(color)}
+                          className={clsx(
+                            "grid h-7 w-full place-items-center rounded-[10px] ring-1 ring-white/80 transition active:scale-95 dark:ring-white/10",
+                            isSelected ? "shadow-[0_8px_18px_rgba(37,99,235,0.24)] outline outline-2 outline-offset-2 outline-blue-300 dark:outline-sky-400/60" : "hover:scale-105",
+                          )}
+                          style={{ backgroundColor: color }}
+                          aria-label={`Pilih warna ${color}`}
+                        >
+                          {isSelected && <Check size={14} className="text-white drop-shadow" strokeWidth={3} />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
             </div>
             <button
               type="submit"
