@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent, ReactNode, TouchEvent as ReactTouchEvent } from "react";
 import { createPortal } from "react-dom";
+import { Capacitor } from "@capacitor/core";
 import clsx from "clsx";
 import { authStorageKey, clearStoredAuthTokenFallback } from "@/lib/client/session-storage";
 import type { LucideIcon } from "lucide-react";
@@ -4038,7 +4039,8 @@ function ReportsView({ analytics, transactions, statements }: { analytics: Retur
   const totalExpense = analytics.categoryBreakdown.reduce((total, item) => total + item.amount, 0);
 
   async function downloadBlob(blob: Blob, fileName: string) {
-    const isNativeApp = Boolean((window as typeof window & { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.());
+    const isNativeApp = Capacitor.isNativePlatform();
+    const safeFileName = fileName.replace(/[^\w.-]+/g, "_");
 
     if (isNativeApp) {
       try {
@@ -4059,17 +4061,22 @@ function ReportsView({ analytics, transactions, statements }: { analytics: Retur
         });
 
         const saved = await Filesystem.writeFile({
-          path: fileName,
+          path: safeFileName,
           data: base64Data,
           directory: Directory.Cache,
           recursive: true,
         });
+        const fileUri = (await Filesystem.getUri({
+          path: safeFileName,
+          directory: Directory.Cache,
+        }).catch(() => saved)).uri;
 
         await Share.share({
-          title: fileName,
-          text: `File laporan: ${fileName}`,
-          url: saved.uri,
-          dialogTitle: "Simpan atau bagikan laporan",
+          title: "Taka FinTrack E-Statement",
+          text: `E-Statement ${fileName}`,
+          url: fileUri,
+          files: [fileUri],
+          dialogTitle: "Simpan atau bagikan PDF statement",
         });
       } catch (error) {
         console.error("Native download error:", error);
@@ -4107,7 +4114,7 @@ function ReportsView({ analytics, transactions, statements }: { analytics: Retur
       await downloadBlob(blob, fileName);
     } catch (error) {
       console.error("Download error:", error);
-      alert("Gagal mengunduh statement. Coba update aplikasi atau buka lewat browser.");
+      alert(`Gagal mengunduh statement.${Capacitor.isNativePlatform() ? " Pastikan app sudah di-update lalu coba lagi." : " Coba reload browser lalu ulangi."}`);
     }
   }
 
