@@ -3152,7 +3152,7 @@ function ScanView({
       });
       setSuccessMessage(split ? `Porsi Saya tersimpan: ${currency.format(amount)}.` : "Transaksi scan tersimpan sebagai pengeluaran.");
       setPhase(split ? "split_saved" : "split_saved");
-      window.setTimeout(() => onNavigate("transactions"), 900);
+      window.setTimeout(() => resetScan(), 2200);
     } catch (error) {
       setScanError(error instanceof Error ? error.message : "Hasil scan gagal disimpan.");
     } finally {
@@ -3238,12 +3238,27 @@ function ScanView({
 
           {phase === "split_saved" && (
             <div className="grid min-h-[60vh] place-items-center text-center">
-              <div>
+              <div className="flex flex-col items-center">
                 <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-gradient-to-br from-sky-400 to-blue-700 text-white shadow-[0_18px_44px_rgba(37,99,235,0.24)]">
                   <Check size={30} strokeWidth={3} />
                 </div>
                 <h2 className="mt-5 text-2xl font-black">Tersimpan</h2>
-                <p className="mx-auto mt-2 max-w-[280px] text-sm font-bold leading-6 text-slate-500">{successMessage || "Transaksi masuk ke history."}</p>
+                <p className="mx-auto mt-2 max-w-[280px] text-sm font-bold leading-6 text-slate-500">{successMessage || "Transaksi scan tersimpan sebagai pengeluaran."}</p>
+                <button
+                  type="button"
+                  onClick={resetScan}
+                  className="mt-8 flex items-center gap-2 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 px-7 py-3.5 text-sm font-black text-white shadow-[0_8px_24px_rgba(37,99,235,0.30)] transition active:scale-95 hover:opacity-90"
+                >
+                  <ScanLine size={18} strokeWidth={2.5} />
+                  Scan Lagi
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onNavigate("transactions")}
+                  className="mt-3 text-sm font-semibold text-slate-400 dark:text-slate-500 underline-offset-2 hover:underline transition"
+                >
+                  Lihat Riwayat
+                </button>
               </div>
             </div>
           )}
