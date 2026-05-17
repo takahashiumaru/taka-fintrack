@@ -613,6 +613,13 @@ button {
     padding-bottom: calc(120px + env(safe-area-inset-bottom)) !important;
   }
 
+  .finance-app-shell.scan-shell {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    padding-top: 0 !important;
+    background: #F4F9FF !important;
+  }
+
   .auth-mobile-shell,
   .auth-mobile-card {
     touch-action: pan-y;
@@ -622,6 +629,13 @@ button {
   .auth-mobile-card {
     max-height: calc(100dvh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   }
+}
+
+.finance-app-shell.scan-shell {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  padding-top: 0 !important;
+  background: #F4F9FF !important;
 }
 
 
@@ -916,6 +930,33 @@ body {
   contain: layout;
 }
 
+
+@media (max-width: 767px) {
+  .finance-app-shell::after {
+    content: "";
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: calc(118px + env(safe-area-inset-bottom));
+    pointer-events: none;
+    z-index: 35;
+    background:
+      linear-gradient(180deg, color-mix(in srgb, var(--bg) 0%, transparent) 0%, var(--bg) 38%, var(--bg) 100%);
+  }
+
+  .finance-app-shell.scan-shell::after {
+    display: none;
+  }
+
+  .taka-mobile-nav {
+    bottom: max(0.375rem, env(safe-area-inset-bottom)) !important;
+    box-shadow:
+      0 18px 45px rgba(37, 99, 235, 0.18),
+      0 0 0 999px transparent;
+  }
+}
+
 @supports (height: 100dvh) {
   .finance-app-shell {
     min-height: 100dvh;
@@ -1005,3 +1046,5 @@ body.auth-scroll-lock {
     font-size: 0.55rem;
   }
 }
+
+

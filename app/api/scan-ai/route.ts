@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 const maxRawTextLength = 12_000;
 const maxImageDataLength = 8_000_000;
 const maxRequestsPerMinute = 10;
-const aiTimeoutMs = 30_000;
+const aiTimeoutMs = 15_000;
 const maxMoneyAmount = 1_000_000_000;
 const allowedCategories = new Set([
   "Makanan & Minuman",
@@ -281,6 +281,8 @@ ${rawText || "(OCR kosong/tidak terbaca; gunakan gambar jika tersedia)"}
               : prompt,
           },
         ],
+        temperature: 0,
+        max_tokens: 1800,
         stream: false,
       }),
     });

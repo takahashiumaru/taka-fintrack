@@ -22,6 +22,7 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  CircleHelp,
   Coffee,
   CreditCard,
   Eye,
@@ -41,6 +42,8 @@ import {
   MoreHorizontal,
   Paperclip,
   Pencil,
+  ImageIcon,
+  Info,
   Plane,
   Plus,
   ReceiptText,
@@ -61,6 +64,7 @@ import {
   Wifi,
   UserRound,
   WalletCards,
+  Zap,
   X,
 } from "lucide-react";
 import {
@@ -95,11 +99,9 @@ import {
   getReceiptSplitSummary,
   getSoftColor,
   getTransactionDate,
-  indomaretExampleReceipt,
   isSameMonth,
   normalizeApiTransaction,
   normalizePaymentAccount,
-  parseReceiptText,
   paymentAccountOptions,
   suggestedQuestions,
   suggestReceiptCategory,
@@ -116,10 +118,9 @@ import type {
   CategoryType,
   ChatMessage,
   MonthlyStatement,
-  ReceiptAdjustmentMode,
   ReceiptSplitMode,
-  ScannedReceipt,
   SelectedReceiptItem,
+  ScannedReceipt,
   ThemeMode,
   Transaction,
   TransactionInput,
@@ -760,34 +761,46 @@ export function TakaFinTrackApp() {
       <main
         className={clsx(
           "finance-app-shell fixed inset-0 h-[100dvh] w-full max-w-full overflow-hidden px-3 sm:px-4 lg:relative lg:inset-auto lg:h-auto lg:min-h-screen lg:overflow-x-hidden lg:p-6",
-          activeView === "chat" ? "pb-0" : "pb-0",
-          activeView === "chat" ? "pt-[calc(8px+env(safe-area-inset-top))]" : activeView === "scan" ? "pt-[calc(6px+env(safe-area-inset-top))]" : "pt-[calc(10px+env(safe-area-inset-top))]",
+          activeView === "scan" ? "scan-shell bg-[#F4F9FF] px-0 pt-0 sm:px-0 lg:bg-[#F4F9FF] lg:p-0" : "pb-0",
+          activeView === "chat" ? "pt-[calc(8px+env(safe-area-inset-top))]" : activeView === "scan" ? "pt-0" : "pt-[calc(10px+env(safe-area-inset-top))]",
         )}
         onTouchStart={handlePullStart}
         onTouchMove={handlePullMove}
         onTouchEnd={handlePullEnd}
         onTouchCancel={handlePullEnd}
       >
-      <div className={clsx("mx-auto grid h-full min-h-0 w-full max-w-[1500px] items-start gap-3 lg:h-auto lg:grid-cols-[278px_minmax(0,1fr)] lg:gap-4", activeView === "chat" ? "lg:h-auto" : "") }>
-        <Sidebar
-          activeView={activeView}
-          onChange={changeView}
-          user={currentUser}
-          onLogout={handleLogout}
-          scanCount={analytics.scanCount}
-          healthScore={analytics.savingsRatio}
-        />
-        <section className="flex h-full min-h-0 min-w-0 flex-col gap-3 overflow-hidden lg:block lg:h-auto lg:overflow-visible lg:space-y-4">
-          <TopBar
-            title={activeView === "profile" && profileScreen === "reports" ? "Laporan" : activeMeta.label}
+      <div className={clsx(
+        activeView === "scan"
+          ? "h-full min-h-0 w-full max-w-none"
+          : "mx-auto grid h-full min-h-0 w-full max-w-[1500px] items-start gap-3 lg:h-auto lg:grid-cols-[278px_minmax(0,1fr)] lg:gap-4",
+        activeView === "chat" ? "lg:h-auto" : "",
+      )}>
+        {activeView !== "scan" && (
+          <Sidebar
+            activeView={activeView}
+            onChange={changeView}
             user={currentUser}
-            sessionReady={sessionReady}
-            onAddTransaction={() => changeView("transactions")}
-            onOpenProfile={() => changeView("profile")}
-            theme={theme}
-            onToggleTheme={toggleTheme}
-            compactMobile={activeView === "chat"}
+            onLogout={handleLogout}
+            scanCount={analytics.scanCount}
+            healthScore={analytics.savingsRatio}
           />
+        )}
+        <section className={clsx(
+          "flex h-full min-h-0 min-w-0 flex-col gap-3 overflow-hidden",
+          activeView === "scan" ? "w-full lg:h-full lg:gap-0 lg:overflow-hidden" : "lg:block lg:h-auto lg:overflow-visible lg:space-y-4",
+        )}>
+          {activeView !== "scan" && (
+            <TopBar
+              title={activeView === "profile" && profileScreen === "reports" ? "Laporan" : activeMeta.label}
+              user={currentUser}
+              sessionReady={sessionReady}
+              onAddTransaction={() => changeView("transactions")}
+              onOpenProfile={() => changeView("profile")}
+              theme={theme}
+              onToggleTheme={toggleTheme}
+              compactMobile={activeView === "chat"}
+            />
+          )}
           {dataStatus === "error" && (
             <div className="rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-600">
               {dataError}
@@ -797,10 +810,10 @@ export function TakaFinTrackApp() {
             ref={contentScrollerRef}
             className={clsx(
               "no-scrollbar min-h-0 flex-1 overscroll-contain pb-[calc(96px+env(safe-area-inset-bottom))] lg:overflow-visible lg:pb-0",
-              activeView === "chat" || activeView === "profile" ? "overflow-hidden" : "overflow-y-auto",
+              activeView === "chat" || activeView === "profile" || activeView === "scan" ? "overflow-hidden" : "overflow-y-auto",
               activeView === "chat" ? "pb-0" : "",
               activeView === "profile" ? "pb-0" : "",
-              activeView === "scan" ? "scan-view-scroll" : "",
+              activeView === "scan" ? "h-full pb-0" : "",
             )}
           >
           {activeView === "dashboard" && <DashboardView analytics={analytics} transactions={transactions} dataStatus={dataStatus} onNavigate={changeView} />}
@@ -853,7 +866,7 @@ export function TakaFinTrackApp() {
           </div>
         </section>
       </div>
-      <MobileNav activeView={activeView} onChange={changeView} />
+      {activeView !== "scan" && <MobileNav activeView={activeView} onChange={changeView} />}
       </main>
     </>
   );
@@ -2655,6 +2668,207 @@ function TransactionsView({
   );
 }
 
+type ScanPhase = "camera_idle" | "camera_active" | "upload_selected" | "preview_image" | "ocr_loading" | "ocr_success" | "ocr_failed" | "split_decision" | "split_flow" | "split_saved";
+type ScanAiItem = {
+  name: string | null;
+  quantity: number | null;
+  unit_price: number | null;
+  total_price: number | null;
+};
+type ScanAiResponse = {
+  is_transaction: boolean;
+  merchant: string | null;
+  transaction_date: string | null;
+  transaction_time: string | null;
+  items: ScanAiItem[];
+  subtotal: number | null;
+  discount: number | null;
+  tax: number | null;
+  grand_total: number | null;
+  payment_method: string | null;
+  payment_account: string | null;
+  currency: string;
+  confidence: number;
+  raw_text: string | null;
+  category_suggestion: string | null;
+};
+
+const receiptUploadAccept = "image/jpeg,image/jpg,image/png";
+const maxReceiptUploadSize = 10 * 1024 * 1024;
+const receiptImageMaxEdge = 1600;
+
+function normalizeReceiptMoney(value: number | null | undefined) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return 0;
+  return Math.max(0, Math.round(value));
+}
+
+function formatScanResultDate(date: string | null, time: string | null) {
+  if (!date) return "Tanggal tidak terbaca";
+
+  const parsedDate = new Date(`${date}T${time ?? "00:00"}:00`);
+  if (Number.isNaN(parsedDate.getTime())) return time ? `${date}, ${time.replace(":", ".")}` : date;
+
+  const label = new Intl.DateTimeFormat("id-ID", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(parsedDate);
+
+  return time ? `${label}, ${time.replace(":", ".")}` : label;
+}
+
+function normalizeAiReceipt(result: ScanAiResponse): ScannedReceipt | null {
+  if (!result.is_transaction) return null;
+
+  const items = result.items
+    .map((item, index) => {
+      const name = item.name?.trim();
+      const qty = Math.max(1, Math.round(item.quantity || 1));
+      const totalPrice = normalizeReceiptMoney(item.total_price);
+      const unitPrice = normalizeReceiptMoney(item.unit_price);
+      const lineTotal = totalPrice || (unitPrice > 0 ? Math.round(unitPrice * qty) : 0);
+      const price = unitPrice || (lineTotal > 0 ? Math.max(1, Math.round(lineTotal / qty)) : 0);
+
+      if (!name || lineTotal <= 0 || price <= 0) return null;
+
+      return {
+        id: `scan-${index}-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 36)}`,
+        name,
+        qty,
+        price,
+        lineTotal,
+      };
+    })
+    .filter((item): item is NonNullable<typeof item> => Boolean(item));
+
+  const itemSubtotal = items.reduce((sum, item) => sum + getReceiptLineTotal(item), 0);
+  const subtotal = normalizeReceiptMoney(result.subtotal) || itemSubtotal;
+  const discount = normalizeReceiptMoney(result.discount);
+  const total = normalizeReceiptMoney(result.grand_total) || Math.max(0, subtotal - discount) || itemSubtotal;
+
+  if (total <= 0) return null;
+
+  const paymentAccount = normalizePaymentAccount(result.payment_account || result.payment_method);
+  const rawConfidence = typeof result.confidence === "number" ? result.confidence : 0;
+  const confidence = Math.max(0, Math.min(99, Math.round(rawConfidence <= 1 ? rawConfidence * 100 : rawConfidence)));
+
+  return {
+    merchant: result.merchant?.trim() || "Merchant tidak terbaca",
+    date: formatScanResultDate(result.transaction_date, result.transaction_time),
+    transactionDate: result.transaction_date,
+    payment: result.payment_method?.trim() || paymentAccount || "Tidak terbaca",
+    paymentAccount,
+    subtotal,
+    discount,
+    tax: result.tax === null || result.tax === undefined ? null : normalizeReceiptMoney(result.tax),
+    service: null,
+    total,
+    confidence,
+    source: "ai",
+    categorySuggestion: result.category_suggestion,
+    items,
+  };
+}
+
+function loadReceiptImage(source: File | string) {
+  return new Promise<{ image: HTMLImageElement; objectUrl: string | null }>((resolve, reject) => {
+    const image = new window.Image();
+    const objectUrl = typeof source === "string" ? null : URL.createObjectURL(source);
+
+    image.decoding = "async";
+    image.onload = () => resolve({ image, objectUrl });
+    image.onerror = () => {
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      reject(new Error("Foto struk belum bisa dibaca."));
+    };
+    image.src = typeof source === "string" ? source : objectUrl!;
+  });
+}
+
+async function compressReceiptImage(source: File | string) {
+  const { image, objectUrl } = await loadReceiptImage(source);
+
+  try {
+    const sourceWidth = image.naturalWidth || image.width;
+    const sourceHeight = image.naturalHeight || image.height;
+    const scale = Math.min(1, receiptImageMaxEdge / Math.max(sourceWidth, sourceHeight));
+    const targetWidth = Math.max(1, Math.round(sourceWidth * scale));
+    const targetHeight = Math.max(1, Math.round(sourceHeight * scale));
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d", { alpha: false });
+
+    if (!context) throw new Error("Browser belum bisa memproses foto ini.");
+
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = "high";
+    context.fillStyle = "#FFFFFF";
+    context.fillRect(0, 0, targetWidth, targetHeight);
+    context.drawImage(image, 0, 0, targetWidth, targetHeight);
+
+    return canvas.toDataURL("image/jpeg", 0.84);
+  } finally {
+    if (objectUrl) URL.revokeObjectURL(objectUrl);
+  }
+}
+
+async function scanReceiptImage(imageData: string, signal?: AbortSignal) {
+  const result = await apiRequest<ScanAiResponse>("/api/scan-ai", {
+    method: "POST",
+    body: JSON.stringify({ imageData }),
+    signal,
+  });
+  const receipt = normalizeAiReceipt(result);
+
+  if (!receipt) {
+    throw new Error(result.is_transaction ? "Data struk belum terbaca jelas. Foto ulang di tempat terang." : "Foto belum terdeteksi sebagai struk pembayaran.");
+  }
+
+  return receipt;
+}
+
+function getReceiptCharges(receipt: ScannedReceipt | null) {
+  const itemSubtotal = receipt?.items.reduce((sum, item) => sum + getReceiptLineTotal(item), 0) ?? 0;
+  const subtotal = Math.max(0, Math.round(receipt?.subtotal || itemSubtotal));
+  const total = Math.max(0, Math.round(receipt?.total ?? 0));
+  const discount = Math.max(0, Math.round(receipt?.discount ?? 0));
+  const positiveAdjustment = Math.max(0, total - Math.max(0, subtotal - discount));
+  const explicitTax = receipt?.tax === null || receipt?.tax === undefined ? null : Math.max(0, Math.round(receipt.tax));
+  const explicitService = receipt?.service === null || receipt?.service === undefined ? null : Math.max(0, Math.round(receipt.service));
+  const tax = explicitTax ?? Math.round(positiveAdjustment * 0.67);
+  const service = explicitService ?? Math.max(0, positiveAdjustment - tax);
+  const other = Math.round(total - (subtotal + tax + service - discount));
+
+  return { itemSubtotal, subtotal, discount, tax, service, other, total };
+}
+
+function getEditableReceiptItem(item: ScannedReceipt["items"][number], index: number, selectedQty?: number, unitPrice?: number): SelectedReceiptItem {
+  const key = getReceiptItemKey(item, index);
+  const originalQty = Math.max(1, Math.round(item.qty || 1));
+  const price = Math.max(0, Math.round(unitPrice ?? item.price ?? getReceiptLineTotal(item) / originalQty));
+  const qty = Math.max(1, Math.min(originalQty, Math.round(selectedQty ?? originalQty)));
+
+  return {
+    key,
+    name: item.name,
+    originalQty,
+    selectedQty: qty,
+    unitPrice: price,
+    selectedAmount: Math.round(qty * price),
+  };
+}
+
+function buildDefaultSelectedReceiptItems(receipt: ScannedReceipt | null) {
+  if (!receipt) return {};
+
+  return receipt.items.reduce<Record<string, SelectedReceiptItem>>((items, item, index) => {
+    const selected = getEditableReceiptItem(item, index);
+    items[selected.key] = selected;
+    return items;
+  }, {});
+}
+
 function ScanView({
   categories,
   sessionReady,
@@ -2671,335 +2885,201 @@ function ScanView({
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const receiptObjectUrlRef = useRef<string | null>(null);
-  const scanTimerRef = useRef<number | null>(null);
+  const previewObjectUrlRef = useRef<string | null>(null);
+  const scanAbortRef = useRef<AbortController | null>(null);
+  const scanSequenceRef = useRef(0);
+  const [phase, setPhase] = useState<ScanPhase>("camera_idle");
   const [cameraStatus, setCameraStatus] = useState<"idle" | "starting" | "active" | "error">("idle");
-  const [cameraMessage, setCameraMessage] = useState("Tap Buka Kamera, lalu arahkan struk ke area scan.");
+  const [flashOn, setFlashOn] = useState(false);
   const [receiptPreviewUrl, setReceiptPreviewUrl] = useState<string | null>(null);
-  const [scanStatus, setScanStatus] = useState<"empty" | "ready" | "scanning" | "done">("empty");
   const [scannedReceipt, setScannedReceipt] = useState<ScannedReceipt | null>(null);
+  const [scanError, setScanError] = useState("");
   const [isSavingReceipt, setIsSavingReceipt] = useState(false);
-  const [scanType, setScanType] = useState<"expense" | "income">("expense");
-  const [selectedScanCategoryId, setSelectedScanCategoryId] = useState("");
-  const [scanPaymentAccount, setScanPaymentAccount] = useState("Cash");
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [receiptSplitMode, setReceiptSplitMode] = useState<ReceiptSplitMode>("full_receipt");
+  const [selectedCategoryId, setSelectedCategoryId] = useState("");
+  const [paymentAccount, setPaymentAccount] = useState("QRIS");
   const [selectedReceiptItems, setSelectedReceiptItems] = useState<Record<string, SelectedReceiptItem>>({});
-  const [receiptAdjustmentMode, setReceiptAdjustmentMode] = useState<ReceiptAdjustmentMode>("proportional");
-  const [lastSavedReceiptMessage, setLastSavedReceiptMessage] = useState("Transaksi hasil scan berhasil ditambahkan.");
-  const hasReceiptPreview = Boolean(receiptPreviewUrl);
-  const hasScannedReceipt = scanStatus === "done";
-  const receiptItems = scannedReceipt?.items ?? [];
-  const subtotal = scannedReceipt?.subtotal ?? 0;
-  const discount = scannedReceipt?.discount ?? 0;
-  const total = scannedReceipt?.total ?? 0;
-  const confidence = scannedReceipt?.confidence ?? 0;
-  const availableScanCategories = categories.filter((category) => category.type === scanType || category.type === "both");
-  const categorySuggestion = suggestReceiptCategory(scannedReceipt, categories, scanType);
-  const selectedScanCategory = availableScanCategories.find((category) => String(category.id) === selectedScanCategoryId) ?? categorySuggestion.category;
-  const receiptSplitSummary = getReceiptSplitSummary(scannedReceipt, selectedReceiptItems, receiptAdjustmentMode);
+  const [successMessage, setSuccessMessage] = useState("");
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+
+  const receiptCharges = useMemo(() => getReceiptCharges(scannedReceipt), [scannedReceipt]);
+  const selectedReceiptSummary = useMemo(() => getReceiptSplitSummary(scannedReceipt, selectedReceiptItems, "proportional"), [scannedReceipt, selectedReceiptItems]);
+  const defaultFoodCategory = useMemo(() => {
+    return categories.find((category) => /makanan|minuman|food|drink/i.test(category.name) && (category.type === "expense" || category.type === "both"))
+      ?? suggestReceiptCategory(scannedReceipt, categories, "expense").category
+      ?? categories.find((category) => category.type === "expense" || category.type === "both")
+      ?? null;
+  }, [categories, scannedReceipt]);
+  const selectedCategory = useMemo(() => {
+    return categories.find((category) => String(category.id) === selectedCategoryId) ?? defaultFoodCategory;
+  }, [categories, defaultFoodCategory, selectedCategoryId]);
+
+  const isScannerState = phase === "camera_idle" || phase === "camera_active" || phase === "upload_selected" || phase === "preview_image" || phase === "ocr_loading" || phase === "ocr_failed";
 
   const clearCameraStream = useCallback(() => {
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
+    if (videoRef.current) videoRef.current.srcObject = null;
+  }, []);
 
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
+  const releasePreview = useCallback(() => {
+    if (previewObjectUrlRef.current) {
+      URL.revokeObjectURL(previewObjectUrlRef.current);
+      previewObjectUrlRef.current = null;
     }
   }, []);
 
-  const releaseReceiptPreview = useCallback(() => {
-    if (receiptObjectUrlRef.current) {
-      URL.revokeObjectURL(receiptObjectUrlRef.current);
-      receiptObjectUrlRef.current = null;
-    }
-  }, []);
-
-  const replaceReceiptPreview = useCallback((url: string, isObjectUrl = false) => {
-    releaseReceiptPreview();
-    receiptObjectUrlRef.current = isObjectUrl ? url : null;
-    setReceiptPreviewUrl(url);
-    setScannedReceipt(null);
-    setSelectedScanCategoryId("");
-    setScanPaymentAccount("Cash");
-    setReceiptSplitMode("full_receipt");
-    setSelectedReceiptItems({});
-    setReceiptAdjustmentMode("proportional");
-    setScanStatus("ready");
-  }, [releaseReceiptPreview]);
-
-  const startReceiptScan = useCallback(async (imageUrl: string | null, message = "Memindai struk...") => {
-    if (!imageUrl) {
-      setCameraMessage("Ambil atau upload foto struk dulu sebelum scan.");
-      return;
-    }
-
-    if (scanTimerRef.current) {
-      window.clearTimeout(scanTimerRef.current);
-      scanTimerRef.current = null;
-    }
-
-    setScanStatus("scanning");
-    setCameraMessage(message);
-
-    try {
-      const { recognize } = await import("tesseract.js");
-
-      // Preprocess image: convert to high-contrast grayscale for better OCR
-      const preprocessed = await new Promise<string>((resolve) => {
-        const img = new window.Image();
-        img.crossOrigin = "anonymous";
-        img.onload = () => {
-          const cvs = document.createElement("canvas");
-          const ctx = cvs.getContext("2d");
-          if (!ctx) { resolve(imageUrl); return; }
-
-          cvs.width = img.naturalWidth;
-          cvs.height = img.naturalHeight;
-          ctx.drawImage(img, 0, 0);
-
-          // Convert to grayscale and increase contrast
-          const imageData = ctx.getImageData(0, 0, cvs.width, cvs.height);
-          const d = imageData.data;
-          for (let i = 0; i < d.length; i += 4) {
-            // Grayscale
-            const gray = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
-            // Increase contrast
-            const contrast = ((gray - 128) * 1.5) + 128;
-            const clamped = Math.max(0, Math.min(255, contrast));
-            // Threshold for cleaner text (adaptive binarization)
-            const binaryValue = clamped > 140 ? 255 : 0;
-            d[i] = binaryValue;
-            d[i + 1] = binaryValue;
-            d[i + 2] = binaryValue;
-          }
-          ctx.putImageData(imageData, 0, 0);
-          resolve(cvs.toDataURL("image/png"));
-        };
-        img.onerror = () => resolve(imageUrl);
-        img.src = imageUrl;
-      });
-
-      setCameraMessage("OCR sedang membaca teks...");
-
-      const result = await recognize(preprocessed, "eng", {
-        logger: (progress) => {
-          if (progress.status === "recognizing text") {
-            setCameraMessage(`OCR membaca teks... ${Math.round(progress.progress * 100)}%`);
-          }
-        },
-      });
-
-      const rawText = result.data.text;
-
-      let parsedReceipt: ScannedReceipt | null = null;
-      let usedAi = false;
-
-      setCameraMessage("Memproses teks dengan Taka AI...");
-      try {
-        const aiResponse = await fetch("/api/scan-ai", {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ rawText, imageData: preprocessed }),
-        });
-
-        if (aiResponse.ok) {
-          const aiData = await aiResponse.json();
-          if (aiData.is_transaction) {
-            const itemsData = Array.isArray(aiData.items) ? aiData.items.map((item: any) => ({
-              name: item.name || "Item",
-              qty: Number(item.quantity) || 1,
-              price: Number(item.unit_price) || (Number(item.total_price) && Number(item.quantity) ? Math.round(Number(item.total_price) / Number(item.quantity)) : 0),
-              lineTotal: Number(item.total_price) || undefined,
-            })).filter((item: any) => item.price > 0) : [];
-
-            let finalTotal = Number(aiData.grand_total);
-            if (!Number.isFinite(finalTotal) || finalTotal <= 0) {
-               finalTotal = itemsData.reduce((sum: number, item: any) => sum + (item.qty * item.price), 0);
-            }
-
-            const aiConfidenceRaw = Number(aiData.confidence);
-            const aiConfidence = Number.isFinite(aiConfidenceRaw)
-              ? Math.round(aiConfidenceRaw <= 1 ? aiConfidenceRaw * 100 : aiConfidenceRaw)
-              : 0;
-
-            parsedReceipt = {
-              merchant: aiData.merchant || "Struk Belanja",
-              date: aiData.transaction_date ? `${aiData.transaction_date} ${aiData.transaction_time || ""}`.trim() : "Tanggal tidak terbaca",
-              payment: aiData.payment_method || "Tunai",
-              paymentAccount: normalizePaymentAccount(aiData.payment_account || aiData.payment_method),
-              subtotal: aiData.subtotal || 0,
-              discount: aiData.discount || 0,
-              total: finalTotal,
-              confidence: Math.max(0, Math.min(100, aiConfidence)),
-              source: "ai",
-              categorySuggestion: aiData.category_suggestion || null,
-              items: itemsData,
-            };
-            usedAi = true;
-          } else {
-             // AI successfully responded but determined it's not a transaction
-             console.log("AI deteksi bukan struk.");
-          }
-        } else {
-          console.error("AI API Error:", await aiResponse.text());
-        }
-      } catch (aiError) {
-        console.error("AI Processing Error:", aiError);
-      }
-
-      // Fallback to local regex if AI failed, errored, or no API key
-      if (!parsedReceipt) {
-        console.log("Fallback to local Regex parser...");
-        parsedReceipt = parseReceiptText(rawText);
-      }
-
-      setScannedReceipt(parsedReceipt);
-      setReceiptSplitMode("full_receipt");
-      setSelectedReceiptItems({});
-      setReceiptAdjustmentMode("proportional");
-      setScanPaymentAccount(normalizePaymentAccount(parsedReceipt.paymentAccount || parsedReceipt.payment));
-      const suggestedCategory = suggestReceiptCategory(parsedReceipt, categories, scanType).category;
-      setSelectedScanCategoryId(suggestedCategory ? String(suggestedCategory.id) : "");
-      setScanStatus("done");
-
-      if (parsedReceipt.source === "ocr" || parsedReceipt.source === "ai") {
-        const itemCount = parsedReceipt.items.length;
-        const reviewPrefix = parsedReceipt.confidence < 70 ? "Perlu review manual — " : "";
-        setCameraMessage(
-          `${reviewPrefix}Scan selesai! ${itemCount} item terdeteksi, total ${currency.format(parsedReceipt.total)}. Confidence: ${parsedReceipt.confidence}%`
-        );
-      } else {
-        setCameraMessage("Gagal menganalisa struk. Pastikan .env.local memiliki GEMINI_API_KEY untuk fitur AI.");
-      }
-    } catch (err) {
-      console.error("OCR Error:", err);
-      setScannedReceipt(null);
-      setSelectedScanCategoryId("");
-      setScanStatus("empty");
-      setCameraMessage("OCR gagal. Coba ambil foto ulang dengan pencahayaan lebih baik, atau pastikan .env.local memiliki GEMINI_API_KEY.");
-    }
-  }, [categories, scanType]);
-
-  function stopCamera() {
+  const resetScan = useCallback(() => {
+    scanAbortRef.current?.abort();
+    scanAbortRef.current = null;
+    scanSequenceRef.current += 1;
     clearCameraStream();
-    setCameraStatus("idle");
-    setCameraMessage("Kamera dimatikan. Tap Buka Kamera untuk scan lagi.");
-  }
-
-  function clearReceiptScan() {
-    clearCameraStream();
-    releaseReceiptPreview();
+    releasePreview();
     setReceiptPreviewUrl(null);
     setScannedReceipt(null);
-    setSelectedScanCategoryId("");
-    setScanPaymentAccount("Cash");
-    setReceiptSplitMode("full_receipt");
+    setScanError("");
+    setSuccessMessage("");
     setSelectedReceiptItems({});
-    setReceiptAdjustmentMode("proportional");
-    setScanStatus("empty");
+    setPhase("camera_idle");
     setCameraStatus("idle");
-    if (scanTimerRef.current) {
-      window.clearTimeout(scanTimerRef.current);
-      scanTimerRef.current = null;
+    setFlashOn(false);
+  }, [clearCameraStream, releasePreview]);
+
+  const runReceiptScan = useCallback(async (source: File | string, previewUrl: string, isObjectUrl: boolean) => {
+    scanAbortRef.current?.abort();
+    const controller = new AbortController();
+    const scanId = scanSequenceRef.current + 1;
+    scanAbortRef.current = controller;
+    scanSequenceRef.current = scanId;
+
+    releasePreview();
+    previewObjectUrlRef.current = isObjectUrl ? previewUrl : null;
+    setReceiptPreviewUrl(previewUrl);
+    setScannedReceipt(null);
+    setScanError("");
+    setSuccessMessage("");
+    setCameraStatus("idle");
+    setPhase("ocr_loading");
+
+    try {
+      const imageData = await compressReceiptImage(source);
+      if (scanId !== scanSequenceRef.current) return;
+
+      const receipt = await scanReceiptImage(imageData, controller.signal);
+      if (scanId !== scanSequenceRef.current) return;
+
+      setScannedReceipt(receipt);
+      setPaymentAccount(normalizePaymentAccount(receipt.paymentAccount || receipt.payment));
+      const category = suggestReceiptCategory(receipt, categories, "expense").category
+        ?? categories.find((item) => item.type === "expense" || item.type === "both");
+      setSelectedCategoryId(category ? String(category.id) : "");
+      setSelectedReceiptItems(buildDefaultSelectedReceiptItems(receipt));
+      setPhase("split_decision");
+    } catch (error) {
+      if (controller.signal.aborted || scanId !== scanSequenceRef.current) return;
+
+      setScanError(error instanceof Error ? error.message : "Scan struk gagal. Foto ulang dengan pencahayaan lebih terang.");
+      setPhase("ocr_failed");
+    } finally {
+      if (scanAbortRef.current === controller) {
+        scanAbortRef.current = null;
+      }
     }
-    setCameraMessage("Gambar dihapus. Ambil atau upload struk baru.");
-  }
+  }, [categories, releasePreview]);
 
   async function startCamera() {
     if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
-      cameraInputRef.current?.click();
       setCameraStatus("idle");
-      setCameraMessage("Kamera live butuh HTTPS atau localhost. Pakai tombol upload untuk ambil foto struk dari galeri HP.");
+      setScanError("Kamera belum diizinkan. Kamu tetap bisa upload dari galeri.");
+      cameraInputRef.current?.click();
       return;
     }
 
     clearCameraStream();
     setCameraStatus("starting");
-    setCameraMessage("Meminta izin kamera...");
+    setPhase("camera_idle");
+    setScanError("");
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: { ideal: "environment" },
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
+        video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 1920 }, frameRate: { ideal: 30 } },
         audio: false,
       });
-
       streamRef.current = stream;
-
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play().catch(() => undefined);
       }
-
-      releaseReceiptPreview();
+      releasePreview();
       setReceiptPreviewUrl(null);
       setScannedReceipt(null);
-      setReceiptSplitMode("full_receipt");
-      setSelectedReceiptItems({});
-      setReceiptAdjustmentMode("proportional");
-      setScanStatus("empty");
       setCameraStatus("active");
-      setCameraMessage("Kamera aktif. Posisikan struk di tengah area scan.");
+      setPhase("camera_active");
     } catch (error) {
       clearCameraStream();
       setCameraStatus("error");
-      setCameraMessage(getCameraErrorMessage(error));
+      setPhase("camera_idle");
+      setScanError(getCameraErrorMessage(error));
     }
   }
 
   function capturePhoto() {
     const video = videoRef.current;
     const canvas = canvasRef.current;
-
     if (!video || !canvas || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
-      setCameraMessage("Kamera belum siap. Tunggu sebentar, lalu ambil foto lagi.");
+      setScanError("Kamera belum siap. Tunggu sebentar, lalu coba lagi.");
       return;
     }
 
-    const width = video.videoWidth || 1280;
-    const height = video.videoHeight || 720;
-    canvas.width = width;
-    canvas.height = height;
-    canvas.getContext("2d")?.drawImage(video, 0, 0, width, height);
-
-    const capturedPhoto = canvas.toDataURL("image/jpeg", 0.92);
+    canvas.width = video.videoWidth || 1080;
+    canvas.height = video.videoHeight || 1440;
+    canvas.getContext("2d")?.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const photoUrl = canvas.toDataURL("image/jpeg", 0.92);
     clearCameraStream();
     setCameraStatus("idle");
-    replaceReceiptPreview(capturedPhoto);
-    setCameraMessage("Foto struk tersimpan. Scan otomatis berjalan...");
+    void runReceiptScan(photoUrl, photoUrl, false);
   }
 
-  function scanReceipt() {
-    if (!receiptPreviewUrl) {
-      setCameraMessage("Ambil atau upload foto struk dulu sebelum scan.");
-      return;
-    }
-
-    void startReceiptScan(receiptPreviewUrl, hasScannedReceipt ? "Memindai ulang struk..." : "Memindai struk...");
+  function validateReceiptFile(file: File) {
+    const normalizedType = file.type.toLowerCase();
+    const normalizedName = file.name.toLowerCase();
+    const isAllowedType = ["image/jpeg", "image/jpg", "image/png"].includes(normalizedType) || /\.(jpe?g|png)$/.test(normalizedName);
+    if (!isAllowedType) return "Format harus JPEG, JPG, atau PNG.";
+    if (file.size > maxReceiptUploadSize) return "Ukuran file maksimal 10MB.";
+    return "";
   }
 
-  function handleReceiptUpload(event: ChangeEvent<HTMLInputElement>, source: "camera" | "upload" = "upload") {
+  function handleReceiptUpload(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = "";
-
     if (!file) return;
 
+    const validationError = validateReceiptFile(file);
+    if (validationError) {
+      setScanError(validationError);
+      setPhase("ocr_failed");
+      return;
+    }
+
     clearCameraStream();
-    replaceReceiptPreview(URL.createObjectURL(file), true);
     setCameraStatus("idle");
-    setCameraMessage(source === "camera" ? "Foto struk dari kamera tersimpan. Scan otomatis berjalan..." : "Foto struk diupload. Scan otomatis berjalan...");
+    const previewUrl = URL.createObjectURL(file);
+    void runReceiptScan(file, previewUrl, true);
   }
 
-  function openUploadPicker() {
-    if (scanStatus !== "scanning") uploadInputRef.current?.click();
+  function handleCameraButton() {
+    if (phase === "ocr_loading") return;
+    if (cameraStatus === "active") {
+      capturePhoto();
+      return;
+    }
+    void startCamera();
   }
 
-  function toggleReceiptItem(item: ScannedReceipt["items"][number], index: number) {
+  function toggleFlash() {
+    setFlashOn((current) => !current);
+  }
+
+  function toggleSelectedReceiptItem(item: ScannedReceipt["items"][number], index: number) {
     const key = getReceiptItemKey(item, index);
     setSelectedReceiptItems((current) => {
       if (current[key]) {
@@ -3007,111 +3087,74 @@ function ScanView({
         delete next[key];
         return next;
       }
-      const unitPrice = item.price || Math.round(getReceiptLineTotal(item) / Math.max(1, item.qty));
-      return {
-        ...current,
-        [key]: {
-          key,
-          name: item.name,
-          originalQty: item.qty,
-          selectedQty: item.qty,
-          unitPrice,
-          selectedAmount: Math.round(item.qty * unitPrice),
-        },
-      };
+
+      return { ...current, [key]: getEditableReceiptItem(item, index) };
     });
-    setReceiptSplitMode("selected_items");
   }
 
-  function updateSelectedReceiptQty(item: ScannedReceipt["items"][number], index: number, selectedQty: number) {
+  function updateSelectedReceiptQty(item: ScannedReceipt["items"][number], index: number, nextQty: number) {
     const key = getReceiptItemKey(item, index);
-    const safeQty = Math.max(0, Math.min(item.qty, selectedQty));
     setSelectedReceiptItems((current) => {
-      if (safeQty <= 0) {
-        const next = { ...current };
-        delete next[key];
-        return next;
-      }
-      const unitPrice = current[key]?.unitPrice || item.price || Math.round(getReceiptLineTotal(item) / Math.max(1, item.qty));
-      return {
-        ...current,
-        [key]: {
-          key,
-          name: item.name,
-          originalQty: item.qty,
-          selectedQty: safeQty,
-          unitPrice,
-          selectedAmount: Math.round(safeQty * unitPrice),
-        },
-      };
+      const selected = current[key] ?? getEditableReceiptItem(item, index);
+      const updated = getEditableReceiptItem(item, index, nextQty, selected.unitPrice);
+      return { ...current, [key]: updated };
     });
-    setReceiptSplitMode("selected_items");
   }
 
-  function selectAllReceiptItems() {
-    if (!scannedReceipt) return;
-    const next: Record<string, SelectedReceiptItem> = {};
-    scannedReceipt.items.forEach((item, index) => {
-      const key = getReceiptItemKey(item, index);
-      const unitPrice = item.price || Math.round(getReceiptLineTotal(item) / Math.max(1, item.qty));
-      next[key] = {
-        key,
-        name: item.name,
-        originalQty: item.qty,
-        selectedQty: item.qty,
-        unitPrice,
-        selectedAmount: Math.round(item.qty * unitPrice),
-      };
+  function updateSelectedReceiptPrice(item: ScannedReceipt["items"][number], index: number, value: string) {
+    const key = getReceiptItemKey(item, index);
+    const price = Math.max(0, Math.round(Number(value.replace(/\D/g, "")) || 0));
+    setSelectedReceiptItems((current) => {
+      const selected = current[key] ?? getEditableReceiptItem(item, index);
+      const updated = getEditableReceiptItem(item, index, selected.selectedQty, price);
+      return { ...current, [key]: updated };
     });
-    setSelectedReceiptItems(next);
-    setReceiptSplitMode("selected_items");
   }
 
-  function clearSelectedReceiptItems() {
-    setSelectedReceiptItems({});
-    setReceiptSplitMode("selected_items");
-  }
+  async function saveReceipt({ split }: { split: boolean }) {
+    if (!scannedReceipt || !sessionReady) return;
 
-  async function saveScannedReceipt() {
-    if (!scannedReceipt) return;
+    const categoryName = selectedCategory?.name || "Makanan & Minuman";
+    const categoryId = selectedCategory?.id;
+    const editedItems = Object.values(selectedReceiptItems);
+    const amount = split ? Math.round(selectedReceiptSummary.selectedTotal) : scannedReceipt.total;
 
-    const selectedCategory = selectedScanCategory;
-
-    if (!selectedCategory) {
-      setCameraMessage(`Belum ada kategori ${scanType}. Tambah kategori dulu di menu Transaksi.`);
+    if (split && editedItems.length === 0) {
+      setScanError("Pilih minimal satu item yang kamu beli.");
       return;
     }
 
-    if (receiptSplitMode === "selected_items" && receiptSplitSummary.selectedCount === 0) {
-      setCameraMessage("Pilih minimal satu item kamu, atau pakai Simpan full struk.");
+    if (split && amount <= 0) {
+      setScanError("Porsi Saya masih kosong. Pilih minimal satu item dulu.");
       return;
     }
-
-    const amountToSave = receiptSplitMode === "selected_items" ? receiptSplitSummary.selectedTotal : scannedReceipt.total;
 
     setIsSavingReceipt(true);
+    setScanError("");
 
     try {
       await onCreateTransaction({
         merchant: scannedReceipt.merchant,
-        amount: amountToSave,
-        type: scanType,
-        categoryId: selectedCategory.id,
-        transactionDate: getDateInputValue(),
+        amount,
+        type: "expense",
+        categoryId,
+        category: categoryName,
+        transactionDate: scannedReceipt.transactionDate || getDateInputValue(),
         source: "Scan",
-        paymentAccount: scanPaymentAccount,
-        receiptSplitMode,
+        paymentAccount,
+        receiptSplitMode: split ? "selected_items" : "full_receipt",
         receiptTotalAmount: scannedReceipt.total,
-        receiptSelectedAmount: receiptSplitMode === "selected_items" ? amountToSave : null,
+        receiptSelectedAmount: split ? amount : null,
         receiptItems: scannedReceipt.items,
-        receiptSelectedItems: Object.values(selectedReceiptItems),
-        receiptAdjustmentAmount: receiptSplitMode === "selected_items" ? receiptSplitSummary.selectedAdjustment : null,
-        receiptAdjustmentNote: receiptSplitMode === "selected_items" && receiptSplitSummary.selectedAdjustment !== 0 ? "Alokasi proporsional pajak/service/diskon" : null,
+        receiptSelectedItems: split ? editedItems : [],
+        receiptAdjustmentAmount: split ? selectedReceiptSummary.selectedAdjustment : null,
+        receiptAdjustmentNote: split ? `Porsi item terpilih dari ${editedItems.length} item scan.` : null,
       });
-      setLastSavedReceiptMessage(receiptSplitMode === "selected_items" ? `Tersimpan: ${receiptSplitSummary.selectedCount} item saya dari total struk ${currency.format(scannedReceipt.total)}.` : "Transaksi full struk berhasil ditambahkan.");
-      setShowSuccessModal(true);
+      setSuccessMessage(split ? `Porsi Saya tersimpan: ${currency.format(amount)}.` : "Transaksi scan tersimpan sebagai pengeluaran.");
+      setPhase(split ? "split_saved" : "split_saved");
+      window.setTimeout(() => onNavigate("transactions"), 900);
     } catch (error) {
-      setCameraMessage(error instanceof Error ? error.message : "Hasil scan gagal disimpan.");
+      setScanError(error instanceof Error ? error.message : "Hasil scan gagal disimpan.");
     } finally {
       setIsSavingReceipt(false);
     }
@@ -3119,357 +3162,513 @@ function ScanView({
 
   useEffect(() => {
     return () => {
+      scanAbortRef.current?.abort();
       clearCameraStream();
-      releaseReceiptPreview();
-
-      if (scanTimerRef.current) {
-        window.clearTimeout(scanTimerRef.current);
-      }
+      releasePreview();
     };
-  }, [clearCameraStream, releaseReceiptPreview]);
-
-  useEffect(() => {
-    if (scanStatus === "ready" && receiptPreviewUrl) {
-      void startReceiptScan(receiptPreviewUrl, "Memindai struk otomatis...");
-    }
-  }, [receiptPreviewUrl, scanStatus, startReceiptScan]);
+  }, [clearCameraStream, releasePreview]);
 
   return (
-    <div className="relative grid gap-3 xl:grid-cols-[minmax(0,1fr)_460px]">
-      <section className="rounded-xl border border-white/70 bg-white/86 p-2.5 shadow-soft backdrop-blur sm:p-4">
-        <SectionTitle title="Scan Struk" eyebrow="JPEG / PNG • max 10MB" />
-        <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_340px] 2xl:grid-cols-[minmax(0,1fr)_380px]">
-          <div className="rounded-xl border border-dashed border-blue-300 bg-blue-50 p-2.5 sm:p-4">
-            <div className="receipt-camera-frame relative overflow-hidden rounded-xl bg-slate-950 shadow-inner sm:h-[420px] lg:h-[500px]">
-              {receiptPreviewUrl ? (
-                <div
-                  className="absolute inset-0 bg-contain bg-center bg-no-repeat"
-                  style={{ backgroundImage: `url(${receiptPreviewUrl})` }}
-                  aria-label="Preview struk yang diunggah"
-                />
-              ) : (
-                <>
-                  <Image
-                    src="/images/receipt-lifestyle.svg"
-                    alt="Preview scanner struk"
-                    fill
-                    className="object-cover opacity-35"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-br from-slate-950/80 via-slate-950/52 to-emerald-950/50" />
-                </>
-              )}
-              <video
-                ref={videoRef}
-                autoPlay
-                muted
-                playsInline
-                className={clsx(
-                  "absolute inset-0 h-full w-full bg-black object-cover transition-opacity duration-300",
-                  cameraStatus === "active" ? "opacity-100" : "opacity-0",
-                )}
-              />
-              <canvas ref={canvasRef} className="hidden" />
-              <div className="pointer-events-none absolute inset-6 rounded-[1.4rem] border border-white/60">
-                <span className="absolute -left-px -top-px h-10 w-10 rounded-tl-[1.4rem] border-l-4 border-t-4 border-blue-300" />
-                <span className="absolute -right-px -top-px h-10 w-10 rounded-tr-[1.4rem] border-r-4 border-t-4 border-blue-300" />
-                <span className="absolute -bottom-px -left-px h-10 w-10 rounded-bl-[1.4rem] border-b-4 border-l-4 border-blue-300" />
-                <span className="absolute -bottom-px -right-px h-10 w-10 rounded-br-[1.4rem] border-b-4 border-r-4 border-blue-300" />
-              </div>
-              {cameraStatus === "active" && (
-                <>
-                  <div className="pointer-events-none absolute left-10 right-10 top-1/2 h-0.5 animate-pulse bg-emerald-300 shadow-[0_0_24px_rgba(110,231,183,0.95)]" />
-                  <button
-                    type="button"
-                    onClick={capturePhoto}
-                    className="absolute bottom-20 left-1/2 grid h-16 w-16 -translate-x-1/2 place-items-center rounded-full border-4 border-white bg-blue-500 text-white shadow-float transition hover:bg-blue-600"
-                    aria-label="Ambil foto struk"
-                  >
-                    <Camera size={24} />
-                  </button>
-                </>
-              )}
-              {cameraStatus !== "active" && !receiptPreviewUrl && (
-                <div className="absolute inset-0 grid place-items-center bg-taka-navy/40 px-5 text-center text-white">
-                  <div>
-                    <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-white/18">
-                      <ScanLine size={22} />
-                    </div>
-                    <p className="mt-3 text-base font-black">
-                      {cameraStatus === "starting" ? "Menyalakan kamera..." : "Kamera belum aktif"}
-                    </p>
-                    <p className="mx-auto mt-2 max-w-[260px] text-xs font-semibold leading-5 text-white/72">
-                      Buka kamera, posisikan seluruh struk di dalam frame, lalu ambil foto.
-                    </p>
-                  </div>
-                </div>
-              )}
-              {scanStatus === "scanning" && (
-                <div className="absolute inset-0 grid place-items-center bg-taka-navy/58 px-5 text-center text-white">
-                  <div>
-                    <div className="mx-auto h-12 w-12 animate-pulse rounded-full border-4 border-blue-300 border-t-white" />
-                    <p className="mt-3 text-sm font-black">Scanning...</p>
-                  </div>
-                </div>
-              )}
-              <div className="absolute bottom-2 left-2 right-2 rounded-lg bg-white/92 px-2.5 py-1.5 text-[11px] font-bold leading-4 text-slate-700 shadow-sm sm:bottom-4 sm:left-4 sm:right-4 sm:px-3 sm:py-2 sm:text-xs sm:leading-5">
-                {cameraMessage}
-              </div>
-            </div>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2">
-              <input
-                ref={cameraInputRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                className="sr-only"
-                onChange={(event) => handleReceiptUpload(event, "camera")}
-                disabled={scanStatus === "scanning"}
-              />
-              <input
-                ref={uploadInputRef}
-                type="file"
-                accept="image/*"
-                className="sr-only"
-                onChange={(event) => handleReceiptUpload(event, "upload")}
-                disabled={scanStatus === "scanning"}
-              />
-              <button
-                type="button"
-                onClick={cameraStatus === "active" ? capturePhoto : startCamera}
-                disabled={cameraStatus === "starting" || scanStatus === "scanning"}
-                className={clsx(
-                  "inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-black text-white transition disabled:cursor-not-allowed disabled:opacity-70",
-                  cameraStatus === "active" ? "bg-blue-500 hover:bg-blue-600" : "bg-taka-navy hover:bg-blue-700",
-                )}
-              >
-                <Camera size={18} />
-                {cameraStatus === "starting" ? "Membuka..." : cameraStatus === "active" ? "Ambil Foto" : "Buka Kamera"}
-              </button>
-              <button
-                type="button"
-                onClick={cameraStatus === "active" ? stopCamera : scanReceipt}
-                disabled={cameraStatus !== "active" && (!hasReceiptPreview || scanStatus === "scanning")}
-                className={clsx(
-                  "scan-retry-button inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-55",
-                  cameraStatus === "active"
-                    ? "bg-white text-slate-700 hover:bg-slate-50"
-                    : "bg-sky-600 text-white hover:bg-sky-700",
-                )}
-              >
-                {cameraStatus === "active" ? <ScanLine size={18} /> : hasScannedReceipt ? <Check size={18} /> : <ScanLine size={18} />}
-                {cameraStatus === "active" ? "Matikan" : scanStatus === "scanning" ? "Scanning..." : hasScannedReceipt ? "Scan Ulang" : "Scan Struk"}
-              </button>
-              {receiptPreviewUrl && (
-                <button
-                  type="button"
-                  onClick={clearReceiptScan}
-                  disabled={scanStatus === "scanning"}
-                  className="scan-delete-image-button inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-rose-500 px-4 py-3 text-sm font-black text-white shadow-[0_8px_24px_rgba(225,29,72,0.3)] transition hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <X size={18} strokeWidth={3} />
-                  Hapus Gambar
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={openUploadPicker}
-                disabled={scanStatus === "scanning"}
-                className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-white px-4 py-3 text-sm font-black text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-55"
-              >
-                <FileText size={18} />
-                Upload Galeri
-              </button>
-              <button type="button" onClick={() => onNavigate("transactions")} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-white px-4 py-3 text-sm font-black text-slate-700 transition hover:bg-slate-50">
-                <Plus size={18} />
-                Manual
-              </button>
-            </div>
-          </div>
-          <div className="rounded-xl bg-taka-navy p-4 text-white lg:min-h-[500px]">
-            <p className="text-sm font-black text-emerald-200">Preview Hasil</p>
-            <h2 className="mt-2 text-2xl font-black">
-              {scanStatus === "done" ? scannedReceipt?.merchant : scanStatus === "scanning" ? "Memproses OCR" : "Menunggu Scan"}
-            </h2>
-            <p className="mt-1 text-sm font-semibold text-slate-300">
-              {scanStatus === "done" && scannedReceipt
-                ? `${scannedReceipt.date} • ${scannedReceipt.payment}`
-                : hasReceiptPreview
-                  ? "Foto struk siap discan"
-                  : "Belum ada foto struk"}
-            </p>
-            {hasScannedReceipt ? (
-              <>
-                <div className="mt-5 space-y-3">
-                  <MetricLine label="Subtotal" value={currency.format(subtotal)} />
-                  <MetricLine label="Diskon" value={`-${currency.format(discount)}`} />
-                  <MetricLine label="Total" value={currency.format(total)} strong />
-                </div>
-                <div className="mt-5 rounded-xl bg-white/10 p-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-bold text-slate-300">Confidence</span>
-                    <span className="text-lg font-black text-emerald-200">{confidence}%</span>
-                  </div>
-                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/12">
-                    <div className="h-full rounded-full bg-emerald-400" style={{ width: `${confidence}%` }} />
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="mt-5 rounded-xl bg-white/10 p-4">
-                <div className="space-y-3">
-                  <div className="h-3 w-28 rounded-full bg-white/18" />
-                  <div className="h-3 w-44 rounded-full bg-white/12" />
-                  <div className="h-3 w-36 rounded-full bg-white/12" />
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
-
-      <section className="rounded-[24px] border border-white/70 bg-white/86 p-4 shadow-[0_14px_32px_rgba(37,99,235,0.08)] backdrop-blur">
-        <SectionHeader title="Item Struk" action={hasScannedReceipt ? `${receiptItems.length} item` : "0 item"} />
-        {hasScannedReceipt ? (
-          <div className="mt-4 space-y-3">
-            {receiptItems.length > 0 ? (
-              <>
-                <div className="flex flex-wrap gap-2">
-                  <button type="button" onClick={selectAllReceiptItems} className="rounded-full bg-sky-50 px-3 py-2 text-[11px] font-black text-sky-700 ring-1 ring-sky-100">Pilih semua</button>
-                  <button type="button" onClick={clearSelectedReceiptItems} className="rounded-full bg-slate-50 px-3 py-2 text-[11px] font-black text-slate-600 ring-1 ring-slate-100">Kosongkan</button>
-                  <button type="button" onClick={() => setReceiptSplitMode("full_receipt")} className="rounded-full bg-blue-50 px-3 py-2 text-[11px] font-black text-blue-700 ring-1 ring-blue-100">Simpan full struk</button>
-                </div>
-                <div className="max-h-[360px] space-y-2 overflow-y-auto pr-1">
-                  {receiptItems.map((item, index) => {
-                    const key = getReceiptItemKey(item, index);
-                    const selected = selectedReceiptItems[key];
-                    return (
-                      <div key={key} className={clsx("rounded-xl border p-3 transition", selected ? "border-sky-200 bg-sky-50/80" : "border-slate-100 bg-white")}>
-                        <div className="flex items-start gap-3">
-                          <input type="checkbox" checked={Boolean(selected)} onChange={() => toggleReceiptItem(item, index)} className="mt-1 h-5 w-5 rounded border-slate-300 text-sky-600" />
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-black text-taka-ink">{item.name}</p>
-                            <p className="mt-1 text-xs font-bold text-slate-500">{item.qty} x {currency.format(item.price)} • total {currency.format(getReceiptLineTotal(item))}</p>
-                            {selected && item.qty > 1 && (
-                              <div className="mt-2 flex items-center gap-2">
-                                <span className="text-[11px] font-bold text-slate-500">Qty saya</span>
-                                <button type="button" onClick={() => updateSelectedReceiptQty(item, index, selected.selectedQty - 1)} className="grid h-7 w-7 place-items-center rounded-lg bg-white font-black text-slate-700 ring-1 ring-slate-200">-</button>
-                                <span className="min-w-6 text-center text-xs font-black text-slate-800">{selected.selectedQty}</span>
-                                <button type="button" onClick={() => updateSelectedReceiptQty(item, index, selected.selectedQty + 1)} className="grid h-7 w-7 place-items-center rounded-lg bg-white font-black text-slate-700 ring-1 ring-slate-200">+</button>
-                              </div>
-                            )}
-                          </div>
-                          <p className="text-right text-sm font-black text-taka-ink">{currency.format(selected?.selectedAmount ?? getReceiptLineTotal(item))}</p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className="rounded-xl bg-slate-950 p-3 text-white">
-                  <p className="text-xs font-black uppercase tracking-[0.14em] text-sky-200">Pilih Item Saya</p>
-                  <div className="mt-2 space-y-1 text-xs font-bold text-slate-300">
-                    <div className="flex justify-between"><span>Total struk</span><span>{currency.format(receiptSplitSummary.receiptTotal)}</span></div>
-                    <div className="flex justify-between"><span>{receiptSplitSummary.selectedCount} item dipilih</span><span>{currency.format(receiptSplitSummary.selectedSubtotal)}</span></div>
-                    <div className="flex justify-between"><span>Alokasi pajak/service/diskon</span><span>{currency.format(receiptSplitSummary.selectedAdjustment)}</span></div>
-                    <div className="flex justify-between border-t border-white/10 pt-2 text-sm text-white"><span>Nominal disimpan</span><span>{currency.format(receiptSplitMode === "selected_items" ? receiptSplitSummary.selectedTotal : total)}</span></div>
-                  </div>
-                  <label className="mt-3 flex items-center gap-2 text-[11px] font-bold text-slate-300">
-                    <input type="checkbox" checked={receiptAdjustmentMode === "proportional"} onChange={(event) => setReceiptAdjustmentMode(event.target.checked ? "proportional" : "none")} />
-                    Alokasikan pajak/service/diskon proporsional
-                  </label>
-                </div>
-              </>
-            ) : (
-              <div className="rounded-xl border border-dashed border-amber-200 bg-amber-50 p-4 text-sm font-bold text-amber-700">Item belum terbaca. Kamu tetap bisa simpan full struk atau scan ulang dengan foto lebih jelas.</div>
-            )}
-          </div>
-        ) : (
-          <div className="mt-4 rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4">
-            <div className="space-y-3">
-              <div className="h-3 w-32 rounded-full bg-slate-200" />
-              <div className="h-3 w-48 rounded-full bg-slate-200" />
-              <div className="h-3 w-28 rounded-full bg-slate-200" />
-            </div>
-          </div>
-        )}
-        
-        {hasScannedReceipt && (
-          <div className="mt-4">
-            <CustomSelect
-              label="Jenis Transaksi"
-              value={scanType}
-              onChange={(value) => {
-                const nextType = value as "expense" | "income";
-                setScanType(nextType);
-                const suggestedCategory = suggestReceiptCategory(scannedReceipt, categories, nextType).category;
-                setSelectedScanCategoryId(suggestedCategory ? String(suggestedCategory.id) : "");
-              }}
-              options={[{ value: "expense", label: "Pengeluaran (Expense)" }, { value: "income", label: "Pemasukan (Income)" }]}
+    <div className="scan-native-shell flex h-[100dvh] w-full max-w-none flex-col overflow-hidden bg-[#F4F9FF] dark:bg-slate-950 text-[#0F172A] dark:text-slate-100 font-sans">
+      {isScannerState ? (
+        <div className="relative flex min-h-0 flex-1 flex-col">
+          <ScanFrame
+            phase={phase}
+            cameraStatus={cameraStatus}
+            cameraActive={cameraStatus === "active"}
+            previewUrl={receiptPreviewUrl}
+            error={scanError}
+            videoRef={videoRef}
+            canvasRef={canvasRef}
+            onClose={() => { resetScan(); onNavigate("dashboard"); }}
+            onHelp={() => setScanError("Pastikan struk terlihat jelas, tidak blur, dan semua total masuk foto.")}
+          />
+          {phase !== "ocr_loading" && (
+            <BottomScanBar
+              cameraActive={cameraStatus === "active"}
+              flashOn={flashOn}
+              loading={cameraStatus === "starting"}
+              onOpenGallery={() => uploadInputRef.current?.click()}
+              onCamera={handleCameraButton}
+              onToggleFlash={toggleFlash}
             />
-            <div className="mt-3">
-              <CustomSelect
-                label="Kategori"
-                value={selectedScanCategory ? String(selectedScanCategory.id) : ""}
-                onChange={setSelectedScanCategoryId}
-                options={[{ value: "", label: "Pilih kategori" }, ...availableScanCategories.map((category) => ({ value: String(category.id), label: category.name }))]}
-              />
-            </div>
-            <div className="mt-3">
-              <CustomSelect
-                label="Akun / Dompet Pembayaran"
-                value={scanPaymentAccount}
-                onChange={setScanPaymentAccount}
-                options={paymentAccountOptions.map((account) => ({ value: account, label: account }))}
-              />
-            </div>
-            <p className="scan-info-panel mt-2 rounded-lg bg-sky-50 px-3 py-2 text-xs font-bold leading-5 text-sky-700">
-              AI membaca pembayaran: {scannedReceipt?.payment || "tidak terbaca"}. Dompet tersimpan: {scanPaymentAccount}.
-            </p>
-            {selectedScanCategory && (
-              <p className="scan-category-panel mt-2 rounded-lg bg-blue-50 px-3 py-2 text-xs font-bold leading-5 text-blue-700">
-                Disarankan: {selectedScanCategory.name}. {categorySuggestion.reason}
-              </p>
-            )}
-          </div>
-        )}
-
-        <button
-          type="button"
-          onClick={() => void saveScannedReceipt()}
-          disabled={!hasScannedReceipt || isSavingReceipt}
-          className={clsx(
-            "mt-4 flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-black transition disabled:cursor-not-allowed",
-            hasScannedReceipt && !isSavingReceipt ? "bg-sky-600 text-white hover:bg-sky-700" : "scan-save-disabled bg-slate-200 text-slate-400",
           )}
-        >
-          <Check size={18} />
-          {isSavingReceipt ? "Menyimpan..." : "Konfirmasi Simpan"}
-        </button>
-      </section>
+        </div>
+      ) : (
+        <>
+          <ScanHeader
+            title={phase === "split_flow" ? "Ubah rincian" : "Rincian bill"}
+            onBack={phase === "split_flow" ? () => setPhase("split_decision") : resetScan}
+            onHelp={() => setScanError("Cek lagi total, pajak, dan item sebelum konfirmasi.")}
+          />
+          <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-3 pb-4 pt-2.5">
+          {(phase === "ocr_success" || phase === "split_decision") && scannedReceipt && (
+            <ReceiptScanResult
+                receipt={scannedReceipt}
+                previewUrl={receiptPreviewUrl}
+                charges={receiptCharges}
+                categories={categories}
+                selectedCategoryId={selectedCategory ? String(selectedCategory.id) : ""}
+                paymentAccount={paymentAccount}
+                saving={isSavingReceipt}
+                error={scanError}
+                onCategoryChange={setSelectedCategoryId}
+                onPaymentAccountChange={setPaymentAccount}
+                onRescan={resetScan}
+                onEditSplit={() => setPhase("split_flow")}
+                onConfirm={() => void saveReceipt({ split: false })}
+                onPreviewImage={() => setIsPreviewModalOpen(true)}
+              />
+          )}
 
-      {showSuccessModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="w-full max-w-xs rounded-2xl bg-white p-5 shadow-[0_8px_32px_rgba(0,0,0,0.18)] text-center">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50">
-              <Check size={22} className="text-blue-500" />
+          {phase === "split_flow" && scannedReceipt && (
+            <SplitBillForm
+              receipt={scannedReceipt}
+              selectedItems={selectedReceiptItems}
+              summary={selectedReceiptSummary}
+              saving={isSavingReceipt}
+              error={scanError}
+              onToggleItem={toggleSelectedReceiptItem}
+              onQtyChange={updateSelectedReceiptQty}
+              onPriceChange={updateSelectedReceiptPrice}
+              onBack={() => setPhase("split_decision")}
+              onSave={() => void saveReceipt({ split: true })}
+            />
+          )}
+
+          {phase === "split_saved" && (
+            <div className="grid min-h-[60vh] place-items-center text-center">
+              <div>
+                <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-gradient-to-br from-sky-400 to-blue-700 text-white shadow-[0_18px_44px_rgba(37,99,235,0.24)]">
+                  <Check size={30} strokeWidth={3} />
+                </div>
+                <h2 className="mt-5 text-2xl font-black">Tersimpan</h2>
+                <p className="mx-auto mt-2 max-w-[280px] text-sm font-bold leading-6 text-slate-500">{successMessage || "Transaksi masuk ke history."}</p>
+              </div>
             </div>
-            <p className="mt-3 text-base font-black text-taka-ink">Berhasil Disimpan!</p>
-            <p className="mt-1 text-sm font-semibold text-slate-500">
-              {lastSavedReceiptMessage}
-            </p>
-            <button
-              type="button"
-              onClick={() => {
-                setShowSuccessModal(false);
-                onNavigate("transactions");
-              }}
-              className="mt-4 w-full rounded-xl bg-blue-500 py-2.5 text-sm font-black text-white transition hover:bg-blue-600"
-            >
-              Lanjut ke Transaksi
+          )}
+          </div>
+        </>
+      )}
+
+      <input ref={cameraInputRef} type="file" accept={receiptUploadAccept} capture="environment" className="sr-only" onChange={handleReceiptUpload} />
+      <input ref={uploadInputRef} type="file" accept={receiptUploadAccept} className="sr-only" onChange={handleReceiptUpload} />
+      
+      {isPreviewModalOpen && receiptPreviewUrl && (
+        <div className="fixed inset-0 z-[100] flex flex-col bg-slate-950/95 backdrop-blur-md animate-in fade-in zoom-in-95 duration-200">
+          <div className="flex h-[calc(56px+env(safe-area-inset-top))] pt-[env(safe-area-inset-top)] shrink-0 items-center justify-end px-4">
+            <button type="button" onClick={() => setIsPreviewModalOpen(false)} className="grid h-10 w-10 place-items-center rounded-full bg-white/10 text-white transition active:scale-95" aria-label="Tutup preview">
+              <X size={24} />
             </button>
+          </div>
+          <div className="flex-1 overflow-auto p-4 flex items-center justify-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={receiptPreviewUrl} alt="Preview struk" className="max-w-full max-h-[85vh] rounded-[16px] object-contain shadow-2xl" />
           </div>
         </div>
       )}
     </div>
+  );
+}
+
+function ScanHeader({ title, onBack, onHelp }: { title: string; onBack: () => void; onHelp: () => void }) {
+  return (
+    <header className="flex shrink-0 items-center gap-3 border-b border-blue-100/80 dark:border-blue-900/50 bg-white/82 dark:bg-slate-900/82 px-4 pb-4 pt-[calc(14px+env(safe-area-inset-top))] shadow-[0_8px_22px_rgba(37,99,235,0.07)] dark:shadow-none backdrop-blur-xl">
+      <button type="button" onClick={onBack} className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-blue-50/80 dark:bg-slate-800/80 text-blue-700 dark:text-blue-400 transition active:scale-95" aria-label="Kembali">
+        <ChevronLeft size={21} strokeWidth={2.4} />
+      </button>
+      <h1 className="min-w-0 flex-1 truncate text-xl font-black tracking-tight text-[#0F172A] dark:text-slate-100 font-sans">{title}</h1>
+      <button type="button" onClick={onHelp} className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-blue-50/80 dark:bg-slate-800/80 text-blue-700 dark:text-blue-400 ring-1 ring-blue-100/80 dark:ring-blue-900/50 transition active:scale-95" aria-label="Bantuan scan">
+        <CircleHelp size={18} strokeWidth={2.6} />
+      </button>
+    </header>
+  );
+}
+
+function ScanFrame({
+  phase,
+  cameraStatus,
+  cameraActive,
+  previewUrl,
+  error,
+  videoRef,
+  canvasRef,
+  onClose,
+  onHelp,
+}: {
+  phase: ScanPhase;
+  cameraStatus: "idle" | "starting" | "active" | "error";
+  cameraActive: boolean;
+  previewUrl: string | null;
+  error: string;
+  videoRef: React.RefObject<HTMLVideoElement>;
+  canvasRef: React.RefObject<HTMLCanvasElement>;
+  onClose: () => void;
+  onHelp: () => void;
+}) {
+  const isLoading = phase === "ocr_loading";
+
+  if (isLoading) {
+    return (
+      <section className="relative min-h-0 flex-1 overflow-hidden bg-gradient-to-b from-[#F8FBFF] via-[#EEF7FF] to-[#EAF4FF] dark:bg-none dark:bg-slate-950">
+        <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-between px-5 pt-[calc(14px+env(safe-area-inset-top))]">
+          <button type="button" onClick={onClose} className="grid h-9 w-9 place-items-center rounded-full bg-white/72 text-blue-700 shadow-[0_10px_24px_rgba(37,99,235,0.12)] ring-1 ring-blue-100/70 backdrop-blur transition active:scale-95 dark:bg-white/10 dark:text-white dark:shadow-sm dark:ring-white/20" aria-label="Batalkan scan">
+            <ChevronLeft size={21} />
+          </button>
+        </div>
+        <div className="flex h-full flex-col items-center justify-center px-8 pb-[calc(50px+env(safe-area-inset-bottom))] pt-[calc(74px+env(safe-area-inset-top))]">
+          <div className="aspect-[3/4.2] w-full max-w-[252px] overflow-hidden rounded-[20px] border border-blue-100 bg-white/72 shadow-[0_18px_44px_rgba(37,99,235,0.14)] ring-1 ring-white/70 dark:border-white/10 dark:bg-white/5 dark:shadow-[0_18px_44px_rgba(0,0,0,0.5)] dark:ring-white/10">
+            {previewUrl ? (
+              <div className="h-full w-full bg-cover bg-center" style={{ backgroundImage: `url(${previewUrl})` }} aria-label="Foto struk yang sedang dibaca" />
+            ) : (
+              <div className="grid h-full place-items-center text-blue-500 dark:text-blue-400">
+                <ReceiptText size={40} />
+              </div>
+            )}
+          </div>
+          <p className="mt-8 text-center text-xl font-black tracking-tight text-[#0F172A] dark:text-white">Membaca struk</p>
+          <div className="mt-5 h-3.5 w-full max-w-[252px] overflow-hidden rounded-full bg-blue-100 p-1 dark:bg-white/10">
+            <div className="h-full w-3/4 rounded-full bg-gradient-to-r from-sky-400 to-blue-700 taka-progress-sweep" />
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="relative min-h-0 flex-1 overflow-hidden bg-gradient-to-b from-[#F8FBFF] via-[#EFF6FF] to-[#EAF4FF] dark:bg-none dark:bg-slate-950">
+      {previewUrl && <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${previewUrl})` }} aria-label="Preview struk" />}
+      <video ref={videoRef} autoPlay muted playsInline className={clsx("absolute inset-0 h-full w-full object-cover transition-opacity duration-300", cameraActive ? "opacity-100" : "opacity-0")} />
+      <canvas ref={canvasRef} className="hidden" />
+      <div className={clsx("absolute inset-0", (cameraActive || previewUrl) ? "bg-gradient-to-b from-black/40 via-black/0 to-black/60" : "")} />
+
+      <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-between px-5 pt-[calc(14px+env(safe-area-inset-top))]">
+        <button type="button" onClick={onClose} className="grid h-9 w-9 place-items-center rounded-full bg-slate-950/10 text-blue-700 shadow-sm ring-1 ring-blue-100/70 backdrop-blur-md transition active:scale-95 dark:bg-black/20 dark:text-white dark:ring-white/20" aria-label="Tutup scan">
+          <X size={21} strokeWidth={2.5} />
+        </button>
+        <button type="button" onClick={onHelp} className="grid h-9 w-9 place-items-center rounded-full bg-slate-950/10 text-blue-700 shadow-sm ring-1 ring-blue-100/70 backdrop-blur-md transition active:scale-95 dark:bg-black/20 dark:text-white dark:ring-white/20" aria-label="Bantuan scan">
+          <CircleHelp size={19} strokeWidth={2.7} />
+        </button>
+      </div>
+
+      {!cameraActive && !previewUrl && (
+        <div className="absolute inset-x-8 top-[31%] text-center">
+          <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-white/68 text-blue-700 shadow-[0_12px_28px_rgba(37,99,235,0.10)] ring-1 ring-blue-100/80 backdrop-blur dark:bg-white/10 dark:text-blue-400 dark:shadow-sm dark:ring-white/20">
+            {cameraStatus === "starting" ? <RefreshCw size={20} className="animate-spin" /> : <ScanLine size={21} />}
+          </div>
+          <p className="mt-4 text-lg font-black text-[#0F172A] dark:text-white">{cameraStatus === "starting" ? "Membuka kamera" : "Scan struk pembayaran"}</p>
+          <p className="mx-auto mt-2 max-w-[270px] text-sm font-bold leading-6 text-slate-500 dark:text-white/70">Arahkan kamera ke struk, lalu ambil foto.</p>
+        </div>
+      )}
+
+      {cameraActive && (
+        <div className="pointer-events-none absolute inset-x-16 top-[29%] h-[33%] rounded-[24px] border border-sky-200/35 shadow-[0_0_0_999px_rgba(0,0,0,0.04)]">
+          <span className="absolute -left-1 -top-1 h-8 w-8 rounded-tl-[24px] border-l-[3px] border-t-[3px] border-sky-200/90" />
+          <span className="absolute -right-1 -top-1 h-8 w-8 rounded-tr-[24px] border-r-[3px] border-t-[3px] border-sky-200/90" />
+          <span className="absolute -bottom-1 -left-1 h-8 w-8 rounded-bl-[24px] border-b-[3px] border-l-[3px] border-sky-200/90" />
+          <span className="absolute -bottom-1 -right-1 h-8 w-8 rounded-br-[24px] border-b-[3px] border-r-[3px] border-sky-200/90" />
+        </div>
+      )}
+
+      {error && (
+        <div className="absolute inset-x-5 bottom-[124px] z-30 rounded-[18px] border border-blue-100/70 bg-white/80 px-4 py-3 text-sm font-black leading-5 text-blue-700 shadow-lg backdrop-blur-xl dark:border-white/10 dark:bg-black/60 dark:text-white dark:ring-1 dark:ring-white/20">
+          {error}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function BottomScanBar({
+  cameraActive,
+  flashOn,
+  loading,
+  onOpenGallery,
+  onCamera,
+  onToggleFlash,
+}: {
+  cameraActive: boolean;
+  flashOn: boolean;
+  loading: boolean;
+  onOpenGallery: () => void;
+  onCamera: () => void;
+  onToggleFlash: () => void;
+}) {
+  return (
+    <div className="absolute inset-x-0 bottom-0 z-30 px-8 pb-[calc(18px+env(safe-area-inset-bottom))]">
+      <div className="flex items-center justify-between">
+        <button type="button" onClick={onOpenGallery} disabled={loading} className="grid h-11 w-11 place-items-center rounded-full bg-white/70 text-blue-700 shadow-[0_10px_24px_rgba(37,99,235,0.12)] ring-1 ring-blue-100/60 backdrop-blur-md transition active:scale-95 disabled:opacity-50 dark:bg-black/20 dark:text-white dark:shadow-sm dark:ring-white/20" aria-label="Pilih foto dari galeri">
+          <ImageIcon size={20} />
+        </button>
+        <button type="button" onClick={onCamera} disabled={loading} className={clsx("grid h-[74px] w-[74px] place-items-center rounded-full border-[5px] border-white/90 bg-white/85 text-blue-700 shadow-[0_0_0_5px_rgba(191,219,254,0.56),0_18px_38px_rgba(37,99,235,0.18)] backdrop-blur transition active:scale-95 disabled:opacity-70 dark:border-white/60 dark:bg-white/20 dark:text-white dark:shadow-sm", cameraActive && "ring-4 ring-blue-300/45 dark:ring-white/30")} aria-label={cameraActive ? "Ambil foto" : "Buka kamera"}>
+          <span className="h-[52px] w-[52px] rounded-full bg-blue-500 dark:bg-white" />
+        </button>
+        <button type="button" onClick={onToggleFlash} disabled={loading} className={clsx("grid h-11 w-11 place-items-center rounded-full ring-1 backdrop-blur-md transition active:scale-95 disabled:opacity-50", flashOn ? "bg-gradient-to-br from-sky-400 to-blue-700 text-white shadow-[0_10px_24px_rgba(37,99,235,0.30)] ring-blue-200/70 dark:ring-blue-800/70" : "bg-white/70 text-blue-700 shadow-[0_10px_24px_rgba(37,99,235,0.12)] ring-blue-100/60 dark:bg-black/20 dark:text-white dark:shadow-sm dark:ring-white/20")} aria-label="Flash">
+          <Zap size={20} fill={flashOn ? "currentColor" : "none"} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ReceiptScanResult({
+  receipt,
+  previewUrl,
+  charges,
+  categories,
+  selectedCategoryId,
+  paymentAccount,
+  saving,
+  error,
+  onCategoryChange,
+  onPaymentAccountChange,
+  onRescan,
+  onEditSplit,
+  onConfirm,
+  onPreviewImage,
+}: {
+  receipt: ScannedReceipt;
+  previewUrl: string | null;
+  charges: ReturnType<typeof getReceiptCharges>;
+  categories: Category[];
+  selectedCategoryId: string;
+  paymentAccount: string;
+  saving: boolean;
+  error: string;
+  onCategoryChange: (id: string) => void;
+  onPaymentAccountChange: (account: string) => void;
+  onRescan: () => void;
+  onEditSplit: () => void;
+  onConfirm: () => void;
+  onPreviewImage: () => void;
+}) {
+  const expenseCategories = categories.filter((category) => category.type === "expense" || category.type === "both");
+
+  return (
+    <>
+      <section className="rounded-[24px] border border-blue-100 dark:border-blue-900/40 bg-blue-50/48 dark:bg-slate-900/48 p-4 shadow-[0_14px_34px_rgba(37,99,235,0.09)] dark:shadow-none">
+        <h2 className="text-lg font-black tracking-tight text-[#0F172A] dark:text-slate-100 font-sans">Struk berhasil di-scan</h2>
+        <p className="mt-1.5 text-[13px] font-semibold leading-5 text-slate-500 dark:text-slate-400 font-sans">Klik gambar buat lihat foto struk lebih jelas.</p>
+        <div className="mt-4 flex items-center justify-between gap-3">
+          <button type="button" onClick={() => { if (previewUrl) onPreviewImage(); }} disabled={!previewUrl} className="h-[72px] w-[72px] shrink-0 overflow-hidden rounded-[16px] bg-white/80 dark:bg-slate-800/80 text-left ring-1 ring-blue-100 dark:ring-blue-900/40 transition active:scale-95 disabled:opacity-70" aria-label="Lihat foto struk">
+            {previewUrl ? <div className="h-full w-full bg-cover bg-center" style={{ backgroundImage: `url(${previewUrl})` }} /> : <div className="grid h-full place-items-center text-blue-400 dark:text-blue-500"><ReceiptText size={24} /></div>}
+          </button>
+          <button type="button" onClick={onRescan} className="inline-flex h-12 flex-1 items-center justify-center gap-2.5 rounded-full border border-blue-100 dark:border-blue-900/40 bg-white/80 dark:bg-slate-800/80 px-4 text-sm font-black text-blue-700 dark:text-blue-400 shadow-[inset_0_-2px_0_rgba(37,99,235,0.05)] dark:shadow-none transition active:scale-95">
+            <Camera size={17} />
+            Foto ulang
+          </button>
+        </div>
+      </section>
+
+      <section className="mt-3 overflow-hidden rounded-[24px] border border-blue-100 dark:border-blue-900/40 bg-blue-50/48 dark:bg-slate-900/48 shadow-[0_14px_34px_rgba(37,99,235,0.09)] dark:shadow-none">
+        <div className="px-4 pb-3 pt-4">
+          <div className="mb-3">
+            <h3 className="truncate text-base font-black text-[#0F172A] dark:text-slate-100 font-sans">{receipt.merchant}</h3>
+            <p className="mt-1 text-[11px] font-bold text-slate-500 dark:text-slate-400 font-sans">{receipt.date} • {receipt.payment} • Akurasi {receipt.confidence}%</p>
+          </div>
+          <div className="space-y-0">
+            {receipt.items.length > 0 ? receipt.items.map((item, index) => (
+              <ReceiptDetailRow
+                key={getReceiptItemKey(item, index)}
+                label={item.name}
+                meta={`x${item.qty}`}
+                value={currency.format(getReceiptLineTotal(item))}
+                strong
+              />
+            )) : (
+              <div className="rounded-[18px] border border-blue-100 dark:border-blue-900/40 bg-white/80 dark:bg-slate-800/80 px-3 py-2.5 text-sm font-bold leading-5 text-blue-700 dark:text-blue-400 font-sans">
+                Item belum kebaca jelas, tapi total struk sudah terdeteksi. Foto ulang kalau mau rincian item lebih lengkap.
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="border-t border-blue-100 dark:border-blue-900/40 px-4 py-3">
+          <ReceiptDetailRow label="Subtotal" value={currency.format(charges.subtotal)} />
+          <ReceiptDetailRow label="Pajak" value={currency.format(charges.tax)} />
+          <ReceiptDetailRow label="Servis" value={currency.format(charges.service)} />
+          <ReceiptDetailRow label="Diskon" value={charges.discount ? `-${currency.format(charges.discount)}` : currency.format(0)} />
+          {charges.other !== 0 && (
+            <div className="my-2.5 -mx-4 bg-white/60 dark:bg-slate-800/60 px-4 py-2.5">
+              <ReceiptDetailRow label={<span className="inline-flex items-center gap-2">Lainnya <Info size={18} /></span>} value={currency.format(charges.other)} />
+              <p className="mt-0.5 text-xs font-black text-blue-700 dark:text-blue-400 font-sans">Pastiin jumlah ini udah benar</p>
+            </div>
+          )}
+          <div className="mt-2.5 border-t border-blue-100 dark:border-blue-900/40 pt-3">
+            <ReceiptDetailRow label="Jumlah total" value={currency.format(charges.total)} total />
+          </div>
+        </div>
+
+        <div className="grid gap-2.5 border-t border-blue-100 dark:border-blue-900/40 px-4 py-3">
+          <CustomSelect
+            label="Kategori"
+            value={selectedCategoryId}
+            onChange={onCategoryChange}
+            options={[{ value: "", label: "Pilih kategori" }, ...expenseCategories.map((category) => ({ value: String(category.id), label: category.name }))]}
+            variant="scan"
+          />
+          <CustomSelect
+            label="Akun pembayaran"
+            value={paymentAccount}
+            onChange={onPaymentAccountChange}
+            options={paymentAccountOptions.map((account) => ({ value: account, label: account }))}
+            variant="scan"
+          />
+          <button type="button" onClick={onEditSplit} className="mt-0.5 inline-flex h-12 items-center justify-center gap-2.5 rounded-full border border-blue-100 dark:border-blue-900/40 bg-white/80 dark:bg-slate-800/80 text-sm font-black text-blue-700 dark:text-blue-400 shadow-[inset_0_-2px_0_rgba(37,99,235,0.05)] dark:shadow-none transition active:scale-95">
+            <Pencil size={16} />
+            Ubah rincian
+          </button>
+        </div>
+      </section>
+
+      {error && <p className="mt-4 rounded-[22px] border border-rose-100 dark:border-rose-900/40 bg-rose-50 dark:bg-rose-900/20 px-4 py-3 text-sm font-black text-rose-600 dark:text-rose-400 font-sans">{error}</p>}
+
+      <div className="sticky bottom-0 -mx-3 mt-3 bg-[#F4F9FF]/82 dark:bg-slate-950/82 px-3 pb-[calc(14px+env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl">
+        <button type="button" onClick={onConfirm} disabled={saving} className="h-14 w-full rounded-full bg-gradient-to-r from-sky-400 via-blue-500 to-blue-700 text-lg font-black text-white shadow-[0_16px_38px_rgba(37,99,235,0.24)] dark:shadow-[0_8px_24px_rgba(37,99,235,0.14)] transition active:scale-[0.98] disabled:opacity-60 font-sans">
+          {saving ? "Menyimpan..." : "Konfirmasi"}
+        </button>
+      </div>
+    </>
+  );
+}
+
+function ReceiptDetailRow({
+  label,
+  meta,
+  value,
+  strong = false,
+  total = false,
+}: {
+  label: ReactNode;
+  meta?: string;
+  value: string;
+  strong?: boolean;
+  total?: boolean;
+}) {
+  return (
+    <div className={clsx("flex items-center justify-between gap-2.5 border-b border-dashed border-blue-100 dark:border-blue-900/50 py-2.5 last:border-b-0", total && "border-b-0 py-1")}>
+      <div className="min-w-0">
+        <p className={clsx("truncate font-sans text-slate-700 dark:text-slate-300", strong ? "text-[12px] font-black uppercase tracking-wide" : total ? "text-base font-semibold" : "text-sm font-semibold")}>{label}</p>
+      </div>
+      {meta && <p className="shrink-0 font-sans text-xs font-semibold text-slate-500 dark:text-slate-400">{meta}</p>}
+      <p className={clsx("shrink-0 font-sans text-right text-[#0F172A] dark:text-slate-100", strong ? "text-[13px] font-black" : total ? "text-base font-black" : "text-sm font-black")}>{value}</p>
+    </div>
+  );
+}
+
+function SplitBillForm({
+  receipt,
+  selectedItems,
+  summary,
+  saving,
+  error,
+  onToggleItem,
+  onQtyChange,
+  onPriceChange,
+  onBack,
+  onSave,
+}: {
+  receipt: ScannedReceipt;
+  selectedItems: Record<string, SelectedReceiptItem>;
+  summary: ReturnType<typeof getReceiptSplitSummary>;
+  saving: boolean;
+  error: string;
+  onToggleItem: (item: ScannedReceipt["items"][number], index: number) => void;
+  onQtyChange: (item: ScannedReceipt["items"][number], index: number, qty: number) => void;
+  onPriceChange: (item: ScannedReceipt["items"][number], index: number, value: string) => void;
+  onBack: () => void;
+  onSave: () => void;
+}) {
+  const hasSelection = summary.selectedCount > 0;
+
+  return (
+    <section className="rounded-[24px] border border-blue-100 dark:border-blue-900/40 bg-blue-50/55 dark:bg-slate-900/55 p-3.5 shadow-[0_16px_38px_rgba(37,99,235,0.10)] dark:shadow-none">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400 font-sans">Item Saya</p>
+          <h2 className="mt-1 text-xl font-black text-[#0F172A] dark:text-slate-100 font-sans">{receipt.merchant}</h2>
+        </div>
+        <button type="button" onClick={onBack} className="rounded-full border border-blue-100 dark:border-blue-900/40 bg-white dark:bg-slate-800 px-3 py-2 text-[11px] font-black text-blue-700 dark:text-blue-400 font-sans">Preview</button>
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <div className="rounded-[18px] border border-blue-100 dark:border-blue-900/40 bg-white dark:bg-slate-800 p-3">
+          <p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400 font-sans">Porsi saya</p>
+          <p className="mt-1 text-xl font-black text-blue-700 dark:text-blue-400 font-sans">{currency.format(summary.selectedTotal)}</p>
+        </div>
+        <div className="rounded-[18px] border border-blue-100 dark:border-blue-900/40 bg-white dark:bg-slate-800 p-3">
+          <p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400 font-sans">Item dipilih</p>
+          <p className="mt-1 text-xl font-black text-[#0F172A] dark:text-slate-100 font-sans">{summary.selectedCount}</p>
+        </div>
+      </div>
+
+      <div className="mt-3 space-y-2.5">
+        {receipt.items.map((item, index) => {
+          const key = getReceiptItemKey(item, index);
+          const selected = selectedItems[key];
+          const fallback = getEditableReceiptItem(item, index);
+          const editor = selected ?? fallback;
+          const checked = Boolean(selected);
+
+          return (
+            <div key={key} className={clsx("rounded-[20px] border p-3 transition", checked ? "border-blue-200 dark:border-blue-500/50 bg-white dark:bg-slate-800 shadow-[0_12px_28px_rgba(37,99,235,0.08)] dark:shadow-none" : "border-blue-100 dark:border-blue-900/40 bg-white/62 dark:bg-slate-800/62")}>
+              <div className="flex items-start gap-3">
+                <button
+                  type="button"
+                  onClick={() => onToggleItem(item, index)}
+                  className={clsx("mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-xl border text-xs font-black transition active:scale-95", checked ? "border-blue-500 dark:border-blue-500 bg-blue-500 text-white" : "border-blue-100 dark:border-slate-700 bg-blue-50 dark:bg-slate-900/50 text-blue-500 dark:text-blue-400")}
+                  aria-label={checked ? "Hapus item dari pilihan" : "Pilih item"}
+                >
+                  {checked ? <Check size={16} strokeWidth={3} /> : <Plus size={15} strokeWidth={3} />}
+                </button>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-black text-[#0F172A] dark:text-slate-100 font-sans">{item.name}</p>
+                  <p className="mt-0.5 text-[11px] font-bold text-slate-500 dark:text-slate-400 font-sans">Struk: x{fallback.originalQty} • {currency.format(getReceiptLineTotal(item))}</p>
+                </div>
+                <p className="shrink-0 text-sm font-black text-blue-700 dark:text-blue-400 font-sans">{currency.format(editor.selectedAmount)}</p>
+              </div>
+
+              {checked && (
+                <div className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-2">
+                  <div className="flex h-10 items-center overflow-hidden rounded-2xl border border-blue-100 dark:border-slate-700 bg-blue-50 dark:bg-slate-900/50">
+                    <button type="button" onClick={() => onQtyChange(item, index, editor.selectedQty - 1)} disabled={editor.selectedQty <= 1} className="grid h-10 w-10 place-items-center text-lg font-black text-blue-700 dark:text-blue-400 disabled:text-slate-300 dark:disabled:text-slate-600" aria-label="Kurangi qty">-</button>
+                    <span className="grid h-10 min-w-10 place-items-center px-2 text-sm font-black text-[#0F172A] dark:text-slate-100 font-sans">x{editor.selectedQty}</span>
+                    <button type="button" onClick={() => onQtyChange(item, index, editor.selectedQty + 1)} disabled={editor.selectedQty >= editor.originalQty} className="grid h-10 w-10 place-items-center text-lg font-black text-blue-700 dark:text-blue-400 disabled:text-slate-300 dark:disabled:text-slate-600" aria-label="Tambah qty">+</button>
+                  </div>
+                  <label className="min-w-0">
+                    <span className="sr-only">Harga item</span>
+                    <input
+                      value={editor.unitPrice ? String(editor.unitPrice) : ""}
+                      onChange={(event) => onPriceChange(item, index, event.target.value)}
+                      inputMode="numeric"
+                      placeholder="Harga"
+                      className="h-10 w-full rounded-2xl border border-blue-100 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-right text-sm font-black text-[#0F172A] dark:text-slate-100 outline-none placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:focus:border-blue-500/50 dark:focus:ring-blue-900/20 font-sans"
+                    />
+                  </label>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="mt-3 rounded-[20px] border border-blue-100 dark:border-blue-900/40 bg-white dark:bg-slate-800 p-3">
+        <div className="flex items-center justify-between gap-3 text-sm font-black font-sans">
+          <span className="text-slate-600 dark:text-slate-400">Subtotal pilihan</span>
+          <span className="text-[#0F172A] dark:text-slate-100">{currency.format(summary.selectedSubtotal)}</span>
+        </div>
+        <div className="mt-2 flex items-center justify-between gap-3 text-xs font-bold text-slate-500 dark:text-slate-400 font-sans">
+          <span>Penyesuaian struk</span>
+          <span>{currency.format(summary.selectedAdjustment)}</span>
+        </div>
+      </div>
+
+      {error && <p className="mt-3 rounded-2xl border border-rose-100 dark:border-rose-900/40 bg-rose-50 dark:bg-rose-900/20 px-4 py-3 text-sm font-black text-rose-600 dark:text-rose-400 font-sans">{error}</p>}
+
+      <button type="button" onClick={onSave} disabled={saving || !hasSelection} className="mt-3 flex h-12 w-full items-center justify-center rounded-[20px] bg-gradient-to-r from-sky-400 to-blue-700 text-sm font-black text-white shadow-[0_14px_34px_rgba(37,99,235,0.30)] dark:shadow-[0_8px_24px_rgba(37,99,235,0.14)] transition active:scale-[0.98] disabled:opacity-55 font-sans">
+        {saving ? "Menyimpan..." : "Simpan item saya"}
+      </button>
+    </section>
   );
 }
 
@@ -4465,7 +4664,7 @@ function MobileNav({
   onChange: (view: ViewKey) => void;
 }) {
   return (
-    <nav className="taka-mobile-nav fixed left-3 right-3 z-40 grid grid-cols-5 items-center gap-1 rounded-[28px] border border-white/80 bg-white/90 p-1.5 shadow-[0_18px_45px_rgba(37,99,235,0.18)] backdrop-blur-xl lg:hidden dark:border-sky-400/20 dark:bg-slate-950/88">
+    <nav className="taka-mobile-nav fixed left-3 right-3 z-40 grid grid-cols-5 items-center justify-items-center gap-1 rounded-[28px] border border-white/80 bg-white/90 p-1.5 shadow-[0_18px_45px_rgba(37,99,235,0.18)] backdrop-blur-xl lg:hidden dark:border-sky-400/20 dark:bg-slate-950/88">
       {navItems.map((item) => {
         const isCenterAction = item.key === "scan";
         const isActive = activeView === item.key;
@@ -4478,8 +4677,8 @@ function MobileNav({
             className={clsx(
               "grid min-w-0 place-items-center gap-1 text-[10px] font-black transition active:scale-95",
               isCenterAction
-                ? "-mt-5 grid h-14 w-14 rounded-[22px] bg-gradient-to-br from-[#0EA5E9] to-[#2563EB] p-0 text-white shadow-[0_14px_34px_rgba(14,165,233,0.34)]"
-                : "rounded-[18px] px-1 py-2",
+                ? "-mt-5 h-14 w-14 justify-self-center rounded-[22px] bg-gradient-to-br from-[#0EA5E9] to-[#2563EB] p-0 text-white shadow-[0_14px_34px_rgba(14,165,233,0.34)]"
+                : "w-full rounded-[18px] px-1 py-2",
               !isCenterAction && (isActive ? "bg-[#EFF6FF] text-[#2563EB] dark:bg-sky-500/16 dark:text-sky-200" : "text-slate-500 dark:text-slate-300"),
             )}
             aria-label={isCenterAction ? "Tambah atau scan transaksi" : item.label}
@@ -4535,15 +4734,18 @@ function CustomSelect({
   value,
   options,
   onChange,
+  variant = "default",
 }: {
   label: string;
   value: string;
   options: SelectOption[];
   onChange: (value: string) => void;
+  variant?: "default" | "scan";
 }) {
   const [open, setOpen] = useState(false);
   const selected = options.find((option) => option.value === value) ?? options[0];
   const selectRef = useRef<HTMLDivElement | null>(null);
+  const isScan = variant === "scan";
 
   useEffect(() => {
     if (!open) return;
@@ -4562,18 +4764,28 @@ function CustomSelect({
 
   return (
     <div ref={selectRef} className="relative block">
-      <span className="text-xs font-black uppercase tracking-[0.1em] text-slate-400 dark:text-slate-300">{label}</span>
+      <span className={clsx("text-xs font-black uppercase tracking-[0.1em]", isScan ? "text-slate-500" : "text-slate-400 dark:text-slate-300")}>{label}</span>
       <button
         type="button"
         onClick={() => setOpen((current) => !current)}
-        className="mt-2 flex h-12 w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 text-left text-sm font-bold text-taka-ink outline-none transition focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-sky-400/20 dark:bg-slate-950/70 dark:text-slate-100 dark:focus:border-sky-400 dark:focus:ring-sky-400/10"
+        className={clsx(
+          "mt-2 flex w-full items-center justify-between gap-3 rounded-xl border px-3 text-left text-sm font-bold outline-none transition focus:ring-4",
+          isScan
+            ? "h-11 border-blue-100 bg-white/78 text-[#0F172A] shadow-[0_6px_16px_rgba(37,99,235,0.05)] focus:border-blue-300 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-100 dark:focus:border-blue-500/50 dark:focus:ring-blue-900/20"
+            : "h-12 border-slate-200 bg-white text-taka-ink focus:border-blue-300 focus:ring-blue-100 dark:border-sky-400/20 dark:bg-slate-950/70 dark:text-slate-100 dark:focus:border-sky-400 dark:focus:ring-sky-400/10",
+        )}
         aria-expanded={open}
       >
         <span className="truncate">{selected?.label ?? "Pilih"}</span>
-        <ChevronRight size={17} className={clsx("shrink-0 text-slate-400 transition", open ? "rotate-90" : "rotate-0")} />
+        <ChevronRight size={17} className={clsx("shrink-0 transition", isScan ? "text-blue-500" : "text-slate-400", open ? "rotate-90" : "rotate-0")} />
       </button>
       {open && (
-        <div className="taka-animate-panel absolute left-0 right-0 top-[calc(100%+8px)] z-[9999] max-h-72 overflow-y-auto rounded-2xl border border-blue-100 bg-white p-1.5 shadow-[0_22px_60px_rgba(15,23,42,0.22)] dark:border-sky-400/20 dark:bg-slate-950 dark:shadow-[0_22px_70px_rgba(0,0,0,0.55)]">
+        <div className={clsx(
+          "taka-animate-panel absolute left-0 right-0 top-[calc(100%+8px)] z-[9999] max-h-72 overflow-y-auto rounded-2xl border p-1.5",
+          isScan
+            ? "border-blue-100 bg-white/96 shadow-[0_18px_48px_rgba(37,99,235,0.16)] backdrop-blur-xl dark:border-slate-700/50 dark:bg-slate-900/96 dark:shadow-[0_18px_48px_rgba(0,0,0,0.5)]"
+            : "border-blue-100 bg-white shadow-[0_22px_60px_rgba(15,23,42,0.22)] dark:border-sky-400/20 dark:bg-slate-950 dark:shadow-[0_22px_70px_rgba(0,0,0,0.55)]",
+        )}>
           {options.map((option) => {
             const active = option.value === value;
             return (
@@ -4586,7 +4798,9 @@ function CustomSelect({
                 }}
                 className={clsx(
                   "flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-black transition",
-                  active ? "bg-blue-50 text-blue-700 dark:bg-sky-400/14 dark:text-sky-100" : "text-slate-600 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-900",
+                  isScan
+                    ? active ? "bg-blue-50 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400" : "text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
+                    : active ? "bg-blue-50 text-blue-700 dark:bg-sky-400/14 dark:text-sky-100" : "text-slate-600 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-900",
                 )}
               >
                 <span className="grid h-5 w-5 place-items-center">

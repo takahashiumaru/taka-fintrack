@@ -144,9 +144,12 @@ export type ReceiptAdjustmentMode = "none" | "proportional";
 export type ScannedReceipt = {
   merchant: string;
   date: string;
+  transactionDate?: string | null;
   payment: string;
   subtotal: number;
   discount: number;
+  tax?: number | null;
+  service?: number | null;
   total: number;
   confidence: number;
   items: ReceiptItem[];
