@@ -7,9 +7,13 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const maxRawTextLength = 12_000;
-const maxImageDataLength = 8_000_000;
+const maxImageDataLength = 3_200_000;
 const maxRequestsPerMinute = 10;
-const aiTimeoutMs = 15_000;
+const aiTimeoutMs = 60_000;
+const aiMaxTokens = 1400;
+const scanModelFallbacks = [
+  "full-support",
+];
 const maxMoneyAmount = 1_000_000_000;
 const allowedCategories = new Set([
   "Makanan & Minuman",
@@ -121,6 +125,100 @@ function normalizeAllowedString(value: unknown, allowed: Set<string>) {
   return exact;
 }
 
+function getScanModels() {
+  const models = [process.env.AI_SCAN_MODEL, ...scanModelFallbacks].filter((model): model is string => Boolean(model));
+
+  return Array.from(new Set(models));
+}
+
+function buildScanPrompt(rawText: string) {
+  const paymentAccounts = Array.from(allowedPaymentAccounts).join(", ");
+  const categories = Array.from(allowedCategories).join(", ");
+  const ocrText = rawText || "(kosong; gunakan gambar)";
+
+  return `Ekstrak struk transaksi Indonesia dari gambar/OCR. Gunakan gambar sebagai sumber utama, OCR hanya bantuan. Return hanya JSON valid, tanpa markdown.
+Aturan: jangan mengarang; uang integer IDR tanpa titik/koma; confidence 0..1; max 40 item; jangan jadikan SUBTOTAL/TOTAL/PPN/PAJAK/DISKON/ADMIN/BAYAR/KEMBALIAN sebagai item. Jika qty jelas hitung unit_price/total_price seperlunya.
+payment_account harus salah satu jika bisa: ${paymentAccounts}.
+category_suggestion harus salah satu jika bisa: ${categories}. Makanan/supermarket makanan -> Makanan & Minuman; tagihan listrik/air/internet/pulsa/VA/admin/PLN/PDAM -> Tagihan & Utilitas; non-makanan/fashion/aksesoris -> Belanja Bulanan.
+Schema wajib: {"is_transaction":boolean,"merchant":string|null,"transaction_date":"YYYY-MM-DD"|null,"transaction_time":"HH:mm"|null,"items":[{"name":string|null,"quantity":number|null,"unit_price":number|null,"total_price":number|null}],"subtotal":number|null,"discount":number|null,"tax":number|null,"grand_total":number|null,"payment_method":string|null,"payment_account":string|null,"currency":"IDR","confidence":number,"raw_text":string|null,"category_suggestion":string|null}
+Jika bukan struk, pakai schema yang sama dengan is_transaction false, items [], dan field lain null.
+OCR:
+"""${ocrText}"""`;
+}
+
+function getAiMessageText(value: unknown) {
+  const content = (value as { choices?: { message?: { content?: unknown } }[] })?.choices?.[0]?.message?.content;
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+
+  return content.map((part) => {
+    if (typeof part === "string") return part;
+    if (part && typeof part === "object" && "text" in part && typeof part.text === "string") return part.text;
+    return "";
+  }).join("\n");
+}
+
+function extractBalancedJsonObject(text: string) {
+  const start = text.indexOf("{");
+  if (start === -1) return null;
+
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let index = start; index < text.length; index += 1) {
+    const char = text[index];
+
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === "\"") {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (char === "\"") {
+      inString = true;
+    } else if (char === "{") {
+      depth += 1;
+    } else if (char === "}") {
+      depth -= 1;
+      if (depth === 0) return text.slice(start, index + 1);
+    }
+  }
+
+  return null;
+}
+
+function parseAiJson(text: string) {
+  const trimmed = text.trim();
+  const unfenced = trimmed.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+  const fenced: string[] = [];
+  const fencePattern = /```(?:json)?\s*([\s\S]*?)\s*```/gi;
+  let match = fencePattern.exec(trimmed);
+
+  while (match) {
+    fenced.push(match[1].trim());
+    match = fencePattern.exec(trimmed);
+  }
+
+  const candidates = [unfenced, ...fenced, extractBalancedJsonObject(trimmed)].filter((candidate): candidate is string => Boolean(candidate));
+
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate);
+      return typeof parsed === "string" ? JSON.parse(parsed) : parsed;
+    } catch {
+      // Try the next candidate.
+    }
+  }
+
+  return null;
+}
+
 function normalizeScanResult(value: unknown, rawText: string): ScanResult | null {
   if (!value || typeof value !== "object") return null;
 
@@ -182,7 +280,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (imageData && imageData.length > maxImageDataLength) {
-      return apiError("Gambar terlalu besar. Maksimal sekitar 8MB.");
+      return apiError("Gambar terlalu besar. Kompres dulu agar scan tetap cepat.");
     }
 
     if (rawText.length > maxRawTextLength) {
@@ -193,120 +291,74 @@ export async function POST(req: NextRequest) {
       return apiError("Konfigurasi AI belum tersedia.", 503);
     }
 
-    const prompt = `Kamu adalah sistem ekstraksi data struk transaksi.
+    const prompt = buildScanPrompt(rawText);
+    const startedAt = Date.now();
 
-Analisis teks hasil OCR dan/atau gambar struk berikut. Jika gambar tersedia, prioritaskan gambar karena OCR bisa salah atau kosong. Tentukan apakah ini struk transaksi atau bukan.
+    for (const model of getScanModels()) {
+      const aiResponse = await fetch(process.env.AI_API_URL, {
+        method: "POST",
+        signal: timeout.signal,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.AI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            {
+              role: "system",
+              content: "Kamu ekstraktor struk. Balas hanya JSON valid yang mengikuti schema user.",
+            },
+            {
+              role: "user",
+              content: imageData
+                ? [
+                    { type: "text", text: prompt },
+                    { type: "image_url", image_url: { url: imageData, detail: "low" } },
+                  ]
+                : prompt,
+            },
+          ],
+          temperature: 0,
+          max_tokens: aiMaxTokens,
+          stream: false,
+        }),
+      });
 
-Jika ini struk transaksi, ambil data penting seperti nama toko, tanggal, waktu, daftar barang, jumlah, harga, subtotal, diskon, pajak, total akhir, metode pembayaran, dan akun/dompet pembayaran yang dipakai. Fokus utama: ekstrak SEMUA line item pembelian agar user bisa memilih item miliknya dari struk bersama.
+      if (!aiResponse.ok) {
+        await aiResponse.text().catch(() => "");
+        console.error("AI Scan API upstream error", { model, status: aiResponse.status, durationMs: Date.now() - startedAt });
+        continue;
+      }
 
-Jika data tidak tersedia, isi dengan null. Jangan mengarang data. Harga harus berupa angka integer tanpa titik atau koma. Jangan masukkan baris SUBTOTAL/TOTAL/PPN/PAJAK/DISKON/ADMIN/PEMBAYARAN/KEMBALIAN sebagai item. Untuk setiap item, quantity = jumlah barang, unit_price = harga per unit, total_price = total baris item. Jika hanya total baris terlihat, isi total_price dan hitung unit_price bila quantity jelas. Kembalikan hanya JSON valid tanpa penjelasan tambahan.
+      const aiData = await aiResponse.json().catch(() => null);
+      const textResult = getAiMessageText(aiData);
+      const jsonParsed = parseAiJson(textResult);
 
-Format output wajib:
+      if (!jsonParsed) {
+        console.error("Failed to parse AI scan response as JSON", {
+          model,
+          durationMs: Date.now() - startedAt,
+          sample: textResult.slice(0, 240),
+        });
+        continue;
+      }
 
-{
-  "is_transaction": true,
-  "merchant": null,
-  "transaction_date": null,
-  "transaction_time": null,
-  "items": [
-    {
-      "name": null,
-      "quantity": null,
-      "unit_price": null,
-      "total_price": null
-    }
-  ],
-  "subtotal": null,
-  "discount": null,
-  "tax": null,
-  "grand_total": null,
-  "payment_method": null,
-  "payment_account": null,
-  "currency": "IDR",
-  "confidence": 0,
-  "raw_text": null,
-  "category_suggestion": null
-}
-
-payment_account wajib dinormalisasi jika bisa ke salah satu: "Cash", "QRIS", "BCA", "BNI", "BRI", "Mandiri", "BSI", "CIMB Niaga", "PermataBank", "Danamon", "Bank Jago", "Krom Bank", "Jenius", "SeaBank", "blu by BCA Digital", "Bank Neo Commerce", "Allo Bank", "Bank Saqu", "LINE Bank", "Superbank", "GoPay", "OVO", "DANA", "ShopeePay", "LinkAja", "AstraPay", "Sakuku", "i.saku", "Kartu Kredit", "Kartu Debit", "Transfer Bank", "Lainnya".
-Contoh: tunai/cash -> "Cash", qris/qr -> "QRIS", BCA -> "BCA", BNI -> "BNI", BRI -> "BRI", Mandiri/Livin -> "Mandiri", BSI -> "BSI", Krom/Krom Bank -> "Krom Bank", ShopeePay/SPay -> "ShopeePay", debit tanpa bank jelas -> "Kartu Debit", transfer bank tanpa nama bank jelas -> "Transfer Bank".
-
-Kategori wajib dipilih dari salah satu nama ini jika memungkinkan: "Makanan & Minuman", "Belanja Bulanan", "Transportasi", "Tagihan & Utilitas", "Hiburan", "Kesehatan", "Gaji / Pendapatan", "Bonus", "Investasi".
-Jika merchant/item terlihat seperti makanan/minuman/warung/resto/cafe/supermarket belanja makanan, isi category_suggestion "Makanan & Minuman".
-Jika pembayaran tagihan listrik/air/internet/pulsa/VA/admin/PLN/PDAM, isi "Tagihan & Utilitas".
-Jika aksesoris/fashion/non-makanan, isi "Belanja Bulanan".
-
-Jika bukan struk transaksi, output wajib:
-
-{
-  "is_transaction": false,
-  "merchant": null,
-  "transaction_date": null,
-  "transaction_time": null,
-  "items": [],
-  "subtotal": null,
-  "discount": null,
-  "tax": null,
-  "grand_total": null,
-  "payment_method": null,
-  "payment_account": null,
-  "currency": "IDR",
-  "confidence": 0,
-  "raw_text": null,
-  "category_suggestion": null
-}
-
-Teks OCR:
-"""
-${rawText || "(OCR kosong/tidak terbaca; gunakan gambar jika tersedia)"}
-"""`;
-
-    const aiResponse = await fetch(process.env.AI_API_URL, {
-      method: "POST",
-      signal: timeout.signal,
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.AI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "full-support",
-        messages: [
-          {
-            role: "user",
-            content: imageData
-              ? [
-                  { type: "text", text: prompt },
-                  { type: "image_url", image_url: { url: imageData } },
-                ]
-              : prompt,
-          },
-        ],
-        temperature: 0,
-        max_tokens: 1800,
-        stream: false,
-      }),
-    });
-
-    if (!aiResponse.ok) {
-      console.error("AI Scan API upstream error", { status: aiResponse.status });
-      return apiError("AI scan sedang bermasalah. Coba lagi sebentar.", 502);
-    }
-
-    const aiData = await aiResponse.json();
-    const textResult = aiData.choices?.[0]?.message?.content || "";
-    const cleanedText = textResult.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
-
-    try {
-      const jsonParsed = JSON.parse(cleanedText);
       const normalized = normalizeScanResult(jsonParsed, rawText);
 
-      if (!normalized) return apiError("Format hasil AI belum valid. Coba scan ulang.", 502);
+      if (!normalized) {
+        console.error("AI scan JSON did not match expected shape", { model, durationMs: Date.now() - startedAt });
+        continue;
+      }
 
-      return NextResponse.json(normalized);
-    } catch {
-      console.error("Failed to parse AI scan response as JSON");
-      return apiError("Format hasil AI belum valid. Coba scan ulang.", 502);
+      const response = NextResponse.json(normalized);
+      response.headers.set("Server-Timing", `scan-ai;dur=${Date.now() - startedAt}`);
+      response.headers.set("X-Scan-AI-Duration", String(Date.now() - startedAt));
+      response.headers.set("X-Scan-AI-Model", model);
+      return response;
     }
+
+    return apiError("Format hasil AI belum valid. Coba scan ulang.", 502);
   } catch (error) {
     if (isAbortError(error)) {
       return apiError("AI sedang lambat. Coba lagi sebentar.", 504);

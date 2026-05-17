@@ -2695,7 +2695,10 @@ type ScanAiResponse = {
 
 const receiptUploadAccept = "image/jpeg,image/jpg,image/png";
 const maxReceiptUploadSize = 10 * 1024 * 1024;
-const receiptImageMaxEdge = 1600;
+const receiptImageMaxEdge = 1200;
+const receiptImageInitialQuality = 0.74;
+const receiptImageMinQuality = 0.58;
+const receiptImageTargetDataUrlLength = 950_000;
 
 function normalizeReceiptMoney(value: number | null | undefined) {
   if (typeof value !== "number" || !Number.isFinite(value)) return 0;
@@ -2807,7 +2810,15 @@ async function compressReceiptImage(source: File | string) {
     context.fillRect(0, 0, targetWidth, targetHeight);
     context.drawImage(image, 0, 0, targetWidth, targetHeight);
 
-    return canvas.toDataURL("image/jpeg", 0.84);
+    let quality = receiptImageInitialQuality;
+    let dataUrl = canvas.toDataURL("image/jpeg", quality);
+
+    while (dataUrl.length > receiptImageTargetDataUrlLength && quality > receiptImageMinQuality) {
+      quality = Math.max(receiptImageMinQuality, quality - 0.08);
+      dataUrl = canvas.toDataURL("image/jpeg", quality);
+    }
+
+    return dataUrl;
   } finally {
     if (objectUrl) URL.revokeObjectURL(objectUrl);
   }
@@ -3169,7 +3180,7 @@ function ScanView({
   }, [clearCameraStream, releasePreview]);
 
   return (
-    <div className="scan-native-shell flex h-[100dvh] w-full max-w-none flex-col overflow-hidden bg-[#F4F9FF] dark:bg-slate-950 text-[#0F172A] dark:text-slate-100 font-sans">
+    <div className="scan-native-shell scan-bill-shell flex h-[100dvh] w-full max-w-none flex-col overflow-hidden bg-[#F4F9FF] dark:bg-slate-950 text-[#0F172A] dark:text-slate-100 font-sans">
       {isScannerState ? (
         <div className="relative flex min-h-0 flex-1 flex-col">
           <ScanFrame
@@ -3288,12 +3299,12 @@ function ScanView({
 
 function ScanHeader({ title, onBack, onHelp }: { title: string; onBack: () => void; onHelp: () => void }) {
   return (
-    <header className="flex shrink-0 items-center gap-3 border-b border-blue-100/80 dark:border-blue-900/50 bg-white/82 dark:bg-slate-900/82 px-4 pb-4 pt-[calc(14px+env(safe-area-inset-top))] shadow-[0_8px_22px_rgba(37,99,235,0.07)] dark:shadow-none backdrop-blur-xl">
-      <button type="button" onClick={onBack} className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-blue-50/80 dark:bg-slate-800/80 text-blue-700 dark:text-blue-400 transition active:scale-95" aria-label="Kembali">
+    <header className="scan-bill-header flex shrink-0 items-center gap-3 border-b border-blue-100/80 dark:border-blue-900/50 bg-white/82 dark:bg-slate-900/82 px-4 pb-4 pt-[calc(14px+env(safe-area-inset-top))] shadow-[0_8px_22px_rgba(37,99,235,0.07)] dark:shadow-none backdrop-blur-xl">
+      <button type="button" onClick={onBack} className="scan-bill-icon-button grid h-9 w-9 shrink-0 place-items-center rounded-full bg-blue-50/80 dark:bg-slate-800/80 text-blue-700 dark:text-blue-400 transition active:scale-95" aria-label="Kembali">
         <ChevronLeft size={21} strokeWidth={2.4} />
       </button>
       <h1 className="min-w-0 flex-1 truncate text-xl font-black tracking-tight text-[#0F172A] dark:text-slate-100 font-sans">{title}</h1>
-      <button type="button" onClick={onHelp} className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-blue-50/80 dark:bg-slate-800/80 text-blue-700 dark:text-blue-400 ring-1 ring-blue-100/80 dark:ring-blue-900/50 transition active:scale-95" aria-label="Bantuan scan">
+      <button type="button" onClick={onHelp} className="scan-bill-icon-button grid h-9 w-9 shrink-0 place-items-center rounded-full bg-blue-50/80 dark:bg-slate-800/80 text-blue-700 dark:text-blue-400 ring-1 ring-blue-100/80 dark:ring-blue-900/50 transition active:scale-95" aria-label="Bantuan scan">
         <CircleHelp size={18} strokeWidth={2.6} />
       </button>
     </header>
@@ -3461,21 +3472,21 @@ function ReceiptScanResult({
 
   return (
     <>
-      <section className="rounded-[24px] border border-blue-100 dark:border-blue-900/40 bg-blue-50/48 dark:bg-slate-900/48 p-4 shadow-[0_14px_34px_rgba(37,99,235,0.09)] dark:shadow-none">
+      <section className="scan-bill-card rounded-[24px] border border-blue-100 dark:border-blue-900/40 bg-blue-50/48 dark:bg-slate-900/48 p-4 shadow-[0_14px_34px_rgba(37,99,235,0.09)] dark:shadow-none">
         <h2 className="text-lg font-black tracking-tight text-[#0F172A] dark:text-slate-100 font-sans">Struk berhasil di-scan</h2>
         <p className="mt-1.5 text-[13px] font-semibold leading-5 text-slate-500 dark:text-slate-400 font-sans">Klik gambar buat lihat foto struk lebih jelas.</p>
         <div className="mt-4 flex items-center justify-between gap-3">
-          <button type="button" onClick={() => { if (previewUrl) onPreviewImage(); }} disabled={!previewUrl} className="h-[72px] w-[72px] shrink-0 overflow-hidden rounded-[16px] bg-white/80 dark:bg-slate-800/80 text-left ring-1 ring-blue-100 dark:ring-blue-900/40 transition active:scale-95 disabled:opacity-70" aria-label="Lihat foto struk">
+          <button type="button" onClick={() => { if (previewUrl) onPreviewImage(); }} disabled={!previewUrl} className="scan-bill-media h-[72px] w-[72px] shrink-0 overflow-hidden rounded-[16px] bg-white/80 dark:bg-slate-800/80 text-left ring-1 ring-blue-100 dark:ring-blue-900/40 transition active:scale-95 disabled:opacity-70" aria-label="Lihat foto struk">
             {previewUrl ? <div className="h-full w-full bg-cover bg-center" style={{ backgroundImage: `url(${previewUrl})` }} /> : <div className="grid h-full place-items-center text-blue-400 dark:text-blue-500"><ReceiptText size={24} /></div>}
           </button>
-          <button type="button" onClick={onRescan} className="inline-flex h-12 flex-1 items-center justify-center gap-2.5 rounded-full border border-blue-100 dark:border-blue-900/40 bg-white/80 dark:bg-slate-800/80 px-4 text-sm font-black text-blue-700 dark:text-blue-400 shadow-[inset_0_-2px_0_rgba(37,99,235,0.05)] dark:shadow-none transition active:scale-95">
+          <button type="button" onClick={onRescan} className="scan-bill-secondary-button inline-flex h-12 flex-1 items-center justify-center gap-2.5 rounded-full border border-blue-100 dark:border-blue-900/40 bg-white/80 dark:bg-slate-800/80 px-4 text-sm font-black text-blue-700 dark:text-blue-400 shadow-[inset_0_-2px_0_rgba(37,99,235,0.05)] dark:shadow-none transition active:scale-95">
             <Camera size={17} />
             Foto ulang
           </button>
         </div>
       </section>
 
-      <section className="mt-3 overflow-hidden rounded-[24px] border border-blue-100 dark:border-blue-900/40 bg-blue-50/48 dark:bg-slate-900/48 shadow-[0_14px_34px_rgba(37,99,235,0.09)] dark:shadow-none">
+      <section className="scan-bill-card mt-3 overflow-hidden rounded-[24px] border border-blue-100 dark:border-blue-900/40 bg-blue-50/48 dark:bg-slate-900/48 shadow-[0_14px_34px_rgba(37,99,235,0.09)] dark:shadow-none">
         <div className="px-4 pb-3 pt-4">
           <div className="mb-3">
             <h3 className="truncate text-base font-black text-[#0F172A] dark:text-slate-100 font-sans">{receipt.merchant}</h3>
@@ -3491,30 +3502,30 @@ function ReceiptScanResult({
                 strong
               />
             )) : (
-              <div className="rounded-[18px] border border-blue-100 dark:border-blue-900/40 bg-white/80 dark:bg-slate-800/80 px-3 py-2.5 text-sm font-bold leading-5 text-blue-700 dark:text-blue-400 font-sans">
+              <div className="scan-bill-inline-panel rounded-[18px] border border-blue-100 dark:border-blue-900/40 bg-white/80 dark:bg-slate-800/80 px-3 py-2.5 text-sm font-bold leading-5 text-blue-700 dark:text-blue-400 font-sans">
                 Item belum kebaca jelas, tapi total struk sudah terdeteksi. Foto ulang kalau mau rincian item lebih lengkap.
               </div>
             )}
           </div>
         </div>
 
-        <div className="border-t border-blue-100 dark:border-blue-900/40 px-4 py-3">
+        <div className="scan-bill-divider border-t border-blue-100 dark:border-blue-900/40 px-4 py-3">
           <ReceiptDetailRow label="Subtotal" value={currency.format(charges.subtotal)} />
           <ReceiptDetailRow label="Pajak" value={currency.format(charges.tax)} />
           <ReceiptDetailRow label="Servis" value={currency.format(charges.service)} />
           <ReceiptDetailRow label="Diskon" value={charges.discount ? `-${currency.format(charges.discount)}` : currency.format(0)} />
           {charges.other !== 0 && (
-            <div className="my-2.5 -mx-4 bg-white/60 dark:bg-slate-800/60 px-4 py-2.5">
+            <div className="scan-bill-inline-panel my-2.5 -mx-4 bg-white/60 dark:bg-slate-800/60 px-4 py-2.5">
               <ReceiptDetailRow label={<span className="inline-flex items-center gap-2">Lainnya <Info size={18} /></span>} value={currency.format(charges.other)} />
               <p className="mt-0.5 text-xs font-black text-blue-700 dark:text-blue-400 font-sans">Pastiin jumlah ini udah benar</p>
             </div>
           )}
-          <div className="mt-2.5 border-t border-blue-100 dark:border-blue-900/40 pt-3">
+          <div className="scan-bill-divider mt-2.5 border-t border-blue-100 dark:border-blue-900/40 pt-3">
             <ReceiptDetailRow label="Jumlah total" value={currency.format(charges.total)} total />
           </div>
         </div>
 
-        <div className="grid gap-2.5 border-t border-blue-100 dark:border-blue-900/40 px-4 py-3">
+        <div className="scan-bill-divider grid gap-2.5 border-t border-blue-100 dark:border-blue-900/40 px-4 py-3">
           <CustomSelect
             label="Kategori"
             value={selectedCategoryId}
@@ -3529,7 +3540,7 @@ function ReceiptScanResult({
             options={paymentAccountOptions.map((account) => ({ value: account, label: account }))}
             variant="scan"
           />
-          <button type="button" onClick={onEditSplit} className="mt-0.5 inline-flex h-12 items-center justify-center gap-2.5 rounded-full border border-blue-100 dark:border-blue-900/40 bg-white/80 dark:bg-slate-800/80 text-sm font-black text-blue-700 dark:text-blue-400 shadow-[inset_0_-2px_0_rgba(37,99,235,0.05)] dark:shadow-none transition active:scale-95">
+          <button type="button" onClick={onEditSplit} className="scan-bill-secondary-button mt-0.5 inline-flex h-12 items-center justify-center gap-2.5 rounded-full border border-blue-100 dark:border-blue-900/40 bg-white/80 dark:bg-slate-800/80 text-sm font-black text-blue-700 dark:text-blue-400 shadow-[inset_0_-2px_0_rgba(37,99,235,0.05)] dark:shadow-none transition active:scale-95">
             <Pencil size={16} />
             Ubah rincian
           </button>
@@ -3538,7 +3549,7 @@ function ReceiptScanResult({
 
       {error && <p className="mt-4 rounded-[22px] border border-rose-100 dark:border-rose-900/40 bg-rose-50 dark:bg-rose-900/20 px-4 py-3 text-sm font-black text-rose-600 dark:text-rose-400 font-sans">{error}</p>}
 
-      <div className="sticky bottom-0 -mx-3 mt-3 bg-[#F4F9FF]/82 dark:bg-slate-950/82 px-3 pb-[calc(14px+env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl">
+      <div className="scan-bill-sticky-action sticky bottom-0 -mx-3 mt-3 bg-[#F4F9FF]/82 dark:bg-slate-950/82 px-3 pb-[calc(14px+env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl">
         <button type="button" onClick={onConfirm} disabled={saving} className="h-14 w-full rounded-full bg-gradient-to-r from-sky-400 via-blue-500 to-blue-700 text-lg font-black text-white shadow-[0_16px_38px_rgba(37,99,235,0.24)] dark:shadow-[0_8px_24px_rgba(37,99,235,0.14)] transition active:scale-[0.98] disabled:opacity-60 font-sans">
           {saving ? "Menyimpan..." : "Konfirmasi"}
         </button>
@@ -3561,7 +3572,7 @@ function ReceiptDetailRow({
   total?: boolean;
 }) {
   return (
-    <div className={clsx("flex items-center justify-between gap-2.5 border-b border-dashed border-blue-100 dark:border-blue-900/50 py-2.5 last:border-b-0", total && "border-b-0 py-1")}>
+    <div className={clsx("scan-bill-row flex items-center justify-between gap-2.5 border-b border-dashed border-blue-100 dark:border-blue-900/50 py-2.5 last:border-b-0", total && "border-b-0 py-1")}>
       <div className="min-w-0">
         <p className={clsx("truncate font-sans text-slate-700 dark:text-slate-300", strong ? "text-[12px] font-black uppercase tracking-wide" : total ? "text-base font-semibold" : "text-sm font-semibold")}>{label}</p>
       </div>
@@ -3597,21 +3608,21 @@ function SplitBillForm({
   const hasSelection = summary.selectedCount > 0;
 
   return (
-    <section className="rounded-[24px] border border-blue-100 dark:border-blue-900/40 bg-blue-50/55 dark:bg-slate-900/55 p-3.5 shadow-[0_16px_38px_rgba(37,99,235,0.10)] dark:shadow-none">
+    <section className="scan-bill-card rounded-[24px] border border-blue-100 dark:border-blue-900/40 bg-blue-50/55 dark:bg-slate-900/55 p-3.5 shadow-[0_16px_38px_rgba(37,99,235,0.10)] dark:shadow-none">
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400 font-sans">Item Saya</p>
           <h2 className="mt-1 text-xl font-black text-[#0F172A] dark:text-slate-100 font-sans">{receipt.merchant}</h2>
         </div>
-        <button type="button" onClick={onBack} className="rounded-full border border-blue-100 dark:border-blue-900/40 bg-white dark:bg-slate-800 px-3 py-2 text-[11px] font-black text-blue-700 dark:text-blue-400 font-sans">Preview</button>
+        <button type="button" onClick={onBack} className="scan-bill-secondary-button rounded-full border border-blue-100 dark:border-blue-900/40 bg-white dark:bg-slate-800 px-3 py-2 text-[11px] font-black text-blue-700 dark:text-blue-400 font-sans">Preview</button>
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-2">
-        <div className="rounded-[18px] border border-blue-100 dark:border-blue-900/40 bg-white dark:bg-slate-800 p-3">
+        <div className="scan-bill-mini-card rounded-[18px] border border-blue-100 dark:border-blue-900/40 bg-white dark:bg-slate-800 p-3">
           <p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400 font-sans">Porsi saya</p>
           <p className="mt-1 text-xl font-black text-blue-700 dark:text-blue-400 font-sans">{currency.format(summary.selectedTotal)}</p>
         </div>
-        <div className="rounded-[18px] border border-blue-100 dark:border-blue-900/40 bg-white dark:bg-slate-800 p-3">
+        <div className="scan-bill-mini-card rounded-[18px] border border-blue-100 dark:border-blue-900/40 bg-white dark:bg-slate-800 p-3">
           <p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400 font-sans">Item dipilih</p>
           <p className="mt-1 text-xl font-black text-[#0F172A] dark:text-slate-100 font-sans">{summary.selectedCount}</p>
         </div>
@@ -3626,12 +3637,12 @@ function SplitBillForm({
           const checked = Boolean(selected);
 
           return (
-            <div key={key} className={clsx("rounded-[20px] border p-3 transition", checked ? "border-blue-200 dark:border-blue-500/50 bg-white dark:bg-slate-800 shadow-[0_12px_28px_rgba(37,99,235,0.08)] dark:shadow-none" : "border-blue-100 dark:border-blue-900/40 bg-white/62 dark:bg-slate-800/62")}>
+            <div key={key} className={clsx("scan-split-item rounded-[20px] border p-3 transition", checked ? "is-selected border-blue-200 dark:border-blue-500/50 bg-white dark:bg-slate-800 shadow-[0_12px_28px_rgba(37,99,235,0.08)] dark:shadow-none" : "border-blue-100 dark:border-blue-900/40 bg-white/62 dark:bg-slate-800/62")}>
               <div className="flex items-start gap-3">
                 <button
                   type="button"
                   onClick={() => onToggleItem(item, index)}
-                  className={clsx("mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-xl border text-xs font-black transition active:scale-95", checked ? "border-blue-500 dark:border-blue-500 bg-blue-500 text-white" : "border-blue-100 dark:border-slate-700 bg-blue-50 dark:bg-slate-900/50 text-blue-500 dark:text-blue-400")}
+                  className={clsx("scan-split-check mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-xl border text-xs font-black transition active:scale-95", checked ? "is-selected border-blue-500 dark:border-blue-500 bg-blue-500 text-white" : "border-blue-100 dark:border-slate-700 bg-blue-50 dark:bg-slate-900/50 text-blue-500 dark:text-blue-400")}
                   aria-label={checked ? "Hapus item dari pilihan" : "Pilih item"}
                 >
                   {checked ? <Check size={16} strokeWidth={3} /> : <Plus size={15} strokeWidth={3} />}
@@ -3645,7 +3656,7 @@ function SplitBillForm({
 
               {checked && (
                 <div className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-2">
-                  <div className="flex h-10 items-center overflow-hidden rounded-2xl border border-blue-100 dark:border-slate-700 bg-blue-50 dark:bg-slate-900/50">
+                  <div className="scan-split-control flex h-10 items-center overflow-hidden rounded-2xl border border-blue-100 dark:border-slate-700 bg-blue-50 dark:bg-slate-900/50">
                     <button type="button" onClick={() => onQtyChange(item, index, editor.selectedQty - 1)} disabled={editor.selectedQty <= 1} className="grid h-10 w-10 place-items-center text-lg font-black text-blue-700 dark:text-blue-400 disabled:text-slate-300 dark:disabled:text-slate-600" aria-label="Kurangi qty">-</button>
                     <span className="grid h-10 min-w-10 place-items-center px-2 text-sm font-black text-[#0F172A] dark:text-slate-100 font-sans">x{editor.selectedQty}</span>
                     <button type="button" onClick={() => onQtyChange(item, index, editor.selectedQty + 1)} disabled={editor.selectedQty >= editor.originalQty} className="grid h-10 w-10 place-items-center text-lg font-black text-blue-700 dark:text-blue-400 disabled:text-slate-300 dark:disabled:text-slate-600" aria-label="Tambah qty">+</button>
@@ -3667,7 +3678,7 @@ function SplitBillForm({
         })}
       </div>
 
-      <div className="mt-3 rounded-[20px] border border-blue-100 dark:border-blue-900/40 bg-white dark:bg-slate-800 p-3">
+      <div className="scan-bill-mini-card mt-3 rounded-[20px] border border-blue-100 dark:border-blue-900/40 bg-white dark:bg-slate-800 p-3">
         <div className="flex items-center justify-between gap-3 text-sm font-black font-sans">
           <span className="text-slate-600 dark:text-slate-400">Subtotal pilihan</span>
           <span className="text-[#0F172A] dark:text-slate-100">{currency.format(summary.selectedSubtotal)}</span>
