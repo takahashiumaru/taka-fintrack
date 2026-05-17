@@ -207,6 +207,106 @@ async function createSchema() {
         ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS friendships (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+      requester_user_id BIGINT UNSIGNED NOT NULL,
+      recipient_user_id BIGINT UNSIGNED NOT NULL,
+      pair_key VARCHAR(64) NOT NULL,
+      status ENUM('pending','accepted','declined') NOT NULL DEFAULT 'pending',
+      responded_at DATETIME NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      UNIQUE KEY friendships_pair_unique (pair_key),
+      KEY friendships_requester_idx (requester_user_id),
+      KEY friendships_recipient_idx (recipient_user_id),
+      KEY friendships_status_idx (status),
+      CONSTRAINT friendships_requester_fk
+        FOREIGN KEY (requester_user_id) REFERENCES users(id)
+        ON DELETE CASCADE,
+      CONSTRAINT friendships_recipient_fk
+        FOREIGN KEY (recipient_user_id) REFERENCES users(id)
+        ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS notifications (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+      recipient_user_id BIGINT UNSIGNED NOT NULL,
+      actor_user_id BIGINT UNSIGNED NULL,
+      type ENUM('friend_request','split_request') NOT NULL,
+      status ENUM('unread','read','accepted','rejected','cancelled') NOT NULL DEFAULT 'unread',
+      title VARCHAR(160) NOT NULL,
+      message VARCHAR(255) NOT NULL,
+      payload_json JSON NULL,
+      read_at DATETIME NULL,
+      acted_at DATETIME NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      KEY notifications_recipient_status_idx (recipient_user_id, status),
+      KEY notifications_recipient_type_idx (recipient_user_id, type),
+      KEY notifications_actor_idx (actor_user_id),
+      CONSTRAINT notifications_recipient_fk
+        FOREIGN KEY (recipient_user_id) REFERENCES users(id)
+        ON DELETE CASCADE,
+      CONSTRAINT notifications_actor_fk
+        FOREIGN KEY (actor_user_id) REFERENCES users(id)
+        ON DELETE SET NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS split_requests (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+      sender_user_id BIGINT UNSIGNED NOT NULL,
+      recipient_user_id BIGINT UNSIGNED NOT NULL,
+      sender_transaction_id BIGINT UNSIGNED NULL,
+      recipient_transaction_id BIGINT UNSIGNED NULL,
+      notification_id BIGINT UNSIGNED NULL,
+      merchant VARCHAR(160) NOT NULL,
+      category VARCHAR(120) NOT NULL,
+      amount BIGINT UNSIGNED NOT NULL,
+      sender_amount BIGINT UNSIGNED NOT NULL DEFAULT 0,
+      receipt_total_amount BIGINT UNSIGNED NULL,
+      transaction_date DATETIME NULL,
+      source ENUM('Manual','Scan') NOT NULL DEFAULT 'Scan',
+      payment_account VARCHAR(80) NOT NULL DEFAULT 'Cash',
+      receipt_items_json JSON NULL,
+      recipient_items_json JSON NULL,
+      sender_items_json JSON NULL,
+      receipt_adjustment_amount DECIMAL(14,2) NULL,
+      receipt_adjustment_note VARCHAR(190) NULL,
+      status ENUM('pending','accepted','rejected','cancelled') NOT NULL DEFAULT 'pending',
+      responded_at DATETIME NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      KEY split_requests_sender_idx (sender_user_id),
+      KEY split_requests_recipient_status_idx (recipient_user_id, status),
+      KEY split_requests_sender_transaction_idx (sender_transaction_id),
+      KEY split_requests_recipient_transaction_idx (recipient_transaction_id),
+      KEY split_requests_notification_idx (notification_id),
+      CONSTRAINT split_requests_sender_fk
+        FOREIGN KEY (sender_user_id) REFERENCES users(id)
+        ON DELETE CASCADE,
+      CONSTRAINT split_requests_recipient_fk
+        FOREIGN KEY (recipient_user_id) REFERENCES users(id)
+        ON DELETE CASCADE,
+      CONSTRAINT split_requests_sender_transaction_fk
+        FOREIGN KEY (sender_transaction_id) REFERENCES transactions(id)
+        ON DELETE SET NULL,
+      CONSTRAINT split_requests_recipient_transaction_fk
+        FOREIGN KEY (recipient_transaction_id) REFERENCES transactions(id)
+        ON DELETE SET NULL,
+      CONSTRAINT split_requests_notification_fk
+        FOREIGN KEY (notification_id) REFERENCES notifications(id)
+        ON DELETE SET NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
 }
 
 async function addColumnIfMissing(tableName: string, columnName: string, alterClause: string) {

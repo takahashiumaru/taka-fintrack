@@ -63,6 +63,7 @@ import {
   Utensils,
   Wifi,
   UserRound,
+  Users,
   WalletCards,
   Zap,
   X,
@@ -117,10 +118,16 @@ import type {
   CategoryInput,
   CategoryType,
   ChatMessage,
+  FriendEntry,
+  FriendsResponse,
   MonthlyStatement,
+  NotificationItem,
+  NotificationsResponse,
   ReceiptSplitMode,
   SelectedReceiptItem,
   ScannedReceipt,
+  SplitRecipient,
+  SplitRequestInput,
   ThemeMode,
   Transaction,
   TransactionInput,
@@ -216,7 +223,7 @@ function startForgotPasswordCooldown() {
 }
 
 function isViewKey(value: string | null | undefined): value is ViewKey {
-  return Boolean(value && navItems.some((item) => item.key === value));
+  return Boolean(value && (value === "notifications" || navItems.some((item) => item.key === value)));
 }
 
 function isAuthUser(value: unknown): value is AuthUser {
@@ -356,6 +363,12 @@ const categoryData = [
 
 const categoryColorPresets = ["#22C55E", "#0EA5E9", "#2563EB", "#8B5CF6", "#F59E0B", "#FB7185", "#14B8A6", "#64748B"];
 
+const emptyFriendsData: FriendsResponse = {
+  friends: [],
+  pendingIncoming: [],
+  pendingOutgoing: [],
+};
+
 const trendData = [
   { month: "Des", income: 7.8, expense: 4.7 },
   { month: "Jan", income: 8.1, expense: 4.1 },
@@ -387,7 +400,7 @@ function getCameraErrorMessage(error: unknown) {
 
 export function TakaFinTrackApp() {
   const [activeView, setActiveView] = useState<ViewKey>(getInitialView);
-  const [profileScreen, setProfileScreen] = useState<"overview" | "reports">("overview");
+  const [profileScreen, setProfileScreen] = useState<"overview" | "reports" | "friends">("overview");
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [theme, setTheme] = useState<ThemeMode>(getInitialTheme);
   const [sessionReady, setSessionReady] = useState(false);
@@ -395,6 +408,12 @@ export function TakaFinTrackApp() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [statements, setStatements] = useState<MonthlyStatement[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [friendsData, setFriendsData] = useState<FriendsResponse>(emptyFriendsData);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [notificationCount, setNotificationCount] = useState(0);
+  const [socialError, setSocialError] = useState("");
+  const [isSocialLoading, setIsSocialLoading] = useState(false);
+  const [processingNotificationId, setProcessingNotificationId] = useState<number | null>(null);
   const [dataStatus, setDataStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [dataError, setDataError] = useState("");
   const [transactionsPagination, setTransactionsPagination] = useState<TransactionsPagination>({ page: 1, limit: 20, hasMore: false, nextPage: null });
@@ -470,6 +489,10 @@ export function TakaFinTrackApp() {
       setSessionReady(false);
       setTransactions([]);
       setCategories([]);
+      setFriendsData(emptyFriendsData);
+      setNotifications([]);
+      setNotificationCount(0);
+      setSocialError("");
       setDataStatus("idle");
       setIsAuthChecking(false);
     }
@@ -497,6 +520,82 @@ export function TakaFinTrackApp() {
       setDataError(error instanceof Error ? error.message : "Data gagal dimuat.");
     }
   }, [sessionReady]);
+
+  const refreshSocialData = useCallback(async () => {
+    if (!sessionReady) return;
+
+    setIsSocialLoading(true);
+    setSocialError("");
+
+    try {
+      const [friendsResponse, notificationsResponse] = await Promise.all([
+        apiRequest<FriendsResponse>("/api/friends"),
+        apiRequest<NotificationsResponse>("/api/notifications"),
+      ]);
+
+      setFriendsData(friendsResponse);
+      setNotifications(notificationsResponse.notifications);
+      setNotificationCount(notificationsResponse.actionableCount ?? notificationsResponse.unreadCount ?? 0);
+    } catch (error) {
+      setSocialError(error instanceof Error ? error.message : "Data sosial gagal dimuat.");
+    } finally {
+      setIsSocialLoading(false);
+    }
+  }, [sessionReady]);
+
+  const sendFriendRequest = useCallback(async (email: string) => {
+    if (!sessionReady) throw new Error("Sesi belum siap.");
+
+    await apiRequest<{ friendship: FriendEntry }>("/api/friends/request", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+    await refreshSocialData();
+  }, [sessionReady, refreshSocialData]);
+
+  const deleteFriend = useCallback(async (friendshipId: number) => {
+    if (!sessionReady) throw new Error("Sesi belum siap.");
+
+    await apiRequest<{ success: true }>(`/api/friends/${friendshipId}`, {
+      method: "DELETE",
+    });
+    await refreshSocialData();
+  }, [sessionReady, refreshSocialData]);
+
+  const handleNotificationAction = useCallback(async (notificationId: number, action: "read" | "accept" | "reject") => {
+    if (!sessionReady) return;
+
+    setProcessingNotificationId(notificationId);
+    setSocialError("");
+
+    try {
+      const response = await apiRequest<{ splitRequest?: { recipientTransactionId?: number | null } }>(`/api/notifications/${notificationId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ action }),
+      });
+
+      await refreshSocialData();
+      if (action === "accept" && response.splitRequest) {
+        await refreshFinanceData();
+      }
+    } catch (error) {
+      setSocialError(error instanceof Error ? error.message : "Notifikasi gagal diproses.");
+    } finally {
+      setProcessingNotificationId(null);
+    }
+  }, [sessionReady, refreshSocialData, refreshFinanceData]);
+
+  const createSplitRequest = useCallback(async (input: SplitRequestInput) => {
+    if (!sessionReady) throw new Error("Sesi belum siap.");
+
+    const response = await apiRequest<{ splitRequest: { id: number }; senderTransactionId: number | null }>("/api/split-requests", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+
+    await Promise.all([refreshSocialData(), refreshFinanceData()]);
+    return response;
+  }, [sessionReady, refreshSocialData, refreshFinanceData]);
 
   const canUsePullToRefresh = sessionReady && !isAuthChecking && !showSplash && dataStatus !== "loading";
   const pullRefreshThreshold = 56;
@@ -681,8 +780,9 @@ export function TakaFinTrackApp() {
   useEffect(() => {
     if (currentUser && sessionReady) {
       void refreshFinanceData();
+      void refreshSocialData();
     }
-  }, [sessionReady, currentUser, refreshFinanceData]);
+  }, [sessionReady, currentUser, refreshFinanceData, refreshSocialData]);
 
   useEffect(() => {
     try {
@@ -791,11 +891,13 @@ export function TakaFinTrackApp() {
         )}>
           {activeView !== "scan" && (
             <TopBar
-              title={activeView === "profile" && profileScreen === "reports" ? "Laporan" : activeMeta.label}
+              title={activeView === "profile" && profileScreen === "reports" ? "Laporan" : activeView === "profile" && profileScreen === "friends" ? "Teman" : activeView === "notifications" ? "Notifikasi" : activeMeta.label}
               user={currentUser}
               sessionReady={sessionReady}
               onAddTransaction={() => changeView("transactions")}
               onOpenProfile={() => changeView("profile")}
+              onOpenNotifications={() => changeView("notifications")}
+              notificationCount={notificationCount}
               theme={theme}
               onToggleTheme={toggleTheme}
               compactMobile={activeView === "chat"}
@@ -833,7 +935,14 @@ export function TakaFinTrackApp() {
             />
           )}
           <div className={activeView === "scan" ? "block" : "hidden"} aria-hidden={activeView !== "scan"}>
-            <ScanView categories={categories} sessionReady={sessionReady} onCreateTransaction={createTransaction} onNavigate={changeView} />
+            <ScanView
+              categories={categories}
+              friends={friendsData.friends}
+              sessionReady={sessionReady}
+              onCreateTransaction={createTransaction}
+              onCreateSplitRequest={createSplitRequest}
+              onNavigate={changeView}
+            />
           </div>
           <div className={activeView === "chat" ? "chat-view-frame block h-full min-h-0 overflow-hidden" : "hidden"} aria-hidden={activeView !== "chat"}>
             <ChatView transactions={transactions} sessionReady={sessionReady} />
@@ -850,6 +959,7 @@ export function TakaFinTrackApp() {
                   onToggleTheme={toggleTheme}
                   onUserUpdate={handleUserUpdate}
                   onOpenReports={() => setProfileScreen("reports")}
+                  onOpenFriends={() => setProfileScreen("friends")}
                   onLogout={handleLogout}
                 />
               )}
@@ -861,7 +971,27 @@ export function TakaFinTrackApp() {
                   onBack={() => setProfileScreen("overview")}
                 />
               )}
+              {profileScreen === "friends" && (
+                <ProfileFriendsView
+                  friendsData={friendsData}
+                  onSendFriendRequest={sendFriendRequest}
+                  onDeleteFriend={deleteFriend}
+                  socialError={socialError}
+                  isSocialLoading={isSocialLoading}
+                  onBack={() => setProfileScreen("overview")}
+                />
+              )}
             </div>
+          )}
+          {activeView === "notifications" && (
+            <NotificationsView
+              notifications={notifications}
+              error={socialError}
+              loading={isSocialLoading}
+              processingId={processingNotificationId}
+              onAction={handleNotificationAction}
+              onRefresh={refreshSocialData}
+            />
           )}
           </div>
         </section>
@@ -1310,7 +1440,7 @@ function AvatarCircle({
   size = "md",
   className,
 }: {
-  user: AuthUser;
+  user: { name: string; avatarUrl?: string | null };
   size?: "sm" | "md" | "lg";
   className?: string;
 }) {
@@ -1431,6 +1561,8 @@ function TopBar({
   user,
   onAddTransaction,
   onOpenProfile,
+  onOpenNotifications,
+  notificationCount,
   theme,
   onToggleTheme,
   compactMobile = false,
@@ -1440,6 +1572,8 @@ function TopBar({
   sessionReady: boolean;
   onAddTransaction: () => void;
   onOpenProfile: () => void;
+  onOpenNotifications: () => void;
+  notificationCount: number;
   theme: ThemeMode;
   onToggleTheme: () => void;
   compactMobile?: boolean;
@@ -1467,6 +1601,19 @@ function TopBar({
           aria-label={theme === "dark" ? "Aktifkan light mode" : "Aktifkan dark mode"}
         >
           {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
+        </button>
+        <button
+          type="button"
+          onClick={onOpenNotifications}
+          className="relative grid h-9 w-9 place-items-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:border-sky-300 hover:text-sky-600 dark:border-white/10 dark:bg-white/8 dark:text-sky-100 sm:h-11 sm:w-11 sm:rounded-lg"
+          aria-label="Buka notifikasi"
+        >
+          <Bell size={17} />
+          {notificationCount > 0 && (
+            <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-rose-500 px-1 text-[10px] font-black text-white ring-2 ring-white dark:ring-[#071B33]">
+              {notificationCount > 9 ? "9+" : notificationCount}
+            </span>
+          )}
         </button>
         <button
           type="button"
@@ -2668,7 +2815,13 @@ function TransactionsView({
   );
 }
 
-type ScanPhase = "camera_idle" | "camera_active" | "upload_selected" | "preview_image" | "ocr_loading" | "ocr_success" | "ocr_failed" | "split_decision" | "split_flow" | "split_saved";
+type ScanPhase = "camera_idle" | "camera_active" | "upload_selected" | "preview_image" | "ocr_loading" | "ocr_success" | "ocr_failed" | "split_decision" | "split_recipient" | "split_flow" | "split_saved";
+type ScanSplitMode = "local" | "request" | "sender";
+type SplitAssignment = {
+  id: string;
+  recipient: SplitRecipient;
+  items: Record<string, SelectedReceiptItem>;
+};
 type ScanAiItem = {
   name: string | null;
   quantity: number | null;
@@ -2880,15 +3033,78 @@ function buildDefaultSelectedReceiptItems(receipt: ScannedReceipt | null) {
   }, {});
 }
 
+function getSplitRecipientKey(recipient: SplitRecipient) {
+  return recipient.id ? `id:${recipient.id}` : `email:${recipient.email.toLowerCase()}`;
+}
+
+function getSelectedItemsQtyMap(selectedItemsList: Array<Record<string, SelectedReceiptItem>>) {
+  return selectedItemsList.reduce<Record<string, number>>((qtyMap, selectedItems) => {
+    Object.values(selectedItems).forEach((item) => {
+      qtyMap[item.key] = (qtyMap[item.key] ?? 0) + item.selectedQty;
+    });
+    return qtyMap;
+  }, {});
+}
+
+function getReceiptMaxQtyByKey(receipt: ScannedReceipt | null, allocatedQtyByKey: Record<string, number>) {
+  if (!receipt) return {};
+
+  return receipt.items.reduce<Record<string, number>>((maxQtyByKey, item, index) => {
+    const key = getReceiptItemKey(item, index);
+    const originalQty = Math.max(1, Math.round(item.qty || 1));
+    maxQtyByKey[key] = Math.max(0, originalQty - (allocatedQtyByKey[key] ?? 0));
+    return maxQtyByKey;
+  }, {});
+}
+
+function clampSelectedReceiptItemsToMaxQty(
+  receipt: ScannedReceipt | null,
+  selectedItems: Record<string, SelectedReceiptItem>,
+  maxQtyByKey: Record<string, number>,
+) {
+  if (!receipt) return {};
+
+  return receipt.items.reduce<Record<string, SelectedReceiptItem>>((nextItems, item, index) => {
+    const key = getReceiptItemKey(item, index);
+    const selected = selectedItems[key];
+    if (!selected) return nextItems;
+
+    const maxQty = Math.max(0, maxQtyByKey[key] ?? selected.originalQty);
+    if (maxQty <= 0) return nextItems;
+
+    nextItems[key] = getEditableReceiptItem(item, index, Math.min(selected.selectedQty, maxQty), selected.unitPrice);
+    return nextItems;
+  }, {});
+}
+
+function areSelectedReceiptItemsEqual(a: Record<string, SelectedReceiptItem>, b: Record<string, SelectedReceiptItem>) {
+  const aKeys = Object.keys(a);
+  const bKeys = Object.keys(b);
+  if (aKeys.length !== bKeys.length) return false;
+
+  return aKeys.every((key) => {
+    const left = a[key];
+    const right = b[key];
+    return Boolean(right)
+      && left.selectedQty === right.selectedQty
+      && left.unitPrice === right.unitPrice
+      && left.selectedAmount === right.selectedAmount;
+  });
+}
+
 function ScanView({
   categories,
+  friends,
   sessionReady,
   onCreateTransaction,
+  onCreateSplitRequest,
   onNavigate,
 }: {
   categories: Category[];
+  friends: FriendEntry[];
   sessionReady: boolean;
   onCreateTransaction: (input: TransactionInput) => Promise<Transaction>;
+  onCreateSplitRequest: (input: SplitRequestInput) => Promise<unknown>;
   onNavigate: (view: ViewKey) => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -2909,6 +3125,11 @@ function ScanView({
   const [selectedCategoryId, setSelectedCategoryId] = useState("");
   const [paymentAccount, setPaymentAccount] = useState("QRIS");
   const [selectedReceiptItems, setSelectedReceiptItems] = useState<Record<string, SelectedReceiptItem>>({});
+  const [splitMode, setSplitMode] = useState<ScanSplitMode | null>(null);
+  const [splitRecipient, setSplitRecipient] = useState<SplitRecipient | null>(null);
+  const [splitAssignments, setSplitAssignments] = useState<SplitAssignment[]>([]);
+  const [splitSenderItems, setSplitSenderItems] = useState<Record<string, SelectedReceiptItem>>({});
+  const [editingSplitAssignmentId, setEditingSplitAssignmentId] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState("");
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
 
@@ -2923,6 +3144,39 @@ function ScanView({
   const selectedCategory = useMemo(() => {
     return categories.find((category) => String(category.id) === selectedCategoryId) ?? defaultFoodCategory;
   }, [categories, defaultFoodCategory, selectedCategoryId]);
+  const splitAssignmentSummaries = useMemo(() => {
+    if (!scannedReceipt) return [];
+    return splitAssignments.map((assignment) => {
+      const summary = getReceiptSplitSummary(scannedReceipt, assignment.items, "proportional");
+      return {
+        id: assignment.id,
+        recipient: assignment.recipient,
+        amount: Math.round(summary.selectedTotal),
+        itemCount: Object.keys(assignment.items).length,
+      };
+    });
+  }, [scannedReceipt, splitAssignments]);
+  const splitSenderSummary = useMemo(() => getReceiptSplitSummary(scannedReceipt, splitSenderItems, "proportional"), [scannedReceipt, splitSenderItems]);
+  const splitAssignedAmount = useMemo(() => {
+    return splitAssignmentSummaries.reduce((total, assignment) => total + assignment.amount, 0);
+  }, [splitAssignmentSummaries]);
+  const splitSenderAmount = Math.round(splitSenderSummary.selectedTotal);
+  const splitOutsideAmount = Math.max(0, Math.round((scannedReceipt?.total ?? 0) - splitAssignedAmount - splitSenderAmount));
+  const selectedReceiptMaxQtyByKey = useMemo(() => {
+    if (!scannedReceipt || phase !== "split_flow") return {};
+    if (splitMode === "request") {
+      const allocatedByOtherRecipients = getSelectedItemsQtyMap(
+        splitAssignments
+          .filter((assignment) => assignment.id !== editingSplitAssignmentId)
+          .map((assignment) => assignment.items),
+      );
+      return getReceiptMaxQtyByKey(scannedReceipt, allocatedByOtherRecipients);
+    }
+    if (splitMode === "sender") {
+      return getReceiptMaxQtyByKey(scannedReceipt, getSelectedItemsQtyMap(splitAssignments.map((assignment) => assignment.items)));
+    }
+    return getReceiptMaxQtyByKey(scannedReceipt, {});
+  }, [editingSplitAssignmentId, phase, scannedReceipt, splitAssignments, splitMode]);
 
   const isScannerState = phase === "camera_idle" || phase === "camera_active" || phase === "upload_selected" || phase === "preview_image" || phase === "ocr_loading" || phase === "ocr_failed";
 
@@ -2950,6 +3204,11 @@ function ScanView({
     setScanError("");
     setSuccessMessage("");
     setSelectedReceiptItems({});
+    setSplitMode(null);
+    setSplitRecipient(null);
+    setSplitAssignments([]);
+    setSplitSenderItems({});
+    setEditingSplitAssignmentId(null);
     setPhase("camera_idle");
     setCameraStatus("idle");
     setFlashOn(false);
@@ -2984,6 +3243,11 @@ function ScanView({
         ?? categories.find((item) => item.type === "expense" || item.type === "both");
       setSelectedCategoryId(category ? String(category.id) : "");
       setSelectedReceiptItems(buildDefaultSelectedReceiptItems(receipt));
+      setSplitSenderItems({});
+      setSplitAssignments([]);
+      setSplitRecipient(null);
+      setSplitMode(null);
+      setEditingSplitAssignmentId(null);
       setPhase("split_decision");
     } catch (error) {
       if (controller.signal.aborted || scanId !== scanSequenceRef.current) return;
@@ -3092,6 +3356,12 @@ function ScanView({
 
   function toggleSelectedReceiptItem(item: ScannedReceipt["items"][number], index: number) {
     const key = getReceiptItemKey(item, index);
+    const maxQty = Math.max(0, selectedReceiptMaxQtyByKey[key] ?? Math.max(1, Math.round(item.qty || 1)));
+    if (!selectedReceiptItems[key] && maxQty <= 0) {
+      setScanError("Item ini sudah habis dialokasikan ke penerima lain.");
+      return;
+    }
+
     setSelectedReceiptItems((current) => {
       if (current[key]) {
         const next = { ...current };
@@ -3099,15 +3369,20 @@ function ScanView({
         return next;
       }
 
-      return { ...current, [key]: getEditableReceiptItem(item, index) };
+      return { ...current, [key]: getEditableReceiptItem(item, index, maxQty) };
     });
   }
 
   function updateSelectedReceiptQty(item: ScannedReceipt["items"][number], index: number, nextQty: number) {
     const key = getReceiptItemKey(item, index);
+    const maxQty = Math.max(0, selectedReceiptMaxQtyByKey[key] ?? Math.max(1, Math.round(item.qty || 1)));
+    if (maxQty <= 0) {
+      setScanError("Item ini sudah habis dialokasikan ke penerima lain.");
+      return;
+    }
     setSelectedReceiptItems((current) => {
       const selected = current[key] ?? getEditableReceiptItem(item, index);
-      const updated = getEditableReceiptItem(item, index, nextQty, selected.unitPrice);
+      const updated = getEditableReceiptItem(item, index, Math.min(nextQty, maxQty), selected.unitPrice);
       return { ...current, [key]: updated };
     });
   }
@@ -3115,9 +3390,10 @@ function ScanView({
   function updateSelectedReceiptPrice(item: ScannedReceipt["items"][number], index: number, value: string) {
     const key = getReceiptItemKey(item, index);
     const price = Math.max(0, Math.round(Number(value.replace(/\D/g, "")) || 0));
+    const maxQty = Math.max(0, selectedReceiptMaxQtyByKey[key] ?? Math.max(1, Math.round(item.qty || 1)));
     setSelectedReceiptItems((current) => {
       const selected = current[key] ?? getEditableReceiptItem(item, index);
-      const updated = getEditableReceiptItem(item, index, selected.selectedQty, price);
+      const updated = getEditableReceiptItem(item, index, Math.min(selected.selectedQty, Math.max(1, maxQty)), price);
       return { ...current, [key]: updated };
     });
   }
@@ -3171,6 +3447,175 @@ function ScanView({
     }
   }
 
+  function startSplitRecipient(recipient: SplitRecipient) {
+    const recipientKey = getSplitRecipientKey(recipient);
+    const existing = splitAssignments.find((assignment) => getSplitRecipientKey(assignment.recipient) === recipientKey);
+
+    setSplitMode("request");
+    setSplitRecipient(existing?.recipient ?? recipient);
+    setSelectedReceiptItems(existing?.items ?? {});
+    setEditingSplitAssignmentId(existing?.id ?? null);
+    setScanError("");
+    setPhase("split_flow");
+  }
+
+  function saveCurrentSplitAssignment() {
+    if (!scannedReceipt || !splitRecipient) return;
+
+    const clampedItems = clampSelectedReceiptItemsToMaxQty(scannedReceipt, selectedReceiptItems, selectedReceiptMaxQtyByKey);
+    const recipientItems = Object.values(clampedItems);
+    const recipientSummary = getReceiptSplitSummary(scannedReceipt, clampedItems, "proportional");
+    const recipientAmount = Math.round(recipientSummary.selectedTotal);
+
+    if (recipientItems.length === 0) {
+      setScanError("Pilih minimal satu item untuk penerima split.");
+      return;
+    }
+
+    if (recipientAmount <= 0) {
+      setScanError("Porsi penerima masih kosong.");
+      return;
+    }
+
+    const nextAssignment: SplitAssignment = {
+      id: editingSplitAssignmentId ?? `${getSplitRecipientKey(splitRecipient)}:${Date.now()}`,
+      recipient: splitRecipient,
+      items: clampedItems,
+    };
+
+    setSplitAssignments((current) => {
+      const existingIndex = current.findIndex((assignment) => assignment.id === nextAssignment.id || getSplitRecipientKey(assignment.recipient) === getSplitRecipientKey(splitRecipient));
+      if (existingIndex < 0) return [...current, nextAssignment];
+      return current.map((assignment, index) => index === existingIndex ? nextAssignment : assignment);
+    });
+    setSplitRecipient(null);
+    setSelectedReceiptItems({});
+    setEditingSplitAssignmentId(null);
+    setScanError("");
+    setPhase("split_recipient");
+  }
+
+  function startSplitSenderShare() {
+    setSplitMode("sender");
+    setSplitRecipient(null);
+    setSelectedReceiptItems(splitSenderItems);
+    setEditingSplitAssignmentId(null);
+    setScanError("");
+    setPhase("split_flow");
+  }
+
+  function saveCurrentSenderShare() {
+    const clampedItems = clampSelectedReceiptItemsToMaxQty(scannedReceipt, selectedReceiptItems, selectedReceiptMaxQtyByKey);
+    const senderItems = Object.values(clampedItems);
+    const senderSummary = getReceiptSplitSummary(scannedReceipt, clampedItems, "proportional");
+    const senderAmount = Math.round(senderSummary.selectedTotal);
+
+    if (senderItems.length === 0) {
+      setScanError("Pilih item yang memang jadi porsi kamu, atau hapus porsi saya.");
+      return;
+    }
+
+    if (senderAmount <= 0) {
+      setScanError("Porsi saya masih kosong.");
+      return;
+    }
+
+    setSplitSenderItems(clampedItems);
+    setSelectedReceiptItems({});
+    setScanError("");
+    setPhase("split_recipient");
+  }
+
+  async function submitSplitAssignments() {
+    if (!scannedReceipt || !sessionReady) return;
+
+    const categoryName = selectedCategory?.name || "Makanan & Minuman";
+    const assignments = splitAssignments;
+
+    if (assignments.length === 0) {
+      setScanError("Tambahkan minimal satu penerima split dulu.");
+      return;
+    }
+
+    const recipientPayloads = assignments.map((assignment) => {
+      const summary = getReceiptSplitSummary(scannedReceipt, assignment.items, "proportional");
+      return {
+        recipientUserId: assignment.recipient.id,
+        recipientEmail: assignment.recipient.email,
+        amount: Math.round(summary.selectedTotal),
+        recipientItems: Object.values(assignment.items),
+        receiptAdjustmentAmount: summary.selectedAdjustment,
+        receiptAdjustmentNote: `Split untuk ${assignment.recipient.email}.`,
+      };
+    });
+    const totalRecipientAmount = recipientPayloads.reduce((total, recipient) => total + recipient.amount, 0);
+    const senderMaxQtyByKey = getReceiptMaxQtyByKey(scannedReceipt, getSelectedItemsQtyMap(assignments.map((assignment) => assignment.items)));
+    const clampedSenderItems = clampSelectedReceiptItemsToMaxQty(scannedReceipt, splitSenderItems, senderMaxQtyByKey);
+    const senderSummary = getReceiptSplitSummary(scannedReceipt, clampedSenderItems, "proportional");
+    const senderItems = Object.values(clampedSenderItems);
+    const senderAmount = senderItems.length > 0 ? Math.round(senderSummary.selectedTotal) : 0;
+
+    if (recipientPayloads.some((recipient) => recipient.amount <= 0 || recipient.recipientItems.length === 0)) {
+      setScanError("Ada penerima yang porsinya masih kosong.");
+      return;
+    }
+
+    if (totalRecipientAmount + senderAmount > scannedReceipt.total) {
+      setScanError("Total porsi penerima dan porsi saya melebihi total struk. Cek lagi qty/nominal.");
+      return;
+    }
+
+    setIsSavingReceipt(true);
+    setScanError("");
+
+    try {
+      await onCreateSplitRequest({
+        recipientUserId: recipientPayloads[0]?.recipientUserId,
+        recipientEmail: recipientPayloads[0]?.recipientEmail,
+        recipients: recipientPayloads,
+        merchant: scannedReceipt.merchant,
+        category: categoryName,
+        amount: totalRecipientAmount,
+        senderAmount,
+        receiptTotalAmount: scannedReceipt.total,
+        transactionDate: scannedReceipt.transactionDate || getDateInputValue(),
+        paymentAccount,
+        receiptItems: scannedReceipt.items,
+        recipientItems: recipientPayloads[0]?.recipientItems ?? [],
+        senderItems,
+        receiptAdjustmentAmount: senderItems.length > 0 ? senderSummary.selectedAdjustment : 0,
+        receiptAdjustmentNote: `Porsi saya opsional. Sisa di luar Taka: ${currency.format(Math.max(0, scannedReceipt.total - totalRecipientAmount - senderAmount))}.`,
+      });
+
+      setSuccessMessage(`Split dikirim ke ${assignments.length} penerima.`);
+      setPhase("split_saved");
+      window.setTimeout(() => resetScan(), 2600);
+    } catch (error) {
+      setScanError(error instanceof Error ? error.message : "Split request gagal dikirim.");
+    } finally {
+      setIsSavingReceipt(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!scannedReceipt) return;
+
+    const maxQtyByKey = getReceiptMaxQtyByKey(scannedReceipt, getSelectedItemsQtyMap(splitAssignments.map((assignment) => assignment.items)));
+    setSplitSenderItems((current) => {
+      const clamped = clampSelectedReceiptItemsToMaxQty(scannedReceipt, current, maxQtyByKey);
+      return areSelectedReceiptItemsEqual(current, clamped) ? current : clamped;
+    });
+  }, [scannedReceipt, splitAssignments]);
+
+  useEffect(() => {
+    if (!scannedReceipt || phase !== "split_flow") return;
+
+    setSelectedReceiptItems((current) => {
+      const clamped = clampSelectedReceiptItemsToMaxQty(scannedReceipt, current, selectedReceiptMaxQtyByKey);
+      return areSelectedReceiptItemsEqual(current, clamped) ? current : clamped;
+    });
+  }, [phase, scannedReceipt, selectedReceiptMaxQtyByKey]);
+
   useEffect(() => {
     return () => {
       scanAbortRef.current?.abort();
@@ -3208,8 +3653,8 @@ function ScanView({
       ) : (
         <>
           <ScanHeader
-            title={phase === "split_flow" ? "Ubah rincian" : "Rincian bill"}
-            onBack={phase === "split_flow" ? () => setPhase("split_decision") : resetScan}
+            title={phase === "split_recipient" ? "Pilih alur" : phase === "split_flow" && splitMode === "sender" ? "Porsi saya" : phase === "split_flow" && splitMode === "local" ? "Edit porsi saya" : phase === "split_flow" ? "Split bill" : "Rincian bill"}
+            onBack={phase === "split_flow" ? () => setPhase("split_recipient") : phase === "split_recipient" ? () => setPhase("split_decision") : resetScan}
             onHelp={() => setScanError("Cek lagi total, pajak, dan item sebelum konfirmasi.")}
           />
           <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-3 pb-4 pt-2.5">
@@ -3226,24 +3671,87 @@ function ScanView({
                 onCategoryChange={setSelectedCategoryId}
                 onPaymentAccountChange={setPaymentAccount}
                 onRescan={resetScan}
-                onEditSplit={() => setPhase("split_flow")}
+                onEditSplit={() => {
+                  setSplitRecipient(null);
+                  setSplitMode(null);
+                  setSplitAssignments([]);
+                  setSplitSenderItems({});
+                  setEditingSplitAssignmentId(null);
+                  setSelectedReceiptItems({});
+                  setScanError("");
+                  setPhase("split_recipient");
+                }}
                 onConfirm={() => void saveReceipt({ split: false })}
                 onPreviewImage={() => setIsPreviewModalOpen(true)}
               />
           )}
 
+          {phase === "split_recipient" && scannedReceipt && (
+            <SplitRecipientPicker
+              friends={friends}
+              assignments={splitAssignmentSummaries}
+              senderShareAmount={splitSenderAmount}
+              senderShareItemCount={splitSenderSummary.selectedCount}
+              outsideAmount={splitOutsideAmount}
+              submitting={isSavingReceipt}
+              error={scanError}
+              onBack={() => setPhase("split_decision")}
+              onLocalEdit={() => {
+                setSplitMode("local");
+                setSplitRecipient(null);
+                setSelectedReceiptItems(buildDefaultSelectedReceiptItems(scannedReceipt));
+                setScanError("");
+                setPhase("split_flow");
+              }}
+              onSelect={startSplitRecipient}
+              onEditAssignment={(assignmentId) => {
+                const assignment = splitAssignments.find((item) => item.id === assignmentId);
+                if (!assignment) return;
+                setSplitMode("request");
+                setSplitRecipient(assignment.recipient);
+                setSelectedReceiptItems(assignment.items);
+                setEditingSplitAssignmentId(assignment.id);
+                setScanError("");
+                setPhase("split_flow");
+              }}
+              onRemoveAssignment={(assignmentId) => {
+                setSplitAssignments((current) => current.filter((assignment) => assignment.id !== assignmentId));
+                setScanError("");
+              }}
+              onEditSenderShare={startSplitSenderShare}
+              onClearSenderShare={() => {
+                setSplitSenderItems({});
+                setScanError("");
+              }}
+              onSubmitAssignments={() => void submitSplitAssignments()}
+            />
+          )}
+
           {phase === "split_flow" && scannedReceipt && (
             <SplitBillForm
               receipt={scannedReceipt}
+              mode={splitMode ?? "local"}
+              recipient={splitRecipient}
               selectedItems={selectedReceiptItems}
+              maxQtyByKey={selectedReceiptMaxQtyByKey}
               summary={selectedReceiptSummary}
               saving={isSavingReceipt}
               error={scanError}
               onToggleItem={toggleSelectedReceiptItem}
               onQtyChange={updateSelectedReceiptQty}
               onPriceChange={updateSelectedReceiptPrice}
-              onBack={() => setPhase("split_decision")}
-              onSave={() => void saveReceipt({ split: true })}
+              onBack={() => setPhase("split_recipient")}
+              onSave={() => {
+                if (splitMode === "request") {
+                  saveCurrentSplitAssignment();
+                  return;
+                }
+                if (splitMode === "sender") {
+                  saveCurrentSenderShare();
+                  return;
+                }
+                void saveReceipt({ split: true });
+              }}
             />
           )}
 
@@ -3582,9 +4090,302 @@ function ReceiptDetailRow({
   );
 }
 
+function SplitRecipientPicker({
+  friends,
+  assignments,
+  senderShareAmount,
+  senderShareItemCount,
+  outsideAmount,
+  submitting,
+  error,
+  onBack,
+  onLocalEdit,
+  onSelect,
+  onEditAssignment,
+  onRemoveAssignment,
+  onEditSenderShare,
+  onClearSenderShare,
+  onSubmitAssignments,
+}: {
+  friends: FriendEntry[];
+  assignments: Array<{ id: string; recipient: SplitRecipient; amount: number; itemCount: number }>;
+  senderShareAmount: number;
+  senderShareItemCount: number;
+  outsideAmount: number;
+  submitting: boolean;
+  error: string;
+  onBack: () => void;
+  onLocalEdit: () => void;
+  onSelect: (recipient: SplitRecipient) => void;
+  onEditAssignment: (assignmentId: string) => void;
+  onRemoveAssignment: (assignmentId: string) => void;
+  onEditSenderShare: () => void;
+  onClearSenderShare: () => void;
+  onSubmitAssignments: () => void;
+}) {
+  const [email, setEmail] = useState("");
+  const [query, setQuery] = useState("");
+  const [recipientMode, setRecipientMode] = useState<"local" | "request">(assignments.length > 0 ? "request" : "local");
+  const normalizedEmail = email.trim().toLowerCase();
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredFriends = useMemo(() => {
+    if (!normalizedQuery) return friends;
+    return friends.filter((friend) => {
+      const name = friend.user.name.toLowerCase();
+      const friendEmail = friend.user.email.toLowerCase();
+      return name.includes(normalizedQuery) || friendEmail.includes(normalizedQuery);
+    });
+  }, [friends, normalizedQuery]);
+
+  useEffect(() => {
+    if (assignments.length > 0) setRecipientMode("request");
+  }, [assignments.length]);
+
+  function submitEmail(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!normalizedEmail) return;
+    onSelect({ name: normalizedEmail, email: normalizedEmail });
+  }
+
+  const takaSplitAmount = assignments.reduce((total, assignment) => total + assignment.amount, 0);
+  const hasSenderShare = senderShareAmount > 0;
+
+  return (
+    <section className="scan-bill-card rounded-[26px] border border-blue-100 bg-white/82 p-3.5 shadow-[0_16px_40px_rgba(37,99,235,0.10)] dark:border-blue-900/40 dark:bg-slate-900/78 dark:shadow-none">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="font-sans text-[10px] font-black uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">Rincian Split</p>
+          <h2 className="mt-1 truncate font-sans text-[22px] font-black text-[#0F172A] dark:text-slate-100">Atur pembagian</h2>
+        </div>
+        <button type="button" onClick={onBack} className="scan-bill-secondary-button shrink-0 rounded-full border border-blue-100 bg-blue-50 px-3.5 py-2 font-sans text-[11px] font-black text-blue-700 dark:border-blue-900/40 dark:bg-slate-800 dark:text-blue-400">Preview</button>
+      </div>
+
+      <div className="mt-3 grid grid-cols-3 gap-2">
+        <div className="rounded-[18px] border border-blue-100 bg-blue-50/80 p-2.5 dark:border-blue-900/40 dark:bg-slate-800/70">
+          <p className="font-sans text-[9px] font-black uppercase tracking-[0.12em] text-blue-600 dark:text-blue-300">User Taka</p>
+          <p className="mt-1 truncate font-sans text-[13px] font-black text-[#0F172A] dark:text-slate-100">{currency.format(takaSplitAmount)}</p>
+        </div>
+        <div className="rounded-[18px] border border-emerald-100 bg-emerald-50/80 p-2.5 dark:border-emerald-900/40 dark:bg-emerald-500/10">
+          <p className="font-sans text-[9px] font-black uppercase tracking-[0.12em] text-emerald-700 dark:text-emerald-300">Saya</p>
+          <p className="mt-1 truncate font-sans text-[13px] font-black text-[#0F172A] dark:text-slate-100">{currency.format(senderShareAmount)}</p>
+        </div>
+        <div className="rounded-[18px] border border-slate-200 bg-slate-50 p-2.5 dark:border-slate-700 dark:bg-slate-800/70">
+          <p className="font-sans text-[9px] font-black uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">Di luar</p>
+          <p className="mt-1 truncate font-sans text-[13px] font-black text-[#0F172A] dark:text-slate-100">{currency.format(outsideAmount)}</p>
+        </div>
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 rounded-[20px] border border-blue-100 bg-blue-50/75 p-1 dark:border-blue-900/40 dark:bg-slate-800/60">
+        <button
+          type="button"
+          onClick={() => setRecipientMode("local")}
+          className={clsx("flex h-11 items-center justify-center gap-2 rounded-[16px] font-sans text-xs font-black transition active:scale-[0.98]", recipientMode === "local" ? "bg-white text-blue-700 shadow-[0_8px_20px_rgba(37,99,235,0.12)] dark:bg-slate-950 dark:text-blue-300" : "text-slate-500 dark:text-slate-400")}
+        >
+          <Pencil size={15} />
+          Porsi saya
+        </button>
+        <button
+          type="button"
+          onClick={() => setRecipientMode("request")}
+          className={clsx("flex h-11 items-center justify-center gap-2 rounded-[16px] font-sans text-xs font-black transition active:scale-[0.98]", recipientMode === "request" ? "bg-white text-blue-700 shadow-[0_8px_20px_rgba(37,99,235,0.12)] dark:bg-slate-950 dark:text-blue-300" : "text-slate-500 dark:text-slate-400")}
+        >
+          <Send size={15} />
+          Kirim split
+        </button>
+      </div>
+
+      {recipientMode === "local" && (
+        <div className="mt-3 rounded-[22px] border border-blue-100 bg-blue-50/70 p-3 dark:border-blue-900/40 dark:bg-slate-800/62">
+          <div className="flex items-start gap-3">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[16px] bg-white text-blue-600 dark:bg-slate-950 dark:text-blue-300">
+              <Pencil size={17} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="font-sans text-sm font-black text-[#0F172A] dark:text-slate-100">Atur transaksi saya saja</p>
+              <p className="mt-0.5 font-sans text-[11px] font-bold leading-4 text-slate-500 dark:text-slate-400">Pakai ini kalau tidak mau kirim notifikasi split ke siapa pun.</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onLocalEdit}
+            className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-[17px] bg-gradient-to-r from-sky-400 to-blue-700 px-4 text-sm font-black text-white shadow-[0_12px_28px_rgba(37,99,235,0.22)] transition active:scale-[0.98]"
+          >
+            Edit item transaksi saya
+          </button>
+        </div>
+      )}
+
+      {recipientMode === "request" && (
+        <div className="mt-4 space-y-3">
+          <div className="rounded-[22px] border border-emerald-100 bg-emerald-50/65 p-3 dark:border-emerald-900/40 dark:bg-emerald-500/10">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="font-sans text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-300">Porsi saya</p>
+                <p className="mt-1 font-sans text-sm font-black text-[#0F172A] dark:text-slate-100">
+                  {hasSenderShare ? `${senderShareItemCount} item - ${currency.format(senderShareAmount)}` : "Kosong, sisa tidak masuk ke saya"}
+                </p>
+                <p className="mt-1 font-sans text-[11px] font-bold leading-4 text-slate-500 dark:text-slate-400">
+                  Belum dialokasikan: {currency.format(outsideAmount)} tetap di luar Taka.
+                </p>
+              </div>
+              <div className="flex shrink-0 gap-1.5">
+                {hasSenderShare && (
+                  <button
+                    type="button"
+                    onClick={onClearSenderShare}
+                    className="grid h-9 w-9 place-items-center rounded-[14px] bg-white text-rose-500 transition active:scale-95 dark:bg-slate-950 dark:text-rose-300"
+                    aria-label="Hapus porsi saya"
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={onEditSenderShare}
+                  className="grid h-9 w-9 place-items-center rounded-[14px] bg-white text-emerald-700 transition active:scale-95 dark:bg-slate-950 dark:text-emerald-300"
+                  aria-label="Atur porsi saya"
+                >
+                  <Pencil size={15} />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {assignments.length > 0 && (
+            <div className="rounded-[22px] border border-blue-100 bg-blue-50/65 p-3 dark:border-blue-900/40 dark:bg-slate-800/62">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="font-sans text-[10px] font-black uppercase tracking-[0.16em] text-blue-600 dark:text-blue-300">Daftar split</p>
+                  <p className="mt-0.5 font-sans text-sm font-black text-[#0F172A] dark:text-slate-100">{assignments.length} penerima siap dikirim</p>
+                </div>
+                <span className="shrink-0 rounded-full bg-white px-3 py-1.5 font-sans text-[11px] font-black text-blue-700 dark:bg-slate-950 dark:text-blue-300">
+                  {currency.format(takaSplitAmount)}
+                </span>
+              </div>
+              <div className="mt-3 max-h-[184px] space-y-2 overflow-y-auto pr-0.5">
+                {assignments.map((assignment) => (
+                  <div key={assignment.id} className="flex items-center gap-2 rounded-[18px] border border-blue-100 bg-white p-2 dark:border-blue-900/40 dark:bg-slate-950/70">
+                    <AvatarCircle user={assignment.recipient} size="sm" />
+                    <button type="button" onClick={() => onEditAssignment(assignment.id)} className="min-w-0 flex-1 text-left">
+                      <span className="block truncate font-sans text-sm font-black text-[#0F172A] dark:text-slate-100">{assignment.recipient.name}</span>
+                      <span className="mt-0.5 block truncate font-sans text-[11px] font-bold text-slate-500 dark:text-slate-400">{assignment.itemCount} item - {currency.format(assignment.amount)}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onEditAssignment(assignment.id)}
+                      className="grid h-9 w-9 shrink-0 place-items-center rounded-[14px] bg-white text-blue-600 transition active:scale-95 dark:bg-slate-800 dark:text-blue-300"
+                      aria-label={`Edit split ${assignment.recipient.name}`}
+                    >
+                      <Pencil size={15} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onRemoveAssignment(assignment.id)}
+                      className="grid h-9 w-9 shrink-0 place-items-center rounded-[14px] bg-rose-50 text-rose-500 transition active:scale-95 dark:bg-rose-500/12 dark:text-rose-300"
+                      aria-label={`Hapus split ${assignment.recipient.name}`}
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={onSubmitAssignments}
+                disabled={submitting}
+                className="mt-3 flex w-full items-center justify-center gap-2 rounded-[18px] bg-gradient-to-r from-sky-400 to-blue-700 px-4 py-3 text-sm font-black text-white shadow-[0_12px_28px_rgba(37,99,235,0.24)] transition active:scale-[0.98] disabled:opacity-55"
+              >
+                <Send size={17} />
+                {submitting ? "Mengirim..." : `Kirim semua (${assignments.length})`}
+              </button>
+            </div>
+          )}
+
+          <div className="rounded-[22px] border border-blue-100 bg-white p-3 dark:border-blue-900/40 dark:bg-slate-800">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <p className="font-sans text-[10px] font-black uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Tambah penerima</p>
+              <span className="font-sans text-[11px] font-black text-slate-400 dark:text-slate-500">{filteredFriends.length} teman</span>
+            </div>
+            <label className="relative block">
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500">
+                <Search size={17} />
+              </span>
+              <input
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Cari nama atau email"
+                className="h-11 w-full rounded-[17px] border border-blue-100 bg-blue-50/70 pl-10 pr-3 font-sans text-sm font-bold text-[#0F172A] outline-none placeholder:text-slate-400 focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:ring-blue-900/20"
+              />
+            </label>
+
+            <div className="no-scrollbar mt-2 max-h-[214px] space-y-2 overflow-y-auto pr-0.5">
+              {friends.length === 0 && (
+                <div className="rounded-[18px] border border-blue-100 bg-blue-50/60 p-3 text-xs font-bold leading-5 text-slate-500 dark:border-blue-900/40 dark:bg-slate-900/60 dark:text-slate-400">
+                  Belum ada teman. Pakai email user Taka di bawah.
+                </div>
+              )}
+
+              {friends.length > 0 && filteredFriends.length === 0 && (
+                <div className="rounded-[18px] border border-blue-100 bg-blue-50/60 p-3 text-xs font-bold leading-5 text-slate-500 dark:border-blue-900/40 dark:bg-slate-900/60 dark:text-slate-400">
+                  Teman tidak ditemukan.
+                </div>
+              )}
+
+              {filteredFriends.map((friend) => (
+                <button
+                  key={friend.friendshipId}
+                  type="button"
+                  onClick={() => onSelect(friend.user)}
+                  className="flex w-full items-center gap-3 rounded-[17px] border border-blue-100 bg-white px-3 py-2.5 text-left transition active:scale-[0.99] hover:border-blue-200 dark:border-blue-900/40 dark:bg-slate-900"
+                >
+                  <AvatarCircle user={friend.user} size="sm" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-sans text-sm font-black text-[#0F172A] dark:text-slate-100">{friend.user.name}</span>
+                    <span className="mt-0.5 block truncate font-sans text-[11px] font-bold text-slate-500 dark:text-slate-400">{friend.user.email}</span>
+                  </span>
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[13px] bg-blue-50 text-blue-500 dark:bg-blue-500/12 dark:text-blue-300">
+                    <Plus size={15} strokeWidth={3} />
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            <form onSubmit={submitEmail} className="mt-3 rounded-[18px] border border-dashed border-blue-200 bg-blue-50/60 p-2.5 dark:border-blue-900/50 dark:bg-slate-900/60">
+              <label className="font-sans text-[10px] font-black uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Email user Taka</label>
+              <div className="mt-2 flex gap-2">
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="email@domain.com"
+                  className="h-10 min-w-0 flex-1 rounded-[15px] border border-blue-100 bg-white px-3 font-sans text-sm font-bold text-[#0F172A] outline-none placeholder:text-slate-400 focus:border-blue-300 focus:ring-4 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-blue-900/20"
+                />
+                <button
+                  type="submit"
+                  disabled={!normalizedEmail}
+                  className="grid h-10 w-10 shrink-0 place-items-center rounded-[15px] bg-gradient-to-r from-sky-400 to-blue-700 text-white transition active:scale-95 disabled:opacity-50"
+                  aria-label="Pilih email penerima"
+                >
+                  <Send size={17} />
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {error && <p className="mt-3 rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 font-sans text-sm font-black text-rose-600 dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-400">{error}</p>}
+    </section>
+  );
+}
+
 function SplitBillForm({
   receipt,
+  mode,
+  recipient,
   selectedItems,
+  maxQtyByKey,
   summary,
   saving,
   error,
@@ -3595,7 +4396,10 @@ function SplitBillForm({
   onSave,
 }: {
   receipt: ScannedReceipt;
+  mode: ScanSplitMode;
+  recipient: SplitRecipient | null;
   selectedItems: Record<string, SelectedReceiptItem>;
+  maxQtyByKey: Record<string, number>;
   summary: ReturnType<typeof getReceiptSplitSummary>;
   saving: boolean;
   error: string;
@@ -3606,24 +4410,27 @@ function SplitBillForm({
   onSave: () => void;
 }) {
   const hasSelection = summary.selectedCount > 0;
+  const isStandaloneLocal = mode === "local";
+  const isSenderEdit = mode === "sender";
 
   return (
     <section className="scan-bill-card rounded-[24px] border border-blue-100 dark:border-blue-900/40 bg-blue-50/55 dark:bg-slate-900/55 p-3.5 shadow-[0_16px_38px_rgba(37,99,235,0.10)] dark:shadow-none">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400 font-sans">Item Saya</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400 font-sans">{isStandaloneLocal || isSenderEdit ? "Item Saya" : "Item Penerima"}</p>
           <h2 className="mt-1 text-xl font-black text-[#0F172A] dark:text-slate-100 font-sans">{receipt.merchant}</h2>
+          {recipient && <p className="mt-0.5 max-w-[220px] truncate text-xs font-bold text-slate-500 dark:text-slate-400 font-sans">{recipient.email}</p>}
         </div>
-        <button type="button" onClick={onBack} className="scan-bill-secondary-button rounded-full border border-blue-100 dark:border-blue-900/40 bg-white dark:bg-slate-800 px-3 py-2 text-[11px] font-black text-blue-700 dark:text-blue-400 font-sans">Preview</button>
+        <button type="button" onClick={onBack} className="scan-bill-secondary-button rounded-full border border-blue-100 dark:border-blue-900/40 bg-white dark:bg-slate-800 px-3 py-2 text-[11px] font-black text-blue-700 dark:text-blue-400 font-sans">Mode</button>
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-2">
         <div className="scan-bill-mini-card rounded-[18px] border border-blue-100 dark:border-blue-900/40 bg-white dark:bg-slate-800 p-3">
-          <p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400 font-sans">Porsi saya</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400 font-sans">{isStandaloneLocal || isSenderEdit ? "Porsi saya" : "Porsi penerima"}</p>
           <p className="mt-1 text-xl font-black text-blue-700 dark:text-blue-400 font-sans">{currency.format(summary.selectedTotal)}</p>
         </div>
         <div className="scan-bill-mini-card rounded-[18px] border border-blue-100 dark:border-blue-900/40 bg-white dark:bg-slate-800 p-3">
-          <p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400 font-sans">Item dipilih</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400 font-sans">{isStandaloneLocal || isSenderEdit ? "Item saya" : "Item dipilih"}</p>
           <p className="mt-1 text-xl font-black text-[#0F172A] dark:text-slate-100 font-sans">{summary.selectedCount}</p>
         </div>
       </div>
@@ -3633,23 +4440,26 @@ function SplitBillForm({
           const key = getReceiptItemKey(item, index);
           const selected = selectedItems[key];
           const fallback = getEditableReceiptItem(item, index);
-          const editor = selected ?? fallback;
+          const maxQty = Math.max(0, maxQtyByKey[key] ?? fallback.originalQty);
+          const editor = selected ?? getEditableReceiptItem(item, index, Math.max(1, maxQty || fallback.originalQty));
           const checked = Boolean(selected);
+          const unavailable = !checked && maxQty <= 0;
 
           return (
-            <div key={key} className={clsx("scan-split-item rounded-[20px] border p-3 transition", checked ? "is-selected border-blue-200 dark:border-blue-500/50 bg-white dark:bg-slate-800 shadow-[0_12px_28px_rgba(37,99,235,0.08)] dark:shadow-none" : "border-blue-100 dark:border-blue-900/40 bg-white/62 dark:bg-slate-800/62")}>
+            <div key={key} className={clsx("scan-split-item rounded-[20px] border p-3 transition", checked ? "is-selected border-blue-200 dark:border-blue-500/50 bg-white dark:bg-slate-800 shadow-[0_12px_28px_rgba(37,99,235,0.08)] dark:shadow-none" : unavailable ? "border-slate-200 bg-slate-50/70 opacity-70 dark:border-slate-800 dark:bg-slate-900/45" : "border-blue-100 dark:border-blue-900/40 bg-white/62 dark:bg-slate-800/62")}>
               <div className="flex items-start gap-3">
                 <button
                   type="button"
                   onClick={() => onToggleItem(item, index)}
-                  className={clsx("scan-split-check mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-xl border text-xs font-black transition active:scale-95", checked ? "is-selected border-blue-500 dark:border-blue-500 bg-blue-500 text-white" : "border-blue-100 dark:border-slate-700 bg-blue-50 dark:bg-slate-900/50 text-blue-500 dark:text-blue-400")}
-                  aria-label={checked ? "Hapus item dari pilihan" : "Pilih item"}
+                  disabled={unavailable}
+                  className={clsx("scan-split-check mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-xl border text-xs font-black transition active:scale-95 disabled:cursor-not-allowed", checked ? "is-selected border-blue-500 dark:border-blue-500 bg-blue-500 text-white" : unavailable ? "border-slate-200 bg-slate-100 text-slate-300 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-600" : "border-blue-100 dark:border-slate-700 bg-blue-50 dark:bg-slate-900/50 text-blue-500 dark:text-blue-400")}
+                  aria-label={checked ? "Hapus item dari pilihan" : unavailable ? "Item sudah habis dialokasikan" : "Pilih item"}
                 >
                   {checked ? <Check size={16} strokeWidth={3} /> : <Plus size={15} strokeWidth={3} />}
                 </button>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-black text-[#0F172A] dark:text-slate-100 font-sans">{item.name}</p>
-                  <p className="mt-0.5 text-[11px] font-bold text-slate-500 dark:text-slate-400 font-sans">Struk: x{fallback.originalQty} • {currency.format(getReceiptLineTotal(item))}</p>
+                  <p className="mt-0.5 text-[11px] font-bold text-slate-500 dark:text-slate-400 font-sans">Struk: x{fallback.originalQty} • Sisa: x{maxQty} • {currency.format(getReceiptLineTotal(item))}</p>
                 </div>
                 <p className="shrink-0 text-sm font-black text-blue-700 dark:text-blue-400 font-sans">{currency.format(editor.selectedAmount)}</p>
               </div>
@@ -3659,7 +4469,7 @@ function SplitBillForm({
                   <div className="scan-split-control flex h-10 items-center overflow-hidden rounded-2xl border border-blue-100 dark:border-slate-700 bg-blue-50 dark:bg-slate-900/50">
                     <button type="button" onClick={() => onQtyChange(item, index, editor.selectedQty - 1)} disabled={editor.selectedQty <= 1} className="grid h-10 w-10 place-items-center text-lg font-black text-blue-700 dark:text-blue-400 disabled:text-slate-300 dark:disabled:text-slate-600" aria-label="Kurangi qty">-</button>
                     <span className="grid h-10 min-w-10 place-items-center px-2 text-sm font-black text-[#0F172A] dark:text-slate-100 font-sans">x{editor.selectedQty}</span>
-                    <button type="button" onClick={() => onQtyChange(item, index, editor.selectedQty + 1)} disabled={editor.selectedQty >= editor.originalQty} className="grid h-10 w-10 place-items-center text-lg font-black text-blue-700 dark:text-blue-400 disabled:text-slate-300 dark:disabled:text-slate-600" aria-label="Tambah qty">+</button>
+                    <button type="button" onClick={() => onQtyChange(item, index, editor.selectedQty + 1)} disabled={editor.selectedQty >= maxQty} className="grid h-10 w-10 place-items-center text-lg font-black text-blue-700 dark:text-blue-400 disabled:text-slate-300 dark:disabled:text-slate-600" aria-label="Tambah qty">+</button>
                   </div>
                   <label className="min-w-0">
                     <span className="sr-only">Harga item</span>
@@ -3692,7 +4502,7 @@ function SplitBillForm({
       {error && <p className="mt-3 rounded-2xl border border-rose-100 dark:border-rose-900/40 bg-rose-50 dark:bg-rose-900/20 px-4 py-3 text-sm font-black text-rose-600 dark:text-rose-400 font-sans">{error}</p>}
 
       <button type="button" onClick={onSave} disabled={saving || !hasSelection} className="mt-3 flex h-12 w-full items-center justify-center rounded-[20px] bg-gradient-to-r from-sky-400 to-blue-700 text-sm font-black text-white shadow-[0_14px_34px_rgba(37,99,235,0.30)] dark:shadow-[0_8px_24px_rgba(37,99,235,0.14)] transition active:scale-[0.98] disabled:opacity-55 font-sans">
-        {saving ? "Menyimpan..." : "Simpan item saya"}
+        {saving ? (isStandaloneLocal ? "Menyimpan..." : "Menyiapkan...") : (isStandaloneLocal || isSenderEdit ? "Simpan porsi saya" : "Tambah ke daftar split")}
       </button>
     </section>
   );
@@ -4062,6 +4872,117 @@ function ChatView({ transactions, sessionReady }: { transactions: Transaction[];
   );
 }
 
+function NotificationsView({
+  notifications,
+  error,
+  loading,
+  processingId,
+  onAction,
+  onRefresh,
+}: {
+  notifications: NotificationItem[];
+  error: string;
+  loading: boolean;
+  processingId: number | null;
+  onAction: (notificationId: number, action: "read" | "accept" | "reject") => void;
+  onRefresh: () => void;
+}) {
+  return (
+    <div className="no-scrollbar h-full min-h-0 overflow-y-auto overscroll-contain pb-[calc(96px+env(safe-area-inset-bottom))] lg:h-auto lg:overflow-visible lg:pb-0">
+      <div className="space-y-3">
+        <section className="rounded-[24px] border border-sky-100/80 bg-white p-3.5 shadow-[0_14px_34px_rgba(37,99,235,0.10)] dark:border-white/10 dark:bg-[#071B33]">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-[0.14em] text-blue-600 dark:text-sky-300">Inbox</p>
+              <h2 className="mt-1 text-lg font-black text-slate-950 dark:text-white">Notifikasi split & teman</h2>
+            </div>
+            <button
+              type="button"
+              onClick={onRefresh}
+              disabled={loading}
+              className="grid h-10 w-10 place-items-center rounded-[16px] bg-blue-50 text-blue-700 transition hover:bg-blue-100 disabled:opacity-60 dark:bg-white/[0.08] dark:text-sky-100"
+              aria-label="Refresh notifikasi"
+            >
+              <RefreshCw size={17} className={loading ? "animate-spin" : ""} />
+            </button>
+          </div>
+        </section>
+
+        {error && <p className="rounded-[20px] border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-black text-rose-600 dark:border-rose-300/10 dark:bg-rose-400/10 dark:text-rose-100">{error}</p>}
+
+        {notifications.length === 0 && (
+          <section className="rounded-[24px] border border-sky-100/80 bg-white p-6 text-center shadow-[0_14px_34px_rgba(37,99,235,0.08)] dark:border-white/10 dark:bg-[#071B33]">
+            <div className="mx-auto grid h-14 w-14 place-items-center rounded-[20px] bg-blue-50 text-blue-600 dark:bg-white/[0.08] dark:text-sky-100">
+              <Bell size={24} />
+            </div>
+            <h3 className="mt-4 text-base font-black text-slate-950 dark:text-white">Belum ada notifikasi</h3>
+            <p className="mt-1 text-sm font-bold text-slate-500 dark:text-sky-100/60">Friend request dan split bill akan muncul di sini.</p>
+          </section>
+        )}
+
+        {notifications.map((notification) => {
+          const isProcessing = processingId === notification.id;
+          const isDone = notification.status === "accepted" || notification.status === "rejected" || notification.status === "cancelled";
+          const split = notification.splitRequest;
+          const actor = notification.actor;
+
+          return (
+            <section key={notification.id} className="rounded-[24px] border border-sky-100/80 bg-white p-3.5 shadow-[0_12px_30px_rgba(37,99,235,0.08)] dark:border-white/10 dark:bg-[#071B33]">
+              <div className="flex items-start gap-3">
+                <AvatarCircle user={actor ?? { id: 0, name: "Taka", email: "" }} size="sm" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-black text-slate-950 dark:text-white">{notification.title}</p>
+                      <p className="mt-0.5 text-xs font-bold text-slate-500 dark:text-sky-100/60">{notification.message}</p>
+                    </div>
+                    <span className={clsx("shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black uppercase", isDone ? "bg-slate-100 text-slate-500 dark:bg-white/[0.08] dark:text-sky-100/60" : "bg-blue-50 text-blue-700 dark:bg-sky-500/12 dark:text-sky-100")}>
+                      {notification.status === "unread" ? "Baru" : notification.status === "accepted" ? "Diterima" : notification.status === "rejected" ? "Ditolak" : notification.status}
+                    </span>
+                  </div>
+
+                  {split && (
+                    <div className="mt-3 rounded-[18px] bg-sky-50/70 p-3 dark:bg-white/[0.06]">
+                      <div className="flex items-center justify-between gap-3 text-sm font-black text-slate-950 dark:text-white">
+                        <span className="truncate">{split.merchant}</span>
+                        <span className="shrink-0 text-blue-700 dark:text-sky-100">{currency.format(split.amount)}</span>
+                      </div>
+                      <p className="mt-1 text-xs font-bold text-slate-500 dark:text-sky-100/60">
+                        {split.category} • {split.recipientItems.length} item • {split.paymentAccount}
+                      </p>
+                    </div>
+                  )}
+
+                  {!isDone && (
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => onAction(notification.id, "reject")}
+                        disabled={isProcessing}
+                        className="h-10 rounded-[16px] border border-rose-100 bg-rose-50 text-xs font-black text-rose-600 transition hover:bg-rose-100 disabled:opacity-60 dark:border-rose-300/10 dark:bg-rose-400/10 dark:text-rose-100"
+                      >
+                        Tolak
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onAction(notification.id, "accept")}
+                        disabled={isProcessing}
+                        className="h-10 rounded-[16px] bg-gradient-to-r from-sky-400 to-blue-700 text-xs font-black text-white shadow-[0_10px_24px_rgba(37,99,235,0.22)] transition hover:opacity-90 disabled:opacity-60"
+                      >
+                        {isProcessing ? "Memproses..." : "Accept"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </section>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 
 function escapeCsvCell(value: string | number) {
   const text = String(value).replace(/"/g, '""');
@@ -4074,6 +4995,7 @@ function ProfileView({
   onToggleTheme,
   onUserUpdate,
   onOpenReports,
+  onOpenFriends,
   onLogout,
 }: {
   user: AuthUser;
@@ -4081,6 +5003,7 @@ function ProfileView({
   onToggleTheme: () => void;
   onUserUpdate: (updates: Partial<AuthUser>) => void;
   onOpenReports: () => void;
+  onOpenFriends: () => void;
   onLogout: () => void;
 }) {
   const [isPasswordOpen, setIsPasswordOpen] = useState(false);
@@ -4293,6 +5216,15 @@ function ProfileView({
         />
       </ProfileSection>
 
+      <ProfileSection title="Teman">
+        <ProfileListButton
+          icon={Users}
+          title="Daftar Teman"
+          description="Kelola teman dan friend request"
+          onClick={onOpenFriends}
+        />
+      </ProfileSection>
+
       <ProfileSection title="Preferensi">
         <ProfileListButton
           icon={theme === "dark" ? Sun : Moon}
@@ -4326,6 +5258,43 @@ function ProfileSection({ title, children }: { title: string; children: ReactNod
   );
 }
 
+function FriendListRow({
+  friend,
+  badge,
+  onDelete,
+  deleting,
+}: {
+  friend: FriendEntry;
+  badge: string;
+  onDelete?: () => void;
+  deleting?: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-[18px] bg-sky-50/70 px-3 py-2.5 dark:bg-white/[0.05]">
+      <AvatarCircle user={friend.user} size="sm" />
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-black text-slate-950 dark:text-[#F8FCFF]">{friend.user.name}</p>
+        <p className="truncate text-[11px] font-bold text-slate-500 dark:text-[#C8EFFF]/70">{friend.user.email}</p>
+      </div>
+      <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[10px] font-black text-blue-700 ring-1 ring-sky-100 dark:bg-white/[0.08] dark:text-sky-100 dark:ring-white/[0.08]">
+        {badge}
+      </span>
+      {onDelete && (
+        <button
+          type="button"
+          onClick={onDelete}
+          disabled={deleting}
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-[14px] bg-rose-50 text-rose-500 ring-1 ring-rose-100 transition hover:bg-rose-100 disabled:opacity-60 dark:bg-rose-500/12 dark:text-rose-200 dark:ring-rose-300/20"
+          aria-label={`Hapus ${friend.user.name}`}
+          title="Hapus teman"
+        >
+          {deleting ? <RefreshCw size={15} className="animate-spin" /> : <Trash2 size={15} />}
+        </button>
+      )}
+    </div>
+  );
+}
+
 function ProfileListButton({
   icon: Icon,
   title,
@@ -4355,6 +5324,185 @@ function ProfileListButton({
       {trailing && <span className="shrink-0 rounded-full bg-sky-50 px-3 py-1 text-[11px] font-black text-blue-700 dark:bg-white/[0.08] dark:text-sky-100">{trailing}</span>}
       {!trailing && <ChevronRight size={18} className="shrink-0 text-slate-300 dark:text-sky-100/40" />}
     </button>
+  );
+}
+
+function ProfileFriendsView({
+  friendsData,
+  onSendFriendRequest,
+  onDeleteFriend,
+  socialError,
+  isSocialLoading,
+  onBack,
+}: {
+  friendsData: FriendsResponse;
+  onSendFriendRequest: (email: string) => Promise<void>;
+  onDeleteFriend: (friendshipId: number) => Promise<void>;
+  socialError: string;
+  isSocialLoading: boolean;
+  onBack: () => void;
+}) {
+  const [friendEmail, setFriendEmail] = useState("");
+  const [isSendingFriend, setIsSendingFriend] = useState(false);
+  const [deletingFriendshipId, setDeletingFriendshipId] = useState<number | null>(null);
+  const [pendingDeleteFriend, setPendingDeleteFriend] = useState<FriendEntry | null>(null);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+
+  async function submitFriendRequest(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!friendEmail.trim()) {
+      setError("Email teman wajib diisi.");
+      setMessage("");
+      return;
+    }
+
+    setIsSendingFriend(true);
+    try {
+      await onSendFriendRequest(friendEmail.trim());
+      setFriendEmail("");
+      setError("");
+      setMessage("Permintaan teman terkirim.");
+    } catch (err) {
+      setMessage("");
+      setError(err instanceof Error ? err.message : "Permintaan teman gagal dikirim.");
+    } finally {
+      setIsSendingFriend(false);
+    }
+  }
+
+  async function removeFriend(friend: FriendEntry) {
+    const isAcceptedFriend = friend.status === "accepted";
+
+    setDeletingFriendshipId(friend.friendshipId);
+    try {
+      await onDeleteFriend(friend.friendshipId);
+      setError("");
+      setMessage(isAcceptedFriend ? "Teman berhasil dihapus." : "Request teman berhasil dibatalkan.");
+      setPendingDeleteFriend(null);
+    } catch (err) {
+      setMessage("");
+      setError(err instanceof Error ? err.message : "Gagal menghapus teman.");
+    } finally {
+      setDeletingFriendshipId(null);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <button
+        type="button"
+        onClick={onBack}
+        className="inline-flex items-center gap-2 rounded-full bg-white/82 px-4 py-2 text-sm font-black text-blue-700 shadow-sm ring-1 ring-sky-100 transition hover:bg-white dark:bg-white/[0.08] dark:text-sky-100 dark:ring-white/[0.08]"
+      >
+        <ChevronLeft size={16} />
+        Kembali ke Profile
+      </button>
+
+      {(message || error || socialError) && (
+        <div className={clsx("rounded-[20px] px-4 py-3 text-sm font-bold", error || socialError ? "bg-rose-50 text-rose-600" : "bg-blue-50 text-blue-700")}>
+          {error || socialError || message}
+        </div>
+      )}
+
+      <ProfileSection title="Tambah Teman">
+        <form onSubmit={submitFriendRequest} className="p-3.5">
+          <label className="block text-[11px] font-black uppercase tracking-[0.12em] text-slate-500 dark:text-[#C8EFFF]">Add by email</label>
+          <div className="mt-2 flex gap-2">
+            <input
+              type="email"
+              value={friendEmail}
+              onChange={(event) => setFriendEmail(event.target.value)}
+              placeholder="email@domain.com"
+              className="h-11 min-w-0 flex-1 rounded-[16px] border border-slate-200 bg-white px-3 text-sm font-bold text-taka-ink outline-none transition placeholder:text-slate-400 focus:border-blue-300 dark:border-white/10 dark:bg-white/[0.06] dark:text-white"
+            />
+            <button
+              type="submit"
+              disabled={isSendingFriend}
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-[16px] bg-[#2563EB] text-white transition hover:bg-blue-700 disabled:opacity-60"
+              aria-label="Tambah teman"
+            >
+              {isSendingFriend ? <RefreshCw size={17} className="animate-spin" /> : <Plus size={18} />}
+            </button>
+          </div>
+        </form>
+      </ProfileSection>
+
+      <ProfileSection title="Daftar Teman">
+        <div className="space-y-2 px-3.5 py-3.5">
+          {isSocialLoading && friendsData.friends.length === 0 && <p className="text-xs font-bold text-slate-400">Memuat teman...</p>}
+          {friendsData.friends.length === 0 && !isSocialLoading && <p className="text-xs font-bold text-slate-400">Belum ada teman. Tambahkan lewat email dulu.</p>}
+          {friendsData.friends.map((friend) => (
+            <FriendListRow
+              key={friend.friendshipId}
+              friend={friend}
+              badge="Teman"
+              onDelete={() => setPendingDeleteFriend(friend)}
+              deleting={deletingFriendshipId === friend.friendshipId}
+            />
+          ))}
+          {friendsData.pendingOutgoing.map((friend) => (
+            <FriendListRow
+              key={friend.friendshipId}
+              friend={friend}
+              badge="Pending"
+              onDelete={() => setPendingDeleteFriend(friend)}
+              deleting={deletingFriendshipId === friend.friendshipId}
+            />
+          ))}
+          {friendsData.pendingIncoming.map((friend) => (
+            <FriendListRow
+              key={friend.friendshipId}
+              friend={friend}
+              badge="Menunggu accept"
+              onDelete={() => setPendingDeleteFriend(friend)}
+              deleting={deletingFriendshipId === friend.friendshipId}
+            />
+          ))}
+        </div>
+      </ProfileSection>
+
+      {pendingDeleteFriend && createPortal((
+        <div
+          className="fixed inset-0 z-[1700] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-md"
+          onClick={(event) => {
+            if (event.target === event.currentTarget && deletingFriendshipId === null) setPendingDeleteFriend(null);
+          }}
+        >
+          <div className="w-full max-w-xs rounded-2xl bg-white p-5 shadow-[0_8px_32px_rgba(0,0,0,0.18)] dark:bg-[#071426] dark:text-white dark:shadow-[0_28px_90px_rgba(0,0,0,0.58)]">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-rose-50 dark:bg-rose-400/10">
+              <Trash2 size={22} className="text-rose-500 dark:text-rose-200" />
+            </div>
+            <p className="mt-3 text-base font-black text-taka-ink dark:text-white">
+              {pendingDeleteFriend.status === "accepted" ? "Hapus Teman?" : "Batalkan Request?"}
+            </p>
+            <p className="mt-1 text-sm font-semibold leading-5 text-slate-500 dark:text-sky-100/65">
+              {pendingDeleteFriend.status === "accepted"
+                ? <>Hapus <span className="font-bold text-slate-700 dark:text-sky-100">{pendingDeleteFriend.user.name}</span> dari daftar teman?</>
+                : <>Batalkan request dengan <span className="font-bold text-slate-700 dark:text-sky-100">{pendingDeleteFriend.user.name}</span>?</>}
+            </p>
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setPendingDeleteFriend(null)}
+                disabled={deletingFriendshipId !== null}
+                className="flex-1 rounded-xl border border-slate-200 bg-slate-50 py-2.5 text-sm font-black text-slate-600 transition hover:bg-slate-100 disabled:opacity-50 dark:border-white/10 dark:bg-white/[0.06] dark:text-sky-100 dark:hover:bg-white/[0.1]"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => void removeFriend(pendingDeleteFriend)}
+                disabled={deletingFriendshipId !== null}
+                className="flex flex-1 items-center justify-center rounded-xl bg-rose-500 py-2.5 text-sm font-black text-white transition hover:bg-rose-600 disabled:opacity-50"
+              >
+                {deletingFriendshipId === pendingDeleteFriend.friendshipId ? "Menghapus..." : "Hapus"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ), document.body)}
+    </div>
   );
 }
 

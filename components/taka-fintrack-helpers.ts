@@ -1,6 +1,6 @@
 // Pure helpers, constants, and types extracted from taka-fintrack-app.tsx.
 
-export type ViewKey = "dashboard" | "transactions" | "scan" | "chat" | "profile";
+export type ViewKey = "dashboard" | "transactions" | "scan" | "chat" | "profile" | "notifications";
 export type AuthMode = "login" | "register" | "forgot";
 
 export type AuthUser = {
@@ -90,6 +90,98 @@ export type Category = {
   type: CategoryType;
   color: string;
   transactionCount: number;
+};
+
+export type FriendUser = {
+  id: number;
+  name: string;
+  email: string;
+  avatarUrl?: string | null;
+};
+
+export type FriendEntry = {
+  friendshipId: number;
+  status: "pending" | "accepted" | "declined";
+  direction: "incoming" | "outgoing";
+  user: FriendUser;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type FriendsResponse = {
+  friends: FriendEntry[];
+  pendingIncoming: FriendEntry[];
+  pendingOutgoing: FriendEntry[];
+};
+
+export type SplitRequestSummary = {
+  id: number;
+  sender: FriendUser;
+  recipientUserId: number;
+  senderTransactionId: number | null;
+  recipientTransactionId: number | null;
+  notificationId: number | null;
+  merchant: string;
+  category: string;
+  amount: number;
+  senderAmount: number;
+  receiptTotalAmount: number | null;
+  transactionDate: string | null;
+  paymentAccount: string;
+  receiptItems: ReceiptItem[];
+  recipientItems: SelectedReceiptItem[];
+  senderItems: SelectedReceiptItem[];
+  receiptAdjustmentAmount: number | null;
+  receiptAdjustmentNote: string | null;
+  status: "pending" | "accepted" | "rejected" | "cancelled";
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type NotificationItem = {
+  id: number;
+  type: "friend_request" | "split_request";
+  status: "unread" | "read" | "accepted" | "rejected" | "cancelled";
+  title: string;
+  message: string;
+  payload: Record<string, unknown>;
+  actor: FriendUser | null;
+  splitRequest?: SplitRequestSummary | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type NotificationsResponse = {
+  notifications: NotificationItem[];
+  unreadCount: number;
+  actionableCount: number;
+};
+
+export type SplitRecipient = FriendUser | { id?: number; name: string; email: string; avatarUrl?: string | null };
+
+export type SplitRequestInput = {
+  recipientUserId?: number;
+  recipientEmail?: string;
+  recipients?: Array<{
+    recipientUserId?: number;
+    recipientEmail?: string;
+    amount: number;
+    recipientItems: SelectedReceiptItem[];
+    receiptAdjustmentAmount?: number | null;
+    receiptAdjustmentNote?: string | null;
+  }>;
+  merchant: string;
+  category: string;
+  amount: number;
+  senderAmount: number;
+  receiptTotalAmount: number;
+  transactionDate?: string | null;
+  paymentAccount: string;
+  receiptItems: ReceiptItem[];
+  recipientItems: SelectedReceiptItem[];
+  senderItems: SelectedReceiptItem[];
+  receiptAdjustmentAmount?: number | null;
+  receiptAdjustmentNote?: string | null;
 };
 
 export type TransactionInput = {
