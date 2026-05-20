@@ -857,9 +857,8 @@ export function TakaFinTrackApp() {
             ref={contentScrollerRef}
             className={clsx(
               "no-scrollbar min-h-0 flex-1 overscroll-contain pb-[calc(96px+env(safe-area-inset-bottom))] lg:overflow-visible lg:pb-0",
-              activeView === "chat" || activeView === "profile" || activeView === "scan" ? "overflow-hidden" : "overflow-y-auto",
+              activeView === "chat" || activeView === "scan" ? "overflow-hidden" : "overflow-y-auto",
               activeView === "chat" ? "pb-0" : "",
-              activeView === "profile" ? "pb-0" : "",
               activeView === "scan" ? "h-full pb-0" : "",
             )}
           >
@@ -895,7 +894,7 @@ export function TakaFinTrackApp() {
           {activeView === "profile" && (
             <div
               key={profileScreen}
-              className="profile-view-scroll no-scrollbar h-full min-h-0 overflow-y-auto overscroll-contain pb-[calc(96px+env(safe-area-inset-bottom))] lg:h-auto lg:overflow-visible lg:pb-0"
+              className="profile-view-scroll"
             >
               {profileScreen === "overview" && (
                 <ProfileView
@@ -1398,7 +1397,7 @@ function AvatarCircle({
   return (
     <div
       className={clsx(
-        "avatar-circle grid shrink-0 place-items-center rounded-full bg-[linear-gradient(135deg,#1E3A8A,#0EA5E9)] bg-cover bg-center font-black text-white ring-4 ring-white",
+        "avatar-circle grid shrink-0 place-items-center rounded-full bg-[linear-gradient(135deg,#1E3A8A,#0EA5E9)] bg-cover bg-center font-black text-white ring-4 ring-white dark:ring-[#071426]",
         sizeClass,
         className,
       )}
@@ -1524,7 +1523,7 @@ function TopBar({
   compactMobile?: boolean;
 }) {
   return (
-    <header className={clsx("topbar-glass native-topbar sticky z-[1200] flex items-center justify-between gap-2 rounded-[20px] border border-white/70 bg-white/84 p-2 backdrop-blur-xl sm:relative sm:top-auto sm:p-4", compactMobile ? "top-0" : "top-[calc(6px+env(safe-area-inset-top))]")}>
+    <header className={clsx("topbar-glass native-topbar sticky z-[1200] flex items-center justify-between gap-2 rounded-[24px] border p-2 backdrop-blur-xl sm:relative sm:top-auto sm:p-4", compactMobile ? "top-0" : "top-[calc(6px+env(safe-area-inset-top))]")}>
       <div className="flex min-w-0 items-center gap-2 sm:block">
         <div className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-blue-50 ring-1 ring-blue-100 dark:bg-sky-500/12 dark:ring-sky-400/20 sm:hidden">
           <AppLogo size={30} />
@@ -1542,7 +1541,7 @@ function TopBar({
         <button
           type="button"
           onClick={onToggleTheme}
-          className="theme-icon-button grid h-9 w-9 place-items-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:border-sky-300 hover:text-sky-600 dark:border-white/10 dark:bg-white/8 dark:text-sky-100 sm:h-11 sm:w-11 sm:rounded-lg"
+          className="theme-icon-button grid h-9 w-9 place-items-center rounded-2xl border text-slate-600 transition active:scale-95 hover:border-sky-300 hover:text-sky-600 dark:text-sky-100 sm:h-11 sm:w-11 sm:rounded-lg"
           aria-label={theme === "dark" ? "Aktifkan light mode" : "Aktifkan dark mode"}
         >
           {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
@@ -1550,7 +1549,7 @@ function TopBar({
         <button
           type="button"
           onClick={onOpenNotifications}
-          className="relative grid h-9 w-9 place-items-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:border-sky-300 hover:text-sky-600 dark:border-white/10 dark:bg-white/8 dark:text-sky-100 sm:h-11 sm:w-11 sm:rounded-lg"
+          className="topbar-action-button relative grid h-9 w-9 place-items-center rounded-2xl border text-slate-600 transition active:scale-95 hover:border-sky-300 hover:text-sky-600 dark:text-sky-100 sm:h-11 sm:w-11 sm:rounded-lg"
           aria-label="Buka notifikasi"
         >
           <Bell size={17} />
@@ -1563,7 +1562,7 @@ function TopBar({
         <button
           type="button"
           onClick={onOpenProfile}
-          className="profile-trigger grid h-10 w-10 place-items-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:border-sky-300 hover:text-sky-600 sm:h-11 sm:w-11"
+          className="profile-trigger grid h-10 w-10 place-items-center rounded-2xl border text-slate-600 transition active:scale-95 hover:border-sky-300 hover:text-sky-600 sm:h-11 sm:w-11 sm:rounded-lg"
           aria-label="Buka profile"
         >
           <AvatarCircle user={user} size="sm" className="ring-0" />
@@ -1960,13 +1959,13 @@ function TransactionRow({
           setShowDetail(true);
         }
       }}
-      className="transaction-row-card grid min-w-0 cursor-pointer grid-cols-[40px_minmax(0,1fr)_auto] gap-2.5 rounded-[22px] border border-white/80 bg-white/94 p-3 shadow-[0_10px_28px_rgba(37,99,235,0.07)] transition active:scale-[0.99] hover:border-sky-200 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-300 dark:border-sky-400/15 dark:bg-white/8 sm:flex sm:items-center sm:p-3"
+      className="transaction-row-card grid min-w-0 cursor-pointer grid-cols-[40px_minmax(0,1fr)_auto] gap-2.5 rounded-[22px] border p-3 transition active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-sky-300 sm:flex sm:items-center sm:p-3"
     >
       <TransactionIconBadge item={item} size={17} className="h-10 w-10 sm:h-10 sm:w-10" />
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
           <p className="truncate text-[13px] font-black text-taka-ink sm:text-sm">{item.merchant}</p>
-          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-black text-slate-500">{item.source}</span>
+          <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-black text-blue-600 ring-1 ring-blue-100 dark:bg-sky-400/10 dark:text-sky-200 dark:ring-sky-400/20">{item.source}</span>
         </div>
         <p className="mt-0.5 truncate text-[11px] font-semibold text-slate-500 sm:text-xs">{item.category} • {item.paymentAccount || "Cash"} • {item.date}</p>
         <p className={clsx("mt-1 text-[13px] font-black sm:hidden", amountClass)}>
@@ -2504,7 +2503,7 @@ function TransactionsView({
 
   return (
     <div className="grid min-w-0 gap-3 xl:grid-cols-[minmax(0,1fr)_360px] xl:gap-4">
-      <section className="native-transactions-panel min-w-0 overflow-hidden rounded-[24px] border border-white/70 bg-white/82 p-2 shadow-soft backdrop-blur-xl dark:border-sky-400/20 dark:bg-slate-950/82 sm:p-4">
+      <section className="native-transactions-panel min-w-0 overflow-hidden rounded-[24px] border p-2 backdrop-blur-xl sm:p-4">
         {/* Month picker */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-1.5">
@@ -2618,7 +2617,7 @@ function TransactionsView({
 
       <section
         className={clsx(
-          "transaction-form-sheet no-scrollbar min-w-0 rounded-[28px] border border-white/70 bg-white/95 p-4 shadow-soft backdrop-blur dark:border-sky-400/20 dark:bg-slate-950/95",
+          "transaction-form-sheet no-scrollbar min-w-0 rounded-[28px] border p-4 backdrop-blur",
           isTransactionSheetOpen
             ? "fixed inset-x-3 bottom-[calc(92px+env(safe-area-inset-bottom))] top-[calc(86px+env(safe-area-inset-top))] z-[80] overflow-y-auto shadow-[0_24px_80px_rgba(15,23,42,0.28)] xl:static xl:max-h-none xl:overflow-visible"
             : "hidden xl:block",
@@ -2690,7 +2689,7 @@ function TransactionsView({
         </form>
         </div>
 
-        <form className="category-form-card mt-5 rounded-[24px] border border-blue-100 bg-gradient-to-br from-blue-50 to-white p-3 shadow-[0_14px_34px_rgba(37,99,235,0.08)] dark:border-sky-400/25 dark:bg-slate-950/90 dark:from-slate-900/95 dark:to-slate-950/95 dark:shadow-[0_18px_44px_rgba(14,165,233,0.10)]" onSubmit={submitCategory}>
+        <form className="category-form-card mt-5 rounded-[24px] border p-3" onSubmit={submitCategory}>
           <p className="text-sm font-black text-taka-ink dark:text-white">Tambah Kategori</p>
           <div className="mt-3 space-y-3">
             <EditableField label="Nama" value={categoryName} placeholder="Contoh: Kosan" onChange={setCategoryName} />
@@ -5069,15 +5068,18 @@ function ProfileView({
 
   return (
     <div className="space-y-3">
-      <section className="overflow-hidden rounded-[24px] border border-sky-100/80 bg-white p-3.5 shadow-[0_14px_34px_rgba(37,99,235,0.10)] dark:border-transparent dark:bg-[#061427] dark:shadow-[0_18px_44px_rgba(2,6,23,0.42)]">
-        <div className="flex items-center gap-3">
+      <section className="profile-hero-card relative overflow-hidden rounded-[30px] border border-sky-100/80 bg-white p-4 shadow-[0_18px_46px_rgba(37,99,235,0.10)] dark:border-sky-300/[0.06] dark:bg-[#071426] dark:shadow-[0_22px_54px_rgba(2,6,23,0.46)]">
+        <div className="pointer-events-none absolute -right-12 -top-16 h-44 w-44 rounded-full bg-sky-300/26 blur-3xl dark:bg-cyan-400/[0.08]" />
+        <div className="pointer-events-none absolute -bottom-20 left-8 h-40 w-40 rounded-full bg-blue-500/12 blur-3xl dark:bg-sky-500/[0.06]" />
+        <div className="relative flex items-center gap-3">
           <AvatarCircle user={user} size="md" />
-          <div className="min-w-0">
-            <p className="truncate text-base font-black text-slate-950 dark:text-[#F8FCFF]">{user.name}</p>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-lg font-black text-slate-950 dark:text-[#F8FCFF]">{user.name}</p>
             <p className="truncate text-xs font-bold text-slate-500 dark:text-[#C8EFFF]">{user.email}</p>
+            <p className="mt-2 inline-flex rounded-full bg-white/82 px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-blue-700 ring-1 ring-sky-100 dark:bg-[#0B213B] dark:text-[#D8F5FF] dark:ring-sky-300/[0.06]">Taka Account</p>
           </div>
         </div>
-        <div className="mt-3 grid grid-cols-2 gap-2">
+        <div className="relative mt-4 grid grid-cols-2 gap-2">
           <label className="inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-[16px] bg-gradient-to-br from-[#0EA5E9] to-[#2563EB] px-3 py-2 text-xs font-black text-white shadow-[0_12px_24px_rgba(37,99,235,0.20)]">
             <Camera size={15} />
             {isSavingProfile ? "Menyimpan..." : "Ganti Foto"}
@@ -5087,12 +5089,12 @@ function ProfileView({
             type="button"
             onClick={resetAvatar}
             disabled={isSavingProfile}
-            className="inline-flex min-h-10 items-center justify-center rounded-[16px] bg-white/86 px-3 py-2 text-xs font-black text-slate-600 ring-1 ring-sky-100 transition hover:bg-white disabled:opacity-60 dark:bg-white/[0.08] dark:text-sky-100 dark:ring-white/[0.08]"
+            className="inline-flex min-h-10 items-center justify-center rounded-[16px] bg-white/86 px-3 py-2 text-xs font-black text-slate-600 ring-1 ring-sky-100 transition hover:bg-white disabled:opacity-60 dark:bg-[#0B213B] dark:text-[#D8F5FF] dark:ring-sky-300/[0.06]"
           >
             Reset Foto
           </button>
         </div>
-        <p className="mt-2 text-[10px] font-bold text-slate-400 dark:text-sky-100/50">JPG/PNG maksimal 2MB.</p>
+        <p className="relative mt-2 text-[10px] font-bold text-slate-400 dark:text-sky-100/55">JPG/PNG maksimal 2MB.</p>
       </section>
 
       {(message || error) && (
@@ -5188,7 +5190,7 @@ function ProfileView({
       <button
         type="button"
         onClick={onLogout}
-        className="flex w-full items-center justify-center gap-2 rounded-[20px] border border-rose-100 bg-rose-50 px-4 py-3.5 text-sm font-black text-rose-600 transition hover:bg-rose-100 dark:border-rose-300/10 dark:bg-rose-400/10 dark:text-rose-100"
+        className="flex w-full items-center justify-center gap-2 rounded-[22px] border border-rose-100 bg-rose-50/92 px-4 py-3.5 text-sm font-black text-rose-600 shadow-[0_10px_26px_rgba(244,63,94,0.08)] transition active:scale-[0.98] hover:bg-rose-100 dark:border-rose-300/14 dark:bg-rose-400/10 dark:text-rose-100 dark:shadow-none"
       >
         <LogOut size={18} />
         Keluar dari Taka
@@ -5199,9 +5201,9 @@ function ProfileView({
 
 function ProfileSection({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="overflow-hidden rounded-[22px] border border-sky-100/80 bg-white shadow-[0_12px_28px_rgba(37,99,235,0.07)] dark:border-transparent dark:bg-[#071B33]">
-      <div className="border-b border-sky-100/80 px-3.5 py-2.5 dark:border-white/[0.06]">
-        <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-500 dark:text-[#C8EFFF]">{title}</p>
+    <section className="overflow-hidden rounded-[24px] border border-sky-100/80 bg-white shadow-[0_12px_30px_rgba(37,99,235,0.08)] backdrop-blur dark:border-sky-300/[0.06] dark:bg-[#071426] dark:shadow-[0_16px_40px_rgba(2,6,23,0.34)]">
+      <div className="border-b border-sky-100/80 bg-white px-3.5 py-2.5 dark:border-sky-300/[0.05] dark:bg-[#081A30]">
+        <p className="text-[11px] font-black uppercase tracking-[0.14em] text-blue-600 dark:text-[#C8EFFF]">{title}</p>
       </div>
       {children}
     </section>
@@ -5262,16 +5264,16 @@ function ProfileListButton({
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center gap-3 px-3.5 py-3 text-left transition hover:bg-sky-50/80 dark:hover:bg-white/[0.04]"
+      className="flex w-full items-center gap-3 px-3.5 py-3 text-left transition active:scale-[0.99] hover:bg-sky-50/80 dark:hover:bg-[#0B213B]"
     >
-      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[16px] bg-blue-50 text-blue-600 dark:bg-sky-500/12 dark:text-sky-200">
+      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[16px] bg-gradient-to-br from-sky-50 to-blue-100 text-blue-600 ring-1 ring-sky-100 dark:from-[#0B2A4D] dark:to-[#0A1E38] dark:text-[#D8F5FF] dark:ring-sky-300/[0.06]">
         <Icon size={18} />
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-black text-slate-950 dark:text-[#F8FCFF]">{title}</span>
-        <span className="mt-0.5 block truncate text-[11px] font-bold text-slate-500 dark:text-[#C8EFFF]">{description}</span>
+        <span className="mt-0.5 block truncate text-[11px] font-bold text-slate-500 dark:text-[#C8EFFF]/72">{description}</span>
       </span>
-      {trailing && <span className="shrink-0 rounded-full bg-sky-50 px-3 py-1 text-[11px] font-black text-blue-700 dark:bg-white/[0.08] dark:text-sky-100">{trailing}</span>}
+      {trailing && <span className="shrink-0 rounded-full bg-sky-50 px-3 py-1 text-[11px] font-black text-blue-700 ring-1 ring-sky-100 dark:bg-[#0B213B] dark:text-[#D8F5FF] dark:ring-sky-300/[0.06]">{trailing}</span>}
       {!trailing && <ChevronRight size={18} className="shrink-0 text-slate-300 dark:text-sky-100/40" />}
     </button>
   );
