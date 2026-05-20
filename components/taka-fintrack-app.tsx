@@ -84,6 +84,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { AnimatedCurrency, AnimatedPercent } from "./common/animated-number";
 import {
   chatHistoryStorageKey,
   createNameFromEmail,
@@ -134,62 +135,6 @@ import type {
   TransactionsPagination,
   ViewKey,
 } from "./taka-fintrack-helpers";
-
-function useAnimatedNumber(value: number, duration = 780) {
-  const [displayValue, setDisplayValue] = useState(0);
-  const previousValue = useRef(0);
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      setDisplayValue(value);
-      previousValue.current = value;
-      return;
-    }
-
-    const mediaQuery = window.matchMedia?.("(prefers-reduced-motion: reduce)");
-    if (mediaQuery?.matches) {
-      setDisplayValue(value);
-      previousValue.current = value;
-      return;
-    }
-
-    const startValue = previousValue.current;
-    const difference = value - startValue;
-    if (difference === 0) return;
-
-    let frame = 0;
-    let startTime: number | null = null;
-    const easeOutCubic = (progress: number) => 1 - Math.pow(1 - progress, 3);
-
-    const tick = (time: number) => {
-      if (startTime === null) startTime = time;
-      const progress = Math.min((time - startTime) / duration, 1);
-      setDisplayValue(startValue + difference * easeOutCubic(progress));
-
-      if (progress < 1) {
-        frame = window.requestAnimationFrame(tick);
-      } else {
-        previousValue.current = value;
-        setDisplayValue(value);
-      }
-    };
-
-    frame = window.requestAnimationFrame(tick);
-    return () => window.cancelAnimationFrame(frame);
-  }, [duration, value]);
-
-  return displayValue;
-}
-
-function AnimatedCurrency({ value, className }: { value: number; className?: string }) {
-  const animatedValue = useAnimatedNumber(value);
-  return <span className={className}>{currency.format(Math.round(animatedValue))}</span>;
-}
-
-function AnimatedPercent({ value, className }: { value: number; className?: string }) {
-  const animatedValue = useAnimatedNumber(value, 620);
-  return <span className={className}>{Math.round(animatedValue)}%</span>;
-}
 
 const navItems: Array<{ key: ViewKey; label: string; icon: LucideIcon }> = [
   { key: "dashboard", label: "Home", icon: Home },
@@ -1623,8 +1568,13 @@ function TopBar({
         >
           <AvatarCircle user={user} size="sm" className="ring-0" />
         </button>
-        <button type="button" onClick={onAddTransaction} className="hidden items-center gap-2 rounded-lg bg-taka-navy px-4 py-3 text-sm font-extrabold text-white shadow-float transition hover:bg-blue-700 sm:flex">
-          <Plus size={18} />
+        <button
+          type="button"
+          onClick={onAddTransaction}
+          className="hidden items-center gap-2 rounded-lg bg-taka-navy px-4 py-3 text-sm font-extrabold text-white shadow-float transition hover:bg-blue-700 sm:flex"
+          aria-label="Tambah transaksi"
+        >
+          <Plus size={18} aria-hidden="true" />
           Tambah
         </button>
       </div>
