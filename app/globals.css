@@ -1088,13 +1088,13 @@ body {
 }
 
 .taka-mobile-nav {
-  bottom: max(0.625rem, env(safe-area-inset-bottom)) !important;
-  padding-bottom: max(0.375rem, env(safe-area-inset-bottom));
+  bottom: max(0.5rem, env(safe-area-inset-bottom)) !important;
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
   overflow: visible;
   transform: translateZ(0);
   will-change: transform;
-  contain: layout;
 }
+
 
 .taka-mobile-nav::before {
   content: "";
@@ -1139,7 +1139,7 @@ body {
   }
 
   .taka-mobile-nav {
-    bottom: max(0.375rem, env(safe-area-inset-bottom)) !important;
+    bottom: max(0.5rem, env(safe-area-inset-bottom)) !important;
     box-shadow:
       0 18px 45px rgba(37, 99, 235, 0.18),
       0 0 0 999px transparent;

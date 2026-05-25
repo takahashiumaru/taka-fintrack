@@ -1,6 +1,17 @@
 // Pure helpers, constants, and types extracted from taka-fintrack-app.tsx.
 
+import type { LucideIcon } from "lucide-react";
+import { Home, ReceiptText, Camera, MessageCircle, UserRound } from "lucide-react";
+
 export type ViewKey = "dashboard" | "transactions" | "scan" | "chat" | "profile" | "notifications";
+
+export const navItems: Array<{ key: ViewKey; label: string; icon: LucideIcon }> = [
+  { key: "dashboard", label: "Home", icon: Home },
+  { key: "transactions", label: "Transaksi", icon: ReceiptText },
+  { key: "scan", label: "Scan", icon: Camera },
+  { key: "chat", label: "AI Chat", icon: MessageCircle },
+  { key: "profile", label: "Profile", icon: UserRound },
+];
 export type AuthMode = "login" | "register" | "forgot";
 
 export type AuthUser = {

@@ -42,6 +42,8 @@ export async function GET(request: Request) {
   const page = Math.max(1, Number(searchParams.get("page") ?? 1) || 1);
   const limit = Math.min(50, Math.max(5, Number(searchParams.get("limit") ?? 20) || 20));
   const offset = (page - 1) * limit;
+  const year = searchParams.get("year");
+  const month = searchParams.get("month");
 
   const [rows] = await getPool().execute<TransactionRow[]>(
     `
@@ -78,6 +80,25 @@ export async function GET(request: Request) {
   const hasMore = rows.length > limit;
   const visibleRows = hasMore ? rows.slice(0, limit) : rows;
 
+  // Calculate summary for all transactions (optionally filtered by year/month)
+  let summaryQuery = `
+    SELECT
+      SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) AS total_income,
+      SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) AS total_expense
+    FROM transactions
+    WHERE user_id = ?
+  `;
+  const summaryParams: (number | string)[] = [user.id];
+
+  if (year && month) {
+    summaryQuery += ` AND YEAR(COALESCE(transaction_date, created_at)) = ? AND MONTH(COALESCE(transaction_date, created_at)) = ?`;
+    summaryParams.push(year, month);
+  }
+
+  const [summaryRows] = await getPool().execute<RowDataPacket[]>(summaryQuery, summaryParams);
+
+  const summary = summaryRows[0] || { total_income: 0, total_expense: 0 };
+
   return NextResponse.json({
     transactions: visibleRows.map(toTransaction),
     pagination: {
@@ -85,6 +106,11 @@ export async function GET(request: Request) {
       limit,
       hasMore,
       nextPage: hasMore ? page + 1 : null,
+    },
+    summary: {
+      totalIncome: Number(summary.total_income) || 0,
+      totalExpense: Number(summary.total_expense) || 0,
+      balance: (Number(summary.total_income) || 0) - (Number(summary.total_expense) || 0),
     },
   });
 }

@@ -32,12 +32,10 @@ import {
   Fuel,
   Gamepad2,
   HeartPulse,
-  Home,
   House,
   Landmark,
   LayoutDashboard,
   LogOut,
-  MessageCircle,
   Moon,
   MoreHorizontal,
   Paperclip,
@@ -62,7 +60,6 @@ import {
   TrendingUp,
   Utensils,
   Wifi,
-  UserRound,
   Users,
   WalletCards,
   Zap,
@@ -85,6 +82,7 @@ import {
   YAxis,
 } from "recharts";
 import { AnimatedCurrency, AnimatedPercent } from "./common/animated-number";
+import { MobileNav } from "./MobileNav";
 import {
   chatHistoryStorageKey,
   createNameFromEmail,
@@ -135,14 +133,7 @@ import type {
   TransactionsPagination,
   ViewKey,
 } from "./taka-fintrack-helpers";
-
-const navItems: Array<{ key: ViewKey; label: string; icon: LucideIcon }> = [
-  { key: "dashboard", label: "Home", icon: Home },
-  { key: "transactions", label: "Transaksi", icon: ReceiptText },
-  { key: "scan", label: "Scan", icon: Camera },
-  { key: "chat", label: "AI Chat", icon: MessageCircle },
-  { key: "profile", label: "Profile", icon: UserRound },
-];
+import { navItems } from "./taka-fintrack-helpers";
 
 function getForgotPasswordCooldownRemaining() {
   if (typeof window === "undefined") return 0;
@@ -1592,23 +1583,47 @@ function DashboardView({
   dataStatus: "idle" | "loading" | "ready" | "error";
   onNavigate: (view: ViewKey) => void;
 }) {
+  const [showDesktopInsights, setShowDesktopInsights] = useState(false);
+
+  useEffect(() => {
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let idleId: number | null = null;
+
+    if (typeof window.requestIdleCallback === "function") {
+      idleId = window.requestIdleCallback(() => setShowDesktopInsights(true), { timeout: 900 });
+    } else {
+      timeoutId = setTimeout(() => setShowDesktopInsights(true), 350);
+    }
+
+    return () => {
+      if (idleId !== null && typeof window.cancelIdleCallback === "function") {
+        window.cancelIdleCallback(idleId);
+      }
+      if (timeoutId !== null) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, []);
+
   return (
     <div className="space-y-3 sm:space-y-5">
       <HeroBalance analytics={analytics} transactions={transactions} onNavigate={onNavigate} />
       <SummaryGrid analytics={analytics} />
       <MobileRecentTransactions transactions={transactions} dataStatus={dataStatus} onNavigate={onNavigate} />
       <MobileWeeklyHistory analytics={analytics} />
-      <div className="grid gap-5 max-lg:hidden xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
-        <div className="space-y-5">
-          <WeeklyChart data={analytics.weekly} />
-          <RecentTransactions transactions={transactions} dataStatus={dataStatus} compact />
+      {showDesktopInsights && (
+        <div className="grid gap-5 max-lg:hidden xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
+          <div className="space-y-5">
+            <WeeklyChart data={analytics.weekly} />
+            <RecentTransactions transactions={transactions} dataStatus={dataStatus} compact />
+          </div>
+          <div className="space-y-5">
+            <CategoryPanel data={analytics.categoryBreakdown} />
+            <AiInsightCard analytics={analytics} onNavigate={onNavigate} />
+            <ScanSpotlight transactions={transactions} onNavigate={onNavigate} />
+          </div>
         </div>
-        <div className="space-y-5">
-          <CategoryPanel data={analytics.categoryBreakdown} />
-          <AiInsightCard analytics={analytics} onNavigate={onNavigate} />
-          <ScanSpotlight transactions={transactions} onNavigate={onNavigate} />
-        </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -1949,32 +1964,28 @@ function TransactionRow({
   }, [showDetail]);
 
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={() => setShowDetail(true)}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          setShowDetail(true);
-        }
-      }}
-      className="transaction-row-card grid min-w-0 cursor-pointer grid-cols-[40px_minmax(0,1fr)_auto] gap-2.5 rounded-[22px] border p-3 transition active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-sky-300 sm:flex sm:items-center sm:p-3"
-    >
-      <TransactionIconBadge item={item} size={17} className="h-10 w-10 sm:h-10 sm:w-10" />
-      <div className="min-w-0 flex-1">
-        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-          <p className="truncate text-[13px] font-black text-taka-ink sm:text-sm">{item.merchant}</p>
-          <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-black text-blue-600 ring-1 ring-blue-100 dark:bg-sky-400/10 dark:text-sky-200 dark:ring-sky-400/20">{item.source}</span>
+    <article className="transaction-row-card grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-2.5 rounded-[24px] border p-3 transition focus-within:ring-2 focus-within:ring-sky-300 sm:flex sm:items-center sm:p-3.5">
+      <button
+        type="button"
+        onClick={() => setShowDetail(true)}
+        className="grid min-w-0 flex-1 cursor-pointer grid-cols-[44px_minmax(0,1fr)] gap-2.5 rounded-[20px] text-left transition active:scale-[0.99] focus:outline-none sm:flex sm:items-center"
+        aria-label={`Lihat detail transaksi ${item.merchant}, ${amount}`}
+      >
+        <TransactionIconBadge item={item} size={18} className="h-11 w-11 sm:h-11 sm:w-11" />
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+            <p className="truncate text-[13px] font-black text-taka-ink sm:text-sm">{item.merchant}</p>
+            <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-black text-blue-600 ring-1 ring-blue-100 dark:bg-sky-400/10 dark:text-sky-200 dark:ring-sky-400/20">{item.source}</span>
+          </div>
+          <p className="mt-0.5 truncate text-[11px] font-semibold text-slate-500 sm:text-xs">{item.category} • {item.paymentAccount || "Cash"} • {item.date}</p>
+          <p className={clsx("mt-1 text-[13px] font-black sm:hidden", amountClass)}>
+            {amount}
+          </p>
         </div>
-        <p className="mt-0.5 truncate text-[11px] font-semibold text-slate-500 sm:text-xs">{item.category} • {item.paymentAccount || "Cash"} • {item.date}</p>
-        <p className={clsx("mt-1 text-[13px] font-black sm:hidden", amountClass)}>
+        <p className={clsx("hidden shrink-0 text-right text-sm font-black sm:block", amountClass)}>
           {amount}
         </p>
-      </div>
-      <p className={clsx("hidden shrink-0 text-right text-sm font-black sm:block", amountClass)}>
-        {amount}
-      </p>
+      </button>
       <div className="flex shrink-0 items-center gap-1 self-start sm:self-center">
       {onEdit && (
         <button
@@ -1984,7 +1995,7 @@ function TransactionRow({
             event.stopPropagation();
             onEdit(item);
           }}
-          className="transaction-action-edit grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-sky-100 bg-sky-50 text-sky-600 shadow-sm transition hover:bg-sky-100 hover:text-sky-700 active:scale-95"
+          className="transaction-action-edit grid h-11 w-11 shrink-0 place-items-center rounded-[16px] border border-sky-100 bg-sky-50 text-sky-600 shadow-sm transition hover:bg-sky-100 hover:text-sky-700 active:scale-95 sm:h-10 sm:w-10"
           aria-label="Edit transaksi"
         >
           <Pencil size={15} />
@@ -1999,7 +2010,7 @@ function TransactionRow({
             event.stopPropagation();
             setShowConfirmDelete(true);
           }}
-          className="transaction-action-delete grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-rose-100 bg-rose-50 text-rose-500 shadow-sm transition hover:bg-rose-100 hover:text-rose-600 active:scale-95 disabled:opacity-50"
+          className="transaction-action-delete grid h-11 w-11 shrink-0 place-items-center rounded-[16px] border border-rose-100 bg-rose-50 text-rose-500 shadow-sm transition hover:bg-rose-100 hover:text-rose-600 active:scale-95 disabled:opacity-50 sm:h-10 sm:w-10"
           aria-label="Hapus transaksi"
         >
           <Trash2 size={16} />
@@ -2143,7 +2154,7 @@ function TransactionRow({
           </div>
         </div>
       ), document.body)}
-    </div>
+    </article>
   );
 }
 
@@ -2306,7 +2317,9 @@ function TransactionsView({
   const [isSavingTransaction, setIsSavingTransaction] = useState(false);
   const [isSavingCategory, setIsSavingCategory] = useState(false);
   const [showMobileTransactionSheet, setShowMobileTransactionSheet] = useState(false);
-  const [transactionFormStep, setTransactionFormStep] = useState(0);
+  const [transactionFormStep, setTransactionFormStep] = useState<number | null>(null);
+  const [monthSummary, setMonthSummary] = useState({ income: 0, expense: 0, balance: 0 });
+  const [isFetchingSummary, setIsFetchingSummary] = useState(false);
   const transactionFormSteps = useMemo(
     () => [
       { label: "Tipe", helper: transactionType === "expense" ? "Pengeluaran" : "Pemasukan" },
@@ -2318,10 +2331,26 @@ function TransactionsView({
     [amount, editingTransaction, merchant, paymentAccount, transactionType],
   );
   const lastTransactionFormStep = transactionFormSteps.length - 1;
+  const completedTransactionSteps = useMemo(() => {
+    const parsedAmount = Number(amount.replace(/[^\d]/g, ""));
+    return [
+      Boolean(transactionType),
+      Number.isFinite(parsedAmount) && parsedAmount > 0,
+      Boolean(categoryId),
+      Boolean(merchant.trim()) && Boolean(paymentAccount) && Boolean(transactionDate),
+      false,
+    ];
+  }, [amount, categoryId, merchant, paymentAccount, transactionDate, transactionType]);
+  const firstIncompleteTransactionStep = completedTransactionSteps.findIndex((done) => !done);
+  const suggestedTransactionFormStep = firstIncompleteTransactionStep === -1 ? lastTransactionFormStep : firstIncompleteTransactionStep;
+  const activeTransactionFormStep = transactionFormStep == null
+    ? suggestedTransactionFormStep
+    : Math.min(Math.max(transactionFormStep, 0), lastTransactionFormStep);
   const availableCategories = useMemo(
     () => categories.filter((category) => category.type === "both" || category.type === transactionType),
     [categories, transactionType],
   );
+
 
   const monthTransactions = useMemo(() => {
     return transactions.filter((transaction) => {
@@ -2346,12 +2375,44 @@ function TransactionsView({
     return true;
   });
 
-  const monthIncome = monthTransactions
-    .filter((t) => t.type === "income")
-    .reduce((s, t) => s + t.amount, 0);
-  const monthExpense = monthTransactions
-    .filter((t) => t.type === "expense")
-    .reduce((s, t) => s + t.amount, 0);
+  useEffect(() => {
+    let cancelled = false;
+    const year = selectedMonth.getFullYear();
+    const month = selectedMonth.getMonth() + 1;
+
+    async function fetchMonthSummary() {
+      setIsFetchingSummary(true);
+      try {
+        const response = await apiRequest<{ summary?: { totalIncome?: number; totalExpense?: number; balance?: number } }>(
+          `/api/transactions?page=1&limit=5&year=${year}&month=${month}`,
+        );
+        if (cancelled) return;
+        setMonthSummary({
+          income: Number(response.summary?.totalIncome) || 0,
+          expense: Number(response.summary?.totalExpense) || 0,
+          balance: Number(response.summary?.balance) || 0,
+        });
+      } catch {
+        if (!cancelled) {
+          const fallbackIncome = monthTransactions.reduce((sum, t) => t.type === "income" ? sum + t.amount : sum, 0);
+          const fallbackExpense = monthTransactions.reduce((sum, t) => t.type === "expense" ? sum + t.amount : sum, 0);
+          setMonthSummary({ income: fallbackIncome, expense: fallbackExpense, balance: fallbackIncome - fallbackExpense });
+        }
+      } finally {
+        if (!cancelled) setIsFetchingSummary(false);
+      }
+    }
+
+    fetchMonthSummary();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedMonth, monthTransactions]);
+
+  const monthIncome = monthSummary.income;
+  const monthExpense = monthSummary.expense;
+  const monthBalance = monthSummary.balance;
 
   function prevMonth() {
     setSelectedMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1));
@@ -2385,7 +2446,7 @@ function TransactionsView({
     setPaymentAccount(transaction.paymentAccount || "Cash");
     const matchingCategory = categories.find((category) => category.id === transaction.categoryId || category.name === transaction.category);
     setCategoryId(matchingCategory ? String(matchingCategory.id) : "");
-    setTransactionFormStep(0);
+    setTransactionFormStep(null);
     setMessage("Mode edit aktif. Ubah data lalu simpan.");
     setError("");
   }
@@ -2396,7 +2457,7 @@ function TransactionsView({
     setAmount("");
     setPaymentAccount("Cash");
     setTransactionDate(getDateInputValue());
-    setTransactionFormStep(0);
+    setTransactionFormStep(null);
     setMessage("");
     setError("");
   }
@@ -2404,7 +2465,7 @@ function TransactionsView({
   function openMobileTransactionForm() {
     cancelEditTransaction();
     setShowMobileTransactionSheet(true);
-    setTransactionFormStep(0);
+    setTransactionFormStep(null);
   }
 
   function closeMobileTransactionForm() {
@@ -2505,23 +2566,24 @@ function TransactionsView({
     <div className="grid min-w-0 gap-3 xl:grid-cols-[minmax(0,1fr)_360px] xl:gap-4">
       <section className="native-transactions-panel min-w-0 overflow-hidden rounded-[24px] border p-2 backdrop-blur-xl sm:p-4">
         {/* Month picker */}
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2 min-[380px]:flex-nowrap">
           <div className="flex min-w-0 items-center gap-1.5">
-            <button type="button" onClick={prevMonth} className="native-icon-tap grid h-9 w-9 place-items-center rounded-full bg-slate-100 text-slate-500 transition active:scale-95 hover:bg-slate-200 dark:bg-white/8 dark:text-slate-200">
+            <button type="button" onClick={prevMonth} className="native-icon-tap grid h-11 w-11 place-items-center rounded-full bg-slate-100 text-slate-500 transition active:scale-95 hover:bg-slate-200 dark:bg-white/8 dark:text-slate-200 sm:h-10 sm:w-10" aria-label="Bulan sebelumnya">
               <ChevronLeft size={18} />
             </button>
-            <button type="button" onClick={goToCurrentMonth} className="native-month-pill flex min-w-0 items-center gap-2 rounded-full bg-white px-3 py-2 text-sm font-black text-taka-ink shadow-sm ring-1 ring-blue-100 transition active:scale-[0.98] hover:bg-slate-50 dark:bg-white/8 dark:text-white dark:ring-sky-400/20">
+            <button type="button" onClick={goToCurrentMonth} className="native-month-pill flex min-h-11 min-w-0 items-center gap-2 rounded-full bg-white px-3 py-2 text-sm font-black text-taka-ink shadow-sm ring-1 ring-blue-100 transition active:scale-[0.98] hover:bg-slate-50 dark:bg-white/8 dark:text-white dark:ring-sky-400/20" aria-label="Kembali ke bulan berjalan">
               <CalendarDays size={15} className="shrink-0 text-blue-600 dark:text-sky-300" />
               <span className="truncate">{getFullMonthLabel(selectedMonth)}</span>
             </button>
-            <button type="button" onClick={nextMonth} className="native-icon-tap grid h-9 w-9 place-items-center rounded-full bg-slate-100 text-slate-500 transition active:scale-95 hover:bg-slate-200 dark:bg-white/8 dark:text-slate-200">
+            <button type="button" onClick={nextMonth} className="native-icon-tap grid h-11 w-11 place-items-center rounded-full bg-slate-100 text-slate-500 transition active:scale-95 hover:bg-slate-200 dark:bg-white/8 dark:text-slate-200 sm:h-10 sm:w-10" aria-label="Bulan berikutnya">
               <ChevronRight size={18} />
             </button>
           </div>
           <button
             type="button"
             onClick={() => void onRefresh()}
-            className="native-refresh-pill inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-blue-50 px-3 text-xs font-black text-blue-700 ring-1 ring-blue-100 transition active:scale-95 hover:bg-blue-100 dark:bg-sky-400/10 dark:text-sky-200 dark:ring-sky-400/20"
+            className="native-refresh-pill inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-full bg-blue-50 px-3 text-xs font-black text-blue-700 ring-1 ring-blue-100 transition active:scale-95 hover:bg-blue-100 dark:bg-sky-400/10 dark:text-sky-200 dark:ring-sky-400/20"
+            aria-label="Refresh transaksi"
           >
             <RefreshCw size={14} />
             <span className="hidden min-[380px]:inline">Refresh</span>
@@ -2540,18 +2602,19 @@ function TransactionsView({
           </div>
           <div className="native-summary-card min-w-[128px] flex-1 snap-start rounded-[18px] bg-blue-50 px-3 py-2.5 dark:bg-sky-400/10">
             <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-blue-500 dark:text-sky-300">Balance</p>
-            <p className={clsx("mt-1 whitespace-nowrap text-sm font-black", monthIncome - monthExpense >= 0 ? "text-blue-700 dark:text-sky-100" : "text-rose-600 dark:text-rose-200")}>
-              {currency.format(monthIncome - monthExpense)}
+            <p className={clsx("mt-1 whitespace-nowrap text-sm font-black", monthBalance >= 0 ? "text-blue-700 dark:text-sky-100" : "text-rose-600 dark:text-rose-200")}>
+              {currency.format(monthBalance)}
             </p>
           </div>
         </div>
 
         <label className="relative mt-3 block">
+          <span className="sr-only">Cari transaksi</span>
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[#64748B]" size={17} />
           <input
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
-            className="h-11 w-full rounded-[18px] border border-[#DBEAFE] bg-white/92 pl-11 pr-4 text-sm font-bold text-taka-ink outline-none transition placeholder:text-[#64748B] focus:border-[#2563EB] dark:border-sky-400/20 dark:bg-white/8 dark:text-white dark:placeholder:text-slate-400"
+            className="h-12 w-full rounded-[20px] border border-[#DBEAFE] bg-white/92 pl-11 pr-4 text-sm font-bold text-taka-ink outline-none transition placeholder:text-[#64748B] focus:border-[#2563EB] dark:border-sky-400/20 dark:bg-white/8 dark:text-white dark:placeholder:text-slate-400"
             placeholder="Cari merchant, kategori, akun..."
           />
         </label>
@@ -2564,7 +2627,7 @@ function TransactionsView({
               type="button"
               onClick={() => setFilter(filterOption)}
               className={clsx(
-                "shrink-0 rounded-full px-3.5 py-2 text-xs font-black transition active:scale-95 sm:text-sm",
+                "min-h-11 shrink-0 rounded-full px-4 py-2 text-xs font-black transition active:scale-95 sm:text-sm",
                 filter === filterOption ? "bg-gradient-to-r from-sky-400 to-blue-700 text-white shadow-[0_10px_22px_rgba(37,99,235,0.24)]" : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-white/8 dark:text-slate-200",
               )}
             >
@@ -2575,7 +2638,7 @@ function TransactionsView({
 
         <div className="mt-3 flex items-center justify-between gap-2">
           <p className="text-xs font-bold text-slate-400">{filteredTransactions.length} transaksi</p>
-          <button type="button" onClick={openMobileTransactionForm} className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-sky-400 to-blue-700 px-3 py-2 text-xs font-black text-white shadow-[0_10px_22px_rgba(37,99,235,0.24)] active:scale-95 xl:hidden">
+          <button type="button" onClick={openMobileTransactionForm} className="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-gradient-to-r from-sky-400 to-blue-700 px-4 py-2 text-xs font-black text-white shadow-[0_10px_22px_rgba(37,99,235,0.24)] active:scale-95 xl:hidden">
             <Plus size={14} /> Tambah
           </button>
         </div>
@@ -2643,6 +2706,34 @@ function TransactionsView({
           )}
         </div>
         </div>
+        <div className="mt-4 xl:hidden" aria-label="Progress form transaksi">
+          <div className="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+            {transactionFormSteps.map((step, index) => {
+              const isActive = index === activeTransactionFormStep;
+              const isDone = completedTransactionSteps[index];
+
+              return (
+                <button
+                  key={step.label}
+                  type="button"
+                  onClick={() => setTransactionFormStep(index)}
+                  className={clsx(
+                    "min-h-11 min-w-[92px] shrink-0 rounded-[18px] px-3 py-2 text-left transition active:scale-95",
+                    isActive
+                      ? "bg-gradient-to-r from-sky-400 to-blue-700 text-white shadow-[0_12px_28px_rgba(37,99,235,0.26)]"
+                      : isDone
+                        ? "bg-blue-50 text-blue-700 ring-1 ring-blue-100 dark:bg-sky-400/10 dark:text-sky-200 dark:ring-sky-400/20"
+                        : "bg-slate-100 text-slate-500 dark:bg-white/8 dark:text-slate-300",
+                  )}
+                  aria-current={isActive ? "step" : undefined}
+                >
+                  <span className="block text-[10px] font-black uppercase tracking-[0.12em]">{index + 1}. {step.label}</span>
+                  <span className="mt-0.5 block truncate text-[11px] font-bold opacity-80">{isDone ? "Selesai" : step.helper}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
         <div>
         <form className="mt-4 space-y-3" onSubmit={submitTransaction}>
           <div>
@@ -2674,7 +2765,11 @@ function TransactionsView({
           <CustomDateField label="Tanggal" value={transactionDate} onChange={setTransactionDate} />
           </div>
           {(message || error) && (
-            <div className={clsx("rounded-lg px-3 py-2 text-sm font-bold", error ? "bg-rose-50 text-rose-600" : "bg-blue-50 text-blue-700")}>
+            <div
+              className={clsx("rounded-lg px-3 py-2 text-sm font-bold", error ? "bg-rose-50 text-rose-600" : "bg-blue-50 text-blue-700")}
+              role={error ? "alert" : "status"}
+              aria-live={error ? "assertive" : "polite"}
+            >
               {error || message}
             </div>
           )}
@@ -2724,7 +2819,7 @@ function TransactionsView({
                       />
                     </label>
                   </div>
-                  <div className="mt-2 grid grid-cols-8 gap-1.5">
+                  <div className="mt-2 grid grid-cols-6 gap-2 sm:grid-cols-8">
                     {categoryColorPresets.map((color) => {
                       const isSelected = color.toLowerCase() === categoryColor.toLowerCase();
 
@@ -2734,7 +2829,7 @@ function TransactionsView({
                           type="button"
                           onClick={() => setCategoryColor(color)}
                           className={clsx(
-                            "grid h-7 w-full place-items-center rounded-[10px] ring-1 ring-white/80 transition active:scale-95 dark:ring-white/10",
+                            "grid min-h-11 w-full place-items-center rounded-[14px] ring-1 ring-white/80 transition active:scale-95 dark:ring-white/10 sm:min-h-9",
                             isSelected ? "shadow-[0_8px_18px_rgba(37,99,235,0.24)] outline outline-2 outline-offset-2 outline-blue-300 dark:outline-sky-400/60" : "hover:scale-105",
                           )}
                           style={{ backgroundColor: color }}
@@ -3886,7 +3981,7 @@ function BottomScanBar({
         <button type="button" onClick={onCamera} disabled={loading} className={clsx("grid h-[74px] w-[74px] place-items-center rounded-full border-[5px] border-white/90 bg-white/85 text-blue-700 shadow-[0_0_0_5px_rgba(191,219,254,0.56),0_18px_38px_rgba(37,99,235,0.18)] backdrop-blur transition active:scale-95 disabled:opacity-70 dark:border-white/60 dark:bg-white/20 dark:text-white dark:shadow-sm", cameraActive && "ring-4 ring-blue-300/45 dark:ring-white/30")} aria-label={cameraActive ? "Ambil foto" : "Buka kamera"}>
           <span className="h-[52px] w-[52px] rounded-full bg-blue-500 dark:bg-white" />
         </button>
-        <button type="button" onClick={onToggleFlash} disabled={loading} className={clsx("grid h-11 w-11 place-items-center rounded-full ring-1 backdrop-blur-md transition active:scale-95 disabled:opacity-50", flashOn ? "bg-gradient-to-br from-sky-400 to-blue-700 text-white shadow-[0_10px_24px_rgba(37,99,235,0.30)] ring-blue-200/70 dark:ring-blue-800/70" : "bg-white/70 text-blue-700 shadow-[0_10px_24px_rgba(37,99,235,0.12)] ring-blue-100/60 dark:bg-black/20 dark:text-white dark:shadow-sm dark:ring-white/20")} aria-label="Flash">
+        <button type="button" onClick={onToggleFlash} disabled={loading} className={clsx("grid h-11 w-11 place-items-center rounded-full ring-1 backdrop-blur-md transition active:scale-95 disabled:opacity-50", flashOn ? "bg-gradient-to-br from-sky-400 to-blue-700 text-white shadow-[0_10px_24px_rgba(37,99,235,0.30)] ring-blue-200/70 dark:ring-blue-800/70" : "bg-white/70 text-blue-700 shadow-[0_10px_24px_rgba(37,99,235,0.12)] ring-blue-100/60 dark:bg-black/20 dark:text-white dark:shadow-sm dark:ring-white/20")} aria-label={flashOn ? "Matikan flash" : "Nyalakan flash"}>
           <Zap size={20} fill={flashOn ? "currentColor" : "none"} />
         </button>
       </div>
@@ -4704,7 +4799,7 @@ function ChatView({ transactions, sessionReady }: { transactions: Transaction[];
           ))}
         </div>
 
-        <div ref={scrollRef} className="no-scrollbar chat-messages-scroll min-h-0 flex-1 space-y-2 overflow-y-auto py-3 scroll-smooth xl:py-4">
+        <div ref={scrollRef} className="no-scrollbar chat-messages-scroll min-h-0 flex-1 space-y-2 overflow-y-auto py-3 scroll-smooth xl:py-4" role="log" aria-live="polite" aria-label="Riwayat percakapan">
           {messages.map((message, index) => (
             <div
               key={`${message.role}-${index}`}
@@ -4806,6 +4901,8 @@ function ChatView({ transactions, sessionReady }: { transactions: Transaction[];
             onChange={(event) => setDraft(event.target.value)}
             className="min-w-0 flex-1 rounded-full border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-sky-400/20 dark:bg-slate-900/80 dark:text-slate-100 dark:placeholder:text-slate-400 dark:focus:border-sky-400 dark:focus:ring-sky-400/10"
             placeholder="Tanya Taka AI…"
+            aria-label="Tulis pesan untuk Taka AI"
+            autoComplete="off"
           />
           <button 
             type="submit" 
@@ -5779,43 +5876,6 @@ function ReportStat({
       <p className="mt-5 text-sm font-bold text-slate-500">{label}</p>
       <p className="mt-1 text-2xl font-black text-taka-ink">{value}</p>
     </div>
-  );
-}
-
-function MobileNav({
-  activeView,
-  onChange,
-}: {
-  activeView: ViewKey;
-  onChange: (view: ViewKey) => void;
-}) {
-  return (
-    <nav className="taka-mobile-nav fixed left-3 right-3 z-40 grid grid-cols-5 items-center justify-items-center gap-1 rounded-[28px] border border-white/80 bg-white/90 p-1.5 shadow-[0_18px_45px_rgba(37,99,235,0.18)] backdrop-blur-xl lg:hidden dark:border-sky-400/20 dark:bg-slate-950/88">
-      {navItems.map((item) => {
-        const isCenterAction = item.key === "scan";
-        const isActive = activeView === item.key;
-
-        return (
-          <button
-            key={item.key}
-            type="button"
-            onClick={() => onChange(item.key)}
-            className={clsx(
-              "grid min-w-0 place-items-center gap-1 text-[10px] font-black transition active:scale-95",
-              isCenterAction
-                ? "-mt-5 h-14 w-14 justify-self-center rounded-[22px] bg-gradient-to-br from-[#0EA5E9] to-[#2563EB] p-0 text-white shadow-[0_14px_34px_rgba(14,165,233,0.34)]"
-                : "w-full rounded-[18px] px-1 py-2",
-              !isCenterAction && (isActive ? "bg-[#EFF6FF] text-[#2563EB] dark:bg-sky-500/16 dark:text-sky-200" : "text-slate-500 dark:text-slate-300"),
-            )}
-            aria-label={isCenterAction ? "Tambah atau scan transaksi" : item.label}
-            aria-current={isActive ? "page" : undefined}
-          >
-            <item.icon size={isCenterAction ? 24 : 17} />
-            {!isCenterAction && <span className="truncate">{item.label}</span>}
-          </button>
-        );
-      })}
-    </nav>
   );
 }
 
