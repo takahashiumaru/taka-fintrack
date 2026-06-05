@@ -1088,11 +1088,15 @@ body {
 }
 
 .taka-mobile-nav {
-  bottom: max(0.5rem, env(safe-area-inset-bottom)) !important;
-  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+  bottom: 0 !important;
+  min-height: calc(64px + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
   overflow: visible;
   transform: translateZ(0);
   will-change: transform;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 
@@ -1139,10 +1143,16 @@ body {
   }
 
   .taka-mobile-nav {
-    bottom: max(0.5rem, env(safe-area-inset-bottom)) !important;
+    bottom: 0 !important;
     box-shadow:
-      0 18px 45px rgba(37, 99, 235, 0.18),
+      0 -16px 42px rgba(37, 99, 235, 0.14),
       0 0 0 999px transparent;
+  }
+
+  .taka-mobile-nav button[aria-current="page"]:not(:nth-child(3)) {
+    height: calc(52px + env(safe-area-inset-bottom));
+    margin-bottom: calc(env(safe-area-inset-bottom) * -1);
+    padding-bottom: calc(0.375rem + env(safe-area-inset-bottom));
   }
 }
 

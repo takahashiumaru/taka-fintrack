@@ -340,6 +340,30 @@ function getCameraErrorMessage(error: unknown) {
  * and interaction with local storage for session persistence.
  */
 export function TakaFinTrackApp() {
+  useEffect(() => {
+    const preventGestureZoom = (event: Event) => {
+      event.preventDefault();
+    };
+
+    const preventPinchTouch = (event: TouchEvent) => {
+      if (event.touches.length > 1) {
+        event.preventDefault();
+      }
+    };
+
+    document.addEventListener("gesturestart", preventGestureZoom, { passive: false });
+    document.addEventListener("gesturechange", preventGestureZoom, { passive: false });
+    document.addEventListener("gestureend", preventGestureZoom, { passive: false });
+    document.addEventListener("touchmove", preventPinchTouch, { passive: false });
+
+    return () => {
+      document.removeEventListener("gesturestart", preventGestureZoom);
+      document.removeEventListener("gesturechange", preventGestureZoom);
+      document.removeEventListener("gestureend", preventGestureZoom);
+      document.removeEventListener("touchmove", preventPinchTouch);
+    };
+  }, []);
+
   const [activeView, setActiveView] = useState<ViewKey>(getInitialView);
   const [profileScreen, setProfileScreen] = useState<"overview" | "reports" | "friends">("overview");
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
