@@ -33,7 +33,7 @@ export default function GlobalError({
               Error Global 😢
             </h2>
             <p className="mb-6 text-sm text-slate-600">
-              Aplikasi mengalami error kritis. Silakan刷新halaman.
+              Aplikasi mengalami error kritis. Silakan muat ulang halaman.
             </p>
             <button
               onClick={reset}
