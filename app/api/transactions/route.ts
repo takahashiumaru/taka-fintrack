@@ -132,8 +132,11 @@ export async function POST(request: Request) {
 
   if (!merchant) return apiError("Merchant wajib diisi.");
   if (merchant.length > 160) return apiError("Merchant maksimal 160 karakter.");
+  // Check if amount is valid
   if (!Number.isFinite(amount) || amount <= 0) return apiError("Nominal belum valid.");
-  if (!type) return apiError("Tipe transaksi belum valid.");
+  
+  // Guard against missing type
+  if (type !== "income" && type !== "expense") return apiError("Tipe transaksi belum valid.");
 
   const receiptResult = normalizeReceiptMetadata(body, amount);
   if (receiptResult.error || !receiptResult.metadata) return apiError(receiptResult.error || "Metadata struk belum valid.");

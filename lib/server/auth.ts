@@ -67,6 +67,11 @@ export function verifyPassword(password: string, storedHash: string) {
   return expected.length === actual.length && timingSafeEqual(expected, actual);
 }
 
+/**
+ * Generates an auth token for a user.
+ * @param user - The user object containing id and email.
+ * @returns A signed base64url token.
+ */
 export function signAuthToken(user: Pick<ApiUser, "id" | "email">) {
   const payload: TokenPayload = {
     sub: user.id,
