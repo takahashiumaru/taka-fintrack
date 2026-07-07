@@ -1,7 +1,6 @@
-import { createHash } from "crypto";
 import type { RowDataPacket } from "mysql2";
 import { NextResponse } from "next/server";
-import { hashPassword, normalizeEmail, normalizeString } from "@/lib/server/auth";
+import { hashPassword, normalizeEmail, normalizeString, hashResetToken } from "@/lib/server/auth";
 import { ensureSchema, getPool } from "@/lib/server/db";
 import { apiError, readJson } from "@/lib/server/http";
 
@@ -66,8 +65,4 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({ success: true });
-}
-
-function hashResetToken(token: string) {
-  return createHash("sha256").update(token).digest("hex");
 }

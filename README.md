@@ -195,3 +195,4 @@ npm run ios:sync               # sync iOS only
 ---
 
 Developed by [Umar Maruf Mutaqin](https://github.com/takahashiumaru)
+
