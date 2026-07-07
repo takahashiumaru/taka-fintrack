@@ -122,7 +122,6 @@ import type {
   MonthlyStatement,
   NotificationItem,
   NotificationsResponse,
-  ReceiptSplitMode,
   SelectedReceiptItem,
   ScannedReceipt,
   SplitRecipient,
@@ -334,6 +333,12 @@ function getCameraErrorMessage(error: unknown) {
 
 
 
+/**
+ * @component TakaFinTrackApp
+ * @description Main dashboard application component managing state for user sessions,
+ * navigation, and financial data visualization. Includes authentication, theme management,
+ * and interaction with local storage for session persistence.
+ */
 export function TakaFinTrackApp() {
   const [activeView, setActiveView] = useState<ViewKey>(getInitialView);
   const [profileScreen, setProfileScreen] = useState<"overview" | "reports" | "friends">("overview");
