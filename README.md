@@ -72,6 +72,25 @@ cd taka-fintrack
 npm install
 ```
 
+### API Endpoints
+
+- `GET /api/health`: Database connectivity check.
+- `GET /api/version`: App version and status.
+
+### Build instructions
+
+To build the project for production, run:
+
+```bash
+npm run build
+```
+
+The output will be in the `.next` directory. You can start the production server with:
+
+```bash
+npm run start
+```
+
 ### Environment
 
 Buat `.env.local`:
