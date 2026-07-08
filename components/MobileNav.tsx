@@ -7,6 +7,9 @@ type MobileNavProps = {
   activeView: ViewKey;
   onChange: (view: ViewKey) => void;
 };
+/**
+ * Navigational component for mobile view.
+ */
 
 export function MobileNav({ activeView, onChange }: MobileNavProps) {
   return (
