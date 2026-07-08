@@ -1,4 +1,4 @@
-import { createHmac, randomBytes, scryptSync, timingSafeEqual } from "crypto";
+import { createHash, createHmac, randomBytes, scryptSync, timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
 import type { RowDataPacket } from "mysql2";
 import { ensureSchema, getPool } from "./db";
@@ -54,6 +54,10 @@ export function hashPassword(password: string) {
   const hash = scryptSync(password, salt, 64).toString("hex");
 
   return `scrypt:${salt}:${hash}`;
+}
+
+export function hashResetToken(token: string) {
+  return createHash("sha256").update(token).digest("hex");
 }
 
 export function verifyPassword(password: string, storedHash: string) {

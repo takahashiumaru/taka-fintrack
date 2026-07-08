@@ -1,8 +1,8 @@
-import { createHash, randomBytes } from "crypto";
+import { randomBytes } from "crypto";
 import * as nodemailer from "nodemailer";
 import type { RowDataPacket } from "mysql2";
 import { NextResponse } from "next/server";
-import { normalizeEmail } from "@/lib/server/auth";
+import { normalizeEmail, hashResetToken } from "@/lib/server/auth";
 import { ensureSchema, getPool } from "@/lib/server/db";
 import { apiError, readJson } from "@/lib/server/http";
 import { checkPersistentRateLimit, getClientIp } from "@/lib/server/rate-limit";
@@ -55,10 +55,6 @@ export async function POST(request: Request) {
   await sendPasswordResetEmail({ to: user.email, name: user.name, resetUrl, html: emailHtml });
 
   return NextResponse.json({ success: true });
-}
-
-function hashResetToken(token: string) {
-  return createHash("sha256").update(token).digest("hex");
 }
 
 function buildResetUrl(request: Request, token: string, email: string) {
