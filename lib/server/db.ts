@@ -7,6 +7,9 @@ declare global {
   var takaFinTrackSchemaReady: Promise<void> | undefined;
 }
 
+/**
+ * Returns a shared connection pool for MySQL.
+ */
 export function getPool() {
   if (!process.env.DATABASE_URL) {
     throw new Error("DATABASE_URL belum diset. Isi .env.local dulu.");
