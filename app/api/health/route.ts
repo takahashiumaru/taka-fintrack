@@ -1,8 +1,20 @@
 import { NextResponse } from "next/server";
+import fs from "fs";
+import path from "path";
 import { ensureSchema, getPool } from "@/lib/server/db";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+function readPackageVersion(): string {
+  try {
+    const packageJsonPath = path.join(process.cwd(), "package.json");
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf8"));
+    return packageJson.version ?? "unknown";
+  } catch {
+    return "unknown";
+  }
+}
 
 export async function GET() {
   const startTime = Date.now();
@@ -34,7 +46,7 @@ export async function GET() {
   return NextResponse.json(
     {
       status,
-      version: "1.0.0",
+      version: readPackageVersion(),
       uptime: `${Math.floor(uptime)}s`,
       services: {
         database: {
