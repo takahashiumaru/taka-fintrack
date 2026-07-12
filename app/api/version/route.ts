@@ -1,18 +1,13 @@
-import { NextResponse } from "next/server";
-import fs from "fs";
-import path from "path";
-
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
+import { NextResponse } from 'next/server';
+import fs from 'fs';
+import path from 'path';
 
 export async function GET() {
-  let version = "1.0.0";
   try {
-    const pkgPath = path.join(process.cwd(), "package.json");
-    const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
-    version = pkg.version || "1.0.0";
-  } catch (e) {
-    // fall back to default
+    const packageJsonPath = path.join(process.cwd(), 'package.json');
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+    return NextResponse.json({ version: packageJson.version });
+  } catch (error) {
+    return NextResponse.json({ error: 'Could not read version from package.json' }, { status: 500 });
   }
-  return NextResponse.json({ version, status: "ok" });
 }
