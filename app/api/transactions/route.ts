@@ -45,6 +45,12 @@ export async function GET(request: Request) {
   const year = searchParams.get("year");
   const month = searchParams.get("month");
 
+  const [totalRows] = await getPool().execute<RowDataPacket[]>(
+    "SELECT COUNT(*) as total FROM transactions WHERE user_id = ?",
+    [user.id]
+  );
+  const total = totalRows[0].total as number;
+
   const [rows] = await getPool().execute<TransactionRow[]>(
     `
       SELECT
@@ -72,13 +78,10 @@ export async function GET(request: Request) {
         AND c.user_id = t.user_id
       WHERE t.user_id = ?
       ORDER BY COALESCE(t.transaction_date, t.created_at) DESC, t.id DESC
-      LIMIT ${limit + 1} OFFSET ${offset}
+      LIMIT ? OFFSET ?
     `,
-    [user.id],
+    [user.id, limit, offset],
   );
-
-  const hasMore = rows.length > limit;
-  const visibleRows = hasMore ? rows.slice(0, limit) : rows;
 
   // Calculate summary for all transactions (optionally filtered by year/month)
   let summaryQuery = `
@@ -100,12 +103,12 @@ export async function GET(request: Request) {
   const summary = summaryRows[0] || { total_income: 0, total_expense: 0 };
 
   return NextResponse.json({
-    transactions: visibleRows.map(toTransaction),
+    transactions: rows.map(toTransaction),
     pagination: {
       page,
       limit,
-      hasMore,
-      nextPage: hasMore ? page + 1 : null,
+      total,
+      totalPages: Math.ceil(total / limit),
     },
     summary: {
       totalIncome: Number(summary.total_income) || 0,
