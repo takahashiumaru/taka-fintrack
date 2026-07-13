@@ -56,7 +56,31 @@ To create a production-ready build:
 npm run build
 ```
 
-### Mobile Development (Capacitor)
+### API Endpoints
+
+### Authentication
+- `POST /api/auth/login`: Login with credentials.
+- `POST /api/auth/register`: Register a new user.
+- `GET /api/auth/me`: Get current user profile.
+
+### Transactions
+- `GET /api/transactions`: List transactions with pagination (`page`, `limit`). Returns `{ transactions, pagination: { page, limit, total, totalPages }, summary }`.
+- `POST /api/transactions`: Create a new transaction.
+
+### Categories
+- `GET /api/categories`: List all categories with transaction counts.
+- `GET /api/categories/[id]`: Get details for a specific category.
+- `POST /api/categories`: Create a new category.
+
+### Social
+- `GET /api/friends`: List friends.
+- `POST /api/split-requests`: Create a split request.
+
+### Utilities
+- `GET /api/version`: Get the current application version.
+- `GET /api/health`: Health check with DB latency and version.
+
+## Mobile Development (Capacitor)
 
 To run on a mobile device or emulator:
 
