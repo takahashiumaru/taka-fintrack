@@ -65,6 +65,7 @@ npm run build
 
 ### Transactions
 - `GET /api/transactions`: List transactions with pagination (`page`, `limit`). Returns `{ transactions, pagination: { page, limit, total, totalPages }, summary }`.
+- `GET /api/transactions/[id]`: Get details for a specific transaction.
 - `POST /api/transactions`: Create a new transaction.
 
 ### Categories
