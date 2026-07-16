@@ -1,20 +1,9 @@
 import { NextResponse } from "next/server";
-import fs from "fs";
-import path from "path";
 import { ensureSchema, getPool } from "@/lib/server/db";
+import { readPackageVersion } from "@/lib/server/version";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function readPackageVersion(): string {
-  try {
-    const packageJsonPath = path.join(process.cwd(), "package.json");
-    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf8"));
-    return packageJson.version ?? "unknown";
-  } catch {
-    return "unknown";
-  }
-}
 
 export async function GET() {
   const startTime = Date.now();
