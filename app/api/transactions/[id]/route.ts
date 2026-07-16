@@ -9,6 +9,32 @@ import type { ResultSetHeader, RowDataPacket } from "mysql2";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+export async function GET(request: Request, { params }: { params: { id: string } }) {
+  const user = await getAuthenticatedUser(request);
+  if (!user) return apiError("Sesi tidak valid. Login ulang.", 401);
+
+  const id = Number(params.id);
+  if (!Number.isFinite(id) || id <= 0) return apiError("ID transaksi tidak valid.", 400);
+
+  await ensureSchema();
+
+  const [rows] = await getPool().execute<TransactionRow[]>(
+    `SELECT t.id, t.category_id, t.merchant, COALESCE(c.name, t.category) AS category,
+            COALESCE(c.color, '#64748B') AS category_color, t.amount, t.type,
+            t.transaction_date, t.source, t.payment_account, t.receipt_total_amount,
+            t.receipt_selected_amount, t.receipt_split_mode, t.receipt_items_json,
+            t.receipt_selected_items_json, t.receipt_adjustment_amount, t.receipt_adjustment_note, t.created_at
+     FROM transactions t
+     LEFT JOIN categories c ON c.id = t.category_id AND c.user_id = t.user_id
+     WHERE t.id = ? AND t.user_id = ? LIMIT 1`,
+    [id, user.id],
+  );
+
+  if (rows.length === 0) return apiError("Transaksi tidak ditemukan.", 404);
+
+  return NextResponse.json({ transaction: toTransaction(rows[0]) });
+}
+
 export async function DELETE(
   request: Request,
   { params }: { params: { id: string } },
