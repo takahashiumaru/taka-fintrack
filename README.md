@@ -75,7 +75,15 @@ npm run build
 
 ### Social
 - `GET /api/friends`: List friends.
+- `POST /api/friends/request`: Create a friend request.
+- `PATCH /api/friends/[id]`: Accept or reject a friend request.
 - `POST /api/split-requests`: Create a split request.
+- `PATCH /api/split-requests/[id]`: Accept or reject a split request.
+
+### Notifications
+- `GET /api/notifications`: List notifications.
+- `POST /api/notifications`: Mark all unread notifications as read.
+- `PATCH /api/notifications/[id]`: Read, accept, or reject a specific notification.
 
 ### Utilities
 - `GET /api/version`: Get the current application version.
