@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { getAuthenticatedUser, normalizeString } from "@/lib/server/auth";
 import { ensureUserCategories, type CategoryRow } from "@/lib/server/categories";
 import { ensureSchema, getPool } from "@/lib/server/db";
-import { apiError, readJson, paginatedResponse } from "@/lib/server/http";
+import { apiError, readJson } from "@/lib/server/http";
 import { normalizeReceiptMetadata, parseJsonArray } from "@/lib/server/receipt-metadata";
 
 export const runtime = "nodejs";
@@ -102,12 +102,22 @@ export async function GET(request: Request) {
 
   const summary = summaryRows[0] || { total_income: 0, total_expense: 0 };
 
-  return paginatedResponse(
-    rows.map(toTransaction),
-    total,
-    page,
-    limit
-  );
+  const payload = {
+    transactions: rows.map(toTransaction),
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
+    summary: {
+      totalIncome: Number(summary.total_income) || 0,
+      totalExpense: Number(summary.total_expense) || 0,
+      balance: (Number(summary.total_income) || 0) - (Number(summary.total_expense) || 0),
+    },
+  };
+
+  return NextResponse.json(payload);
 }
 
 export async function POST(request: Request) {
