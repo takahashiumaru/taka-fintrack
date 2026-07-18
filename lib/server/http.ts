@@ -51,28 +51,4 @@ export function tooManyRequests(resetAt: number) {
   );
 }
 
-export type PaginatedPayload<T> = {
-  data: T[];
-  total: number;
-  page: number;
-  pageSize: number;
-  totalPages: number;
-};
 
-export function paginatedResponse<T>(
-  data: T[],
-  total: number,
-  page: number,
-  pageSize: number,
-) {
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const payload: PaginatedPayload<T> = {
-    data,
-    total,
-    page,
-    pageSize,
-    totalPages,
-  };
-
-  return NextResponse.json(payload);
-}
