@@ -21,9 +21,9 @@ export async function GET() {
     await pool.query("SELECT 1");
     dbLatencyMs = Date.now() - dbStart;
     dbStatus = "connected";
-  } catch (error: any) {
+  } catch (error: unknown) {
     dbStatus = "disconnected";
-    errorMessage = error?.message || String(error);
+    errorMessage = error instanceof Error ? error.message : String(error);
   }
 
   const uptime = process.uptime();
