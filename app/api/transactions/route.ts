@@ -87,7 +87,9 @@ export async function GET(request: Request) {
   let summaryQuery = `
     SELECT
       SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) AS total_income,
-      SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) AS total_expense
+      SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) AS total_expense,
+      COUNT(CASE WHEN type = 'income' THEN 1 END) AS income_count,
+      COUNT(CASE WHEN type = 'expense' THEN 1 END) AS expense_count
     FROM transactions
     WHERE user_id = ?
   `;
@@ -100,7 +102,11 @@ export async function GET(request: Request) {
 
   const [summaryRows] = await getPool().execute<RowDataPacket[]>(summaryQuery, summaryParams);
 
-  const summary = summaryRows[0] || { total_income: 0, total_expense: 0 };
+  const summary = summaryRows[0] || { total_income: 0, total_expense: 0, income_count: 0, expense_count: 0 };
+  const totalIncome = Number(summary.total_income) || 0;
+  const totalExpense = Number(summary.total_expense) || 0;
+  const incomeCount = Number(summary.income_count) || 0;
+  const expenseCount = Number(summary.expense_count) || 0;
 
   const payload = {
     transactions: rows.map(toTransaction),
@@ -111,9 +117,11 @@ export async function GET(request: Request) {
       totalPages: Math.ceil(total / limit),
     },
     summary: {
-      totalIncome: Number(summary.total_income) || 0,
-      totalExpense: Number(summary.total_expense) || 0,
-      balance: (Number(summary.total_income) || 0) - (Number(summary.total_expense) || 0),
+      totalIncome,
+      totalExpense,
+      incomeCount,
+      expenseCount,
+      balance: totalIncome - totalExpense,
     },
   };
 
