@@ -64,7 +64,7 @@ npm run build
 - `GET /api/auth/me`: Get current user profile.
 
 ### Transactions
-- `GET /api/transactions`: List transactions with pagination (`page`, `limit`). Returns `{ transactions, pagination: { page, limit, total, totalPages }, summary }`.
+- `GET /api/transactions`: List transactions with pagination (`page`, `limit`). Returns `{ transactions, pagination: { page, limit, total, totalPages }, summary: { totalIncome, totalExpense, incomeCount, expenseCount, balance } }`.
 - `GET /api/transactions/[id]`: Get details for a specific transaction.
 - `POST /api/transactions`: Create a new transaction.
 
