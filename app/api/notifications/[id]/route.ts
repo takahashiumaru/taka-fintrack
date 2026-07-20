@@ -20,8 +20,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   try {
     await ensureSchema();
     return NextResponse.json(await actOnNotification(user.id, notificationId, action));
-  } catch (error) {
-    if (error instanceof SocialError) return apiError(error.message, error.status);
+  } catch (error: unknown) {
+    if (error instanceof SocialError) return apiError((error as SocialError).message, (error as SocialError).status);
     throw error;
   }
 }
