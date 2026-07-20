@@ -64,8 +64,8 @@ export async function POST(request: Request) {
     );
 
     return NextResponse.json({ category: toApiCategory(rows[0]) }, { status: 201 });
-  } catch (error) {
-    const mysqlError = error as { code?: string };
+  } catch (error: unknown) {
+    const mysqlError = error instanceof Error ? (error as { code?: string }) : {};
 
     if (mysqlError.code === "ER_DUP_ENTRY") {
       return apiError("Kategori dengan nama itu sudah ada.", 409);
