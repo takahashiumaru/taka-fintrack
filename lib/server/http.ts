@@ -28,6 +28,18 @@ export async function readJson(request: Request): Promise<Record<string, unknown
   }
 }
 
+export function paginatedResponse<T>(data: T[], total: number, page: number, pageSize: number) {
+  return {
+    data,
+    pagination: {
+      page,
+      pageSize,
+      total,
+      totalPages: Math.ceil(total / pageSize),
+    },
+  };
+}
+
 export function isEnabled(value: string | undefined) {
   return value === "1" || value?.toLowerCase() === "true";
 }
@@ -50,5 +62,4 @@ export function tooManyRequests(resetAt: number) {
     },
   );
 }
-
 
