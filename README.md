@@ -88,6 +88,7 @@ npm run build
 ### Utilities
 - `GET /api/version`: Get the current application version.
 - `GET /api/health`: Health check with DB latency and version.
+- `GET /api/routes`: List all available API endpoints.
 
 ## Mobile Development (Capacitor)
 

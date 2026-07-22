@@ -83,12 +83,12 @@ export async function POST(req: NextRequest) {
         Connection: "keep-alive",
       },
     });
-  } catch (error) {
+  } catch (error: unknown) {
     if (isAbortError(error)) {
       return apiError("AI sedang lambat. Coba lagi sebentar.", 504);
     }
 
-    console.error("AI Chat Error:", error);
+    console.error("AI Chat Error:", error instanceof Error ? error.message : String(error));
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   } finally {
     timeout.done();
