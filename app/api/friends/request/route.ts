@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     await ensureSchema();
     const result = await createFriendRequest(user, body?.email);
     return NextResponse.json(result, { status: result.alreadyPending ? 200 : 201 });
-  } catch (error) {
+  } catch (error: unknown) {
     if (error instanceof SocialError) return apiError(error.message, error.status);
     throw error;
   }

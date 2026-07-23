@@ -20,7 +20,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   try {
     await ensureSchema();
     return NextResponse.json(await actOnFriendship(user.id, friendshipId, action));
-  } catch (error) {
+  } catch (error: unknown) {
     if (error instanceof SocialError) return apiError(error.message, error.status);
     throw error;
   }
@@ -35,7 +35,7 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
   try {
     await ensureSchema();
     return NextResponse.json(await deleteFriendship(user.id, friendshipId));
-  } catch (error) {
+  } catch (error: unknown) {
     if (error instanceof SocialError) return apiError(error.message, error.status);
     throw error;
   }

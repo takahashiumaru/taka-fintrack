@@ -35,7 +35,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
   try {
     file = await fs.readFile(statement.file_path);
-  } catch (error) {
+  } catch (error: unknown) {
     if (!isMissingFileError(error)) throw error;
 
     await generateMonthlyStatement(user.id, Number(statement.period_year), Number(statement.period_month), false);
