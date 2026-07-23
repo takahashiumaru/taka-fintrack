@@ -40,9 +40,18 @@ export function paginatedResponse<T>(data: T[], total: number, page: number, pag
   };
 }
 
+export function reportResponse<T>(data: T, from: string, to: string) {
+  return {
+    from,
+    to,
+    data,
+  };
+}
+
 export function isEnabled(value: string | undefined) {
   return value === "1" || value?.toLowerCase() === "true";
 }
+
 
 export function getBearerToken(request: Request) {
   const authorization = request.headers.get("authorization") ?? "";
