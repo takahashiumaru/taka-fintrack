@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     await ensureSchema();
     const result = await createSplitRequest(user, body ?? {});
     return NextResponse.json(result, { status: 201 });
-  } catch (error) {
+  } catch (error: unknown) {
     if (error instanceof SocialError) return apiError(error.message, error.status);
     throw error;
   }

@@ -20,7 +20,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   try {
     await ensureSchema();
     return NextResponse.json(await actOnSplitRequest(user.id, splitRequestId, action));
-  } catch (error) {
+  } catch (error: unknown) {
     if (error instanceof SocialError) return apiError(error.message, error.status);
     throw error;
   }

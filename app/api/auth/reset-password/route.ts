@@ -57,7 +57,7 @@ export async function POST(request: Request) {
     await connection.execute("UPDATE password_reset_tokens SET used_at = NOW() WHERE id = ?", [row.id]);
     await connection.execute("UPDATE password_reset_tokens SET used_at = NOW() WHERE user_id = ? AND used_at IS NULL", [row.user_id]);
     await connection.commit();
-  } catch (error) {
+  } catch (error: unknown) {
     await connection.rollback();
     throw error;
   } finally {
