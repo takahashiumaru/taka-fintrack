@@ -1,34 +1,15 @@
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
+import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import { NextResponse } from "next/server";
 import { getAuthenticatedUser, normalizeString } from "@/lib/server/auth";
 import { ensureUserCategories, type CategoryRow } from "@/lib/server/categories";
 import { ensureSchema, getPool } from "@/lib/server/db";
 import { apiError, readJson } from "@/lib/server/http";
-import { normalizeReceiptMetadata, parseJsonArray } from "@/lib/server/receipt-metadata";
+import { normalizeReceiptMetadata } from "@/lib/server/receipt-metadata";
+import { normalizePaymentAccount, normalizeTransactionDate, toTransaction, type TransactionRow } from "@/lib/server/transactions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-type TransactionRow = RowDataPacket & {
-  id: number;
-  category_id: number | null;
-  merchant: string;
-  category: string;
-  category_color: string | null;
-  amount: number;
-  type: "income" | "expense";
-  transaction_date: string | null;
-  source: "Manual" | "Scan";
-  payment_account: string;
-  receipt_total_amount: number | null;
-  receipt_selected_amount: number | null;
-  receipt_split_mode: "full_receipt" | "selected_items";
-  receipt_items_json: string | null;
-  receipt_selected_items_json: string | null;
-  receipt_adjustment_amount: number | null;
-  receipt_adjustment_note: string | null;
-  created_at: string;
-};
 
 export async function GET(request: Request) {
   const user = await getAuthenticatedUser(request);
