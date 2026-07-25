@@ -359,7 +359,7 @@ export async function POST(req: NextRequest) {
     }
 
     return apiError("Format hasil AI belum valid. Coba scan ulang.", 502);
-  } catch (error) {
+  } catch (error: unknown) {
     if (isAbortError(error)) {
       return apiError("AI sedang lambat. Coba lagi sebentar.", 504);
     }
