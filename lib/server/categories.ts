@@ -61,7 +61,6 @@ export async function ensureUserCategories(userId: number) {
       values,
     );
   } catch (error) {
-    // Log error but don't crash, let the caller fetch whatever categories are there
     console.error("ensureUserCategories error:", error);
   }
 }
