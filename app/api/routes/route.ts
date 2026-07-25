@@ -21,5 +21,5 @@ function getApiRoutes(dir: string, base: string = 'api'): string[] {
 export async function GET() {
   const apiDir = path.join(process.cwd(), 'app', 'api');
   const routes = getApiRoutes(apiDir);
-  return NextResponse.json({ routes });
+  return NextResponse.json({ routes, count: routes.length });
 }
