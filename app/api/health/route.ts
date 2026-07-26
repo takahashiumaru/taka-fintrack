@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ensureSchema, getPool } from "@/lib/server/db";
 import { readPackageVersion } from "@/lib/server/version";
+import { handleApiError } from "@/lib/server/http";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,8 +23,7 @@ export async function GET() {
     dbLatencyMs = Date.now() - dbStart;
     dbStatus = "connected";
   } catch (error: unknown) {
-    dbStatus = "disconnected";
-    errorMessage = error instanceof Error ? error.message : String(error);
+    return handleApiError(error);
   }
 
   const uptime = process.uptime();
