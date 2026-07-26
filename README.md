@@ -15,6 +15,7 @@ Frontend MVP untuk Taka FinTrack, aplikasi pelacak keuangan dengan fitur scan st
 3. `npm run dev`
 
 ## API Endpoints
-- `GET /api/health`: Cek status aplikasi dan database.
+- `GET /api/health`: Cek status aplikasi, database, dan versi.
+- `GET /api/routes`: Daftar semua route yang tersedia.
 - `GET /api/transactions`: Ambil daftar transaksi (paginated).
 - `GET /api/transactions/:id`: Ambil detail transaksi.
