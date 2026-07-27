@@ -130,6 +130,14 @@ export async function listFriends(userId: number) {
   return { friends, pendingIncoming, pendingOutgoing };
 }
 
+export async function listSplitRequests(userId: number) {
+  const [rows] = await getPool().execute<SplitRequestRow[]>(
+    splitRequestSelectSql("WHERE sr.sender_user_id = ? OR sr.recipient_user_id = ? ORDER BY sr.updated_at DESC, sr.id DESC"),
+    [userId, userId],
+  );
+  return rows.map(toSplitRequest);
+}
+
 export async function createFriendRequest(actor: ApiUser, emailValue: unknown) {
   const email = normalizeEmail(emailValue);
   if (!email) throw new SocialError("Email teman wajib diisi.");
