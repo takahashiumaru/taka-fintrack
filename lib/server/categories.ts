@@ -60,7 +60,7 @@ export async function ensureUserCategories(userId: number) {
       `,
       values,
     );
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("ensureUserCategories error:", error);
   }
 }

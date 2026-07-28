@@ -23,7 +23,7 @@ async function cleanupExpiredPersistentBuckets(now: number) {
 
   try {
     await getPool().execute("DELETE FROM rate_limit_buckets WHERE reset_at < NOW() LIMIT 500");
-  } catch (error) {
+  } catch (error: unknown) {
     lastPersistentCleanupAt = 0;
     throw error;
   }
