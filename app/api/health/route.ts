@@ -28,6 +28,7 @@ export async function GET() {
 
   const uptime = process.uptime();
   const totalDurationMs = Date.now() - startTime;
+  const memoryUsage = process.memoryUsage();
 
   const status = dbStatus === "connected" ? "healthy" : "unhealthy";
   const statusCode = status === "healthy" ? 200 : 503;
@@ -37,6 +38,10 @@ export async function GET() {
       status,
       version: readPackageVersion(),
       uptime: `${Math.floor(uptime)}s`,
+      memory: {
+        rss: `${Math.round(memoryUsage.rss / 1024 / 1024)}MB`,
+        heapUsed: `${Math.round(memoryUsage.heapUsed / 1024 / 1024)}MB`,
+      },
       services: {
         database: {
           status: dbStatus,
