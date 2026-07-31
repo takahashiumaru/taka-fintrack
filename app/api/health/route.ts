@@ -1,10 +1,20 @@
 import { NextResponse } from "next/server";
 import { ensureSchema, getPool } from "@/lib/server/db";
-import { readPackageVersion } from "@/lib/server/version";
 import { handleApiError } from "@/lib/server/http";
+import * as fs from "fs";
+import * as path from "path";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+function getVersion(): string {
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(process.cwd(), "package.json"), "utf8"));
+    return pkg.version ?? "1.0.0";
+  } catch {
+    return "1.0.0";
+  }
+}
 
 export async function GET() {
   const startTime = Date.now();
@@ -13,10 +23,7 @@ export async function GET() {
   let errorMessage: string | undefined;
 
   try {
-    // 1. Ensure schemas are properly initialized
     await ensureSchema();
-
-    // 2. Perform a real query to test connection
     const pool = getPool();
     const dbStart = Date.now();
     await pool.query("SELECT 1");
@@ -36,7 +43,7 @@ export async function GET() {
   return NextResponse.json(
     {
       status,
-      version: readPackageVersion(),
+      version: getVersion(),
       uptime: `${Math.floor(uptime)}s`,
       memory: {
         rss: `${Math.round(memoryUsage.rss / 1024 / 1024)}MB`,
