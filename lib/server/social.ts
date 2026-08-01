@@ -225,7 +225,7 @@ export async function createFriendRequest(actor: ApiUser, emailValue: unknown) {
     await connection.commit();
 
     return { friendship: await getFriendshipById(friendshipId, actor.id), alreadyPending: false };
-  } catch (error) {
+  } catch (error: unknown) {
     try {
       await connection.rollback();
     } catch {
@@ -296,7 +296,7 @@ export async function actOnFriendship(userId: number, friendshipId: number, acti
     await connection.commit();
 
     return { friendship: await getFriendshipById(friendshipId, userId), unchanged: false };
-  } catch (error) {
+  } catch (error: unknown) {
     try {
       await connection.rollback();
     } catch {
@@ -359,7 +359,7 @@ export async function deleteFriendship(userId: number, friendshipId: number) {
     await connection.commit();
 
     return { success: true, friendshipId };
-  } catch (error) {
+  } catch (error: unknown) {
     try {
       await connection.rollback();
     } catch {
@@ -567,7 +567,7 @@ export async function createSplitRequest(sender: ApiUser, input: SplitRequestInp
     await connection.commit();
 
     return { splitRequest: await getSplitRequestById(splitRequestId), senderTransactionId };
-  } catch (error) {
+  } catch (error: unknown) {
     try {
       await connection.rollback();
     } catch {
@@ -735,7 +735,7 @@ async function createSplitRequestsBatch(sender: ApiUser, input: SplitRequestInpu
       splitRequests: await Promise.all(splitRequestIds.map((splitRequestId) => getSplitRequestById(splitRequestId))),
       senderTransactionId,
     };
-  } catch (error) {
+  } catch (error: unknown) {
     try {
       await connection.rollback();
     } catch {
@@ -829,7 +829,7 @@ export async function actOnSplitRequest(userId: number, splitRequestId: number, 
     await connection.commit();
 
     return { splitRequest: await getSplitRequestById(splitRequestId), unchanged: false };
-  } catch (error) {
+  } catch (error: unknown) {
     try {
       await connection.rollback();
     } catch {
