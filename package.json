@@ -14,7 +14,7 @@
     "android:build:release": "cd android && ./gradlew assembleRelease",
     "ios:open": "cap open ios",
     "ios:sync": "cap sync ios",
-    "health-check": "node -e 'console.log(\"Project structure verified.\"); process.exit(0);'",
+    "health-check": "node scripts/health-check.js",
     "typecheck": "tsc --noEmit"
   },
   "keywords": [],
