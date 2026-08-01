@@ -19,7 +19,14 @@ Taka FinTrack adalah frontend mobile-first MVP untuk pengelolaan keuangan pribad
 - `npm run ios:open`: Open iOS project
 
 ## API Endpoints
-- `GET /api/health`: Check API status, database latency, and app version.
+
+Berikut adalah beberapa endpoint API utama:
+- `GET /api/health`: Cek status API, latensi DB, dan versi aplikasi.
+- `GET /api/transactions`: Ambil daftar transaksi (paginated).
+- `POST /api/transactions`: Tambah transaksi baru.
+- `GET /api/routes`: Daftar semua route API yang terdaftar.
+- `GET /api/statements`: Daftar laporan bulanan.
+
 
 ## How to Build
 1. Install dependencies: `npm install`
