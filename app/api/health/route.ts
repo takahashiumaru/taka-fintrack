@@ -30,7 +30,8 @@ export async function GET() {
     dbLatencyMs = Date.now() - dbStart;
     dbStatus = "connected";
   } catch (error: unknown) {
-    return handleApiError(error);
+    dbStatus = "disconnected";
+    errorMessage = error instanceof Error ? error.message : String(error);
   }
 
   const uptime = process.uptime();
