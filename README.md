@@ -18,6 +18,9 @@ Taka FinTrack adalah frontend mobile-first MVP untuk pengelolaan keuangan pribad
 - `npm run android:build:release`: Build Android release APK
 - `npm run ios:open`: Open iOS project
 
+## API Endpoints
+- `GET /api/health`: Check API status, database latency, and app version.
+
 ## How to Build
 1. Install dependencies: `npm install`
 2. Run build: `npm run build`
