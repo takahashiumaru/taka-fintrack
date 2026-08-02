@@ -57,7 +57,7 @@ export async function GET() {
           error: errorMessage,
         },
       },
-      latency_ms: totalDurationMs,
+      total_latency_ms: totalDurationMs,
     },
     { status: statusCode }
   );
