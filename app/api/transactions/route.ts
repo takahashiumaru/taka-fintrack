@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getAuthenticatedUser, normalizeString } from "@/lib/server/auth";
 import { ensureUserCategories, type CategoryRow } from "@/lib/server/categories";
 import { ensureSchema, getPool } from "@/lib/server/db";
-import { apiError, readJson } from "@/lib/server/http";
+import { apiError, readJson, handleApiError } from "@/lib/server/http";
 import { normalizeReceiptMetadata } from "@/lib/server/receipt-metadata";
 import { normalizePaymentAccount, normalizeTransactionDate, toTransaction, type TransactionRow } from "@/lib/server/transactions";
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   const user = await getAuthenticatedUser(request);
 
-  if (!user) return apiError("Sesi tidak valid. Login ulang.", 401);
+  if (!user) return handleApiError(new Error("Sesi tidak valid. Login ulang."));
 
   await ensureSchema();
   await ensureUserCategories(user.id);
