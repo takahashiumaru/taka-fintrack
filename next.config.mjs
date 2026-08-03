@@ -25,18 +25,6 @@ const nextConfig = {
         ],
       },
       {
-        source: "/images/:path*",
-        headers: [
-          { key: "Cache-Control", value: cacheStaticRevalidate },
-        ],
-      },
-      {
-        source: "/icons/:path*",
-        headers: [
-          { key: "Cache-Control", value: cacheStaticRevalidate },
-        ],
-      },
-      {
         source: "/manifest.json",
         headers: [
           { key: "Cache-Control", value: cacheShortRevalidate },
@@ -62,7 +50,7 @@ const nextConfig = {
         ],
       },
       {
-        source: "/:path((?!_next/static|images/|icons/|api/|manifest\\.json|icon\\.png|apple-icon\\.png).*)",
+        source: "/:path((?!_next/static|api/|manifest\\.json|icon\\.png|apple-icon\\.png).*)",
         headers: [
           ...securityHeaders,
           { key: "Cache-Control", value: cacheNoStore },
