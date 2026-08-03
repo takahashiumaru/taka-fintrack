@@ -74,7 +74,8 @@ export function tooManyRequests(resetAt: number) {
 
 export function handleApiError(error: unknown) {
   console.error("API Error:", error);
-  const message = error instanceof Error ? error.message : "Internal Server Error";
+  // Extract a meaningful message, handling different error types
+  const message = error instanceof Error ? error.message : "An unexpected error occurred.";
   return apiError(message, 500);
 }
 
