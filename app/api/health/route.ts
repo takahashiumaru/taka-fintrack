@@ -1,20 +1,10 @@
 import { NextResponse } from "next/server";
+import { getVersion } from "@/lib/server/version";
 import { ensureSchema, getPool } from "@/lib/server/db";
 import { handleApiError } from "@/lib/server/http";
-import * as fs from "fs";
-import * as path from "path";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function getVersion(): string {
-  try {
-    const pkg = JSON.parse(fs.readFileSync(path.join(process.cwd(), "package.json"), "utf8"));
-    return pkg.version ?? "1.0.0";
-  } catch {
-    return "1.0.0";
-  }
-}
 
 export async function GET() {
   const startTime = Date.now();
