@@ -4,7 +4,7 @@
   "description": "Responsive frontend MVP for Taka FinTrack.",
   "scripts": {
     "dev": "next dev -p 3001",
-    "build": "next build",
+    "build": "tsc --noEmit && next build",
     "start": "next start",
     "lint": "next lint",
     "mobile:sync": "cap sync",
