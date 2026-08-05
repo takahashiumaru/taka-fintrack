@@ -26,6 +26,7 @@ Berikut adalah beberapa endpoint API utama:
 - `POST /api/transactions`: Tambah transaksi baru.
 - `GET /api/routes`: Daftar semua route API yang terdaftar.
 - `GET /api/statements`: Daftar laporan bulanan.
+- `POST /api/users/password`: Ubah password pengguna yang sedang login.
 
 
 ## How to Build
