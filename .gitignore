@@ -4,6 +4,10 @@ node_modules/
 *.tsbuildinfo
 private/
 
+# System and IDEs
+.DS_Store
+.vscode/
+
 # Native/mobile build outputs
 android/.gradle/
 android/build/
