@@ -1,31 +1,37 @@
 import { NextResponse } from "next/server";
-import * as fs from "fs";
+import * as fs from "fs/promises";
 import * as path from "path";
 
 export const runtime = "nodejs";
 
+async function getApiRoutes(directory: string, apiBasePath: string): Promise<string[]> {
+    let routes: string[] = [];
+    try {
+        const entries = await fs.readdir(directory, { withFileTypes: true });
+        for (const entry of entries) {
+            const fullPath = path.join(directory, entry.name);
+            if (entry.isDirectory()) {
+                routes = routes.concat(await getApiRoutes(fullPath, apiBasePath));
+            } else if (entry.name === 'route.ts') {
+                const routePath = path.dirname(fullPath)
+                    .replace(apiBasePath, '/api')
+                    .replace(/\\/g, '/'); // Normalize for Windows
+                routes.push(routePath);
+            }
+        }
+    } catch (error) {
+        // Silently ignore directories that can't be read, like .next
+        if (error instanceof Error && 'code' in error && error.code !== 'ENOENT') {
+             console.error(`Error reading directory ${directory}:`, error);
+        }
+    }
+    return routes;
+}
+
+
 export async function GET() {
   const apiDir = path.join(process.cwd(), "app/api");
-  
-  const getRoutes = (dir: string): string[] => {
-    let results: string[] = [];
-    if (!fs.existsSync(dir)) return results;
-    
-    const list = fs.readdirSync(dir);
-    list.forEach((file) => {
-      const filePath = path.join(dir, file);
-      const stat = fs.statSync(filePath);
-      if (stat && stat.isDirectory()) {
-        results = results.concat(getRoutes(filePath));
-      } else if (file === "route.ts") {
-        // Convert dir path to API route path
-        const route = dir.replace(apiDir, "/api");
-        results.push(route);
-      }
-    });
-    return results;
-  };
-
-  const routes = getRoutes(apiDir);
+  const routes = (await getApiRoutes(apiDir, apiDir)).sort();
   return NextResponse.json({ routes });
 }
+
