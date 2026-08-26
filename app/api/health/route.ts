@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { getVersion } from "@/lib/server/version";
 import { ensureSchema, getPool } from "@/lib/server/db";
-import { handleApiError } from "@/lib/server/http";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
