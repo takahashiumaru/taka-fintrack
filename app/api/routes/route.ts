@@ -19,7 +19,7 @@ async function getApiRoutes(directory: string, apiBasePath: string): Promise<str
                 routes.push(routePath);
             }
         }
-    } catch (error) {
+    } catch (error: unknown) {
         // Silently ignore directories that can't be read, like .next
         if (error instanceof Error && 'code' in error && error.code !== 'ENOENT') {
              console.error(`Error reading directory ${directory}:`, error);
