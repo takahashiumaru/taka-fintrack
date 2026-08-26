@@ -23,7 +23,10 @@ Taka FinTrack adalah frontend mobile-first MVP untuk pengelolaan keuangan pribad
 Berikut adalah beberapa endpoint API utama:
 - `GET /api/health`: Cek status API, latensi DB, dan versi aplikasi.
 - `GET /api/transactions`: Ambil daftar transaksi (paginated).
+- `GET /api/transactions/[id]`: Ambil detail transaksi.
 - `POST /api/transactions`: Tambah transaksi baru.
+- `GET /api/categories`: Ambil daftar kategori pengguna.
+- `GET /api/categories/[id]`: Ambil detail kategori.
 - `GET /api/routes`: Daftar semua route API yang terdaftar.
 - `GET /api/statements`: Daftar laporan bulanan.
 - `POST /api/users/password`: Ubah password pengguna yang sedang login.
