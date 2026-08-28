@@ -9,7 +9,7 @@ import {
   type CategoryRow,
 } from "@/lib/server/categories";
 import { ensureSchema, getPool } from "@/lib/server/db";
-import { apiError, readJson } from "@/lib/server/http";
+import { apiError, readJson, handleApiError } from "@/lib/server/http";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -71,6 +71,6 @@ export async function POST(request: Request) {
       return apiError("Kategori dengan nama itu sudah ada.", 409);
     }
 
-    throw error;
+    return handleApiError(error);
   }
 }
