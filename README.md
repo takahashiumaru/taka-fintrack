@@ -21,6 +21,8 @@ Taka FinTrack adalah frontend mobile-first MVP untuk pengelolaan keuangan pribad
 ## API Endpoints
 
 Berikut adalah beberapa endpoint API utama:
+- `POST /api/chat`: AI chat interface (streaming).
+- `POST /api/scan-ai`: Scan AI interface (AI-powered receipt scanning).
 - `GET /api/health`: Cek status API, latensi DB, dan versi aplikasi.
 - `GET /api/transactions`: Ambil daftar transaksi (paginated).
 - `GET /api/transactions/[id]`: Ambil detail transaksi.
