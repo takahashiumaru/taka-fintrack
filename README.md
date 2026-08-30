@@ -20,27 +20,51 @@ Taka FinTrack adalah frontend mobile-first MVP untuk pengelolaan keuangan pribad
 
 ## API Endpoints
 
-Berikut adalah beberapa endpoint API utama:
-- `POST /api/chat`: AI chat interface (streaming).
-- `POST /api/scan-ai`: Scan AI interface (AI-powered receipt scanning).
-- `GET /api/health`: Cek status API, latensi DB, dan versi aplikasi.
+Berikut adalah daftar endpoint API:
+
+### Auth
+- `POST /api/auth/register`: Daftar akun baru.
+- `POST /api/auth/login`: Login.
+- `POST /api/auth/logout`: Logout.
+- `GET /api/auth/me`: Cek status user login & ambil token.
+- `POST /api/auth/forgot-password`: Lupa password.
+- `POST /api/auth/reset-password`: Reset password.
+- `POST /api/auth/demo`: Akses demo (hanya pengembangan).
+
+### Transaksi & Kategori
 - `GET /api/transactions`: Ambil daftar transaksi (paginated).
 - `GET /api/transactions/[id]`: Ambil detail transaksi.
-- `POST /api/transactions`: Tambah transaksi baru.
-- `GET /api/categories`: Ambil daftar kategori pengguna.
+- `POST /api/transactions`: Tambah transaksi.
+- `PUT /api/transactions/[id]`: Update transaksi.
+- `DELETE /api/transactions/[id]`: Hapus transaksi.
+- `GET /api/categories`: Ambil daftar kategori.
+- `POST /api/categories`: Tambah kategori.
 - `GET /api/categories/[id]`: Ambil detail kategori.
-- `POST /api/categories`: Tambah kategori baru.
-- `GET /api/routes`: Daftar semua route API yang terdaftar.
+
+### Laporan & AI
 - `GET /api/statements`: Daftar laporan bulanan.
 - `POST /api/statements/generate`: Generate laporan bulanan.
-- `GET /api/statements/[id]/download`: Unduh file laporan bulanan (PDF).
-- `POST /api/users/password`: Ubah password pengguna yang sedang login.
-- `PATCH /api/users/profile`: Update profil pengguna.
-- `GET /api/friends`: Ambil daftar pertemanan.
+- `GET /api/statements/[id]/download`: Unduh laporan (PDF).
+- `POST /api/chat`: AI chat interface.
+- `POST /api/scan-ai`: AI scan receipt interface.
+
+### Sosial & Split Bill
+- `GET /api/friends`: Daftar pertemanan.
 - `POST /api/friends/request`: Kirim permintaan pertemanan.
-- `GET /api/split-requests`: Ambil daftar tagihan split bill.
-- `POST /api/split-requests`: Buat permintaan split bill baru.
-- `GET /api/notifications`: Ambil daftar notifikasi.
+- `PATCH /api/friends/[id]`: Update status pertemanan.
+- `DELETE /api/friends/[id]`: Hapus pertemanan.
+- `GET /api/split-requests`: Daftar split bill.
+- `POST /api/split-requests`: Buat split bill.
+- `PATCH /api/split-requests/[id]`: Update split bill.
+
+### Profil & Notifikasi
+- `POST /api/users/password`: Ubah password.
+- `PATCH /api/users/profile`: Update profil.
+- `GET /api/notifications`: Daftar notifikasi.
+- `POST /api/notifications`: Tandai notifikasi dibaca.
+- `PATCH /api/notifications/[id]`: Update notifikasi individual.
+- `GET /api/health`: Status API & versi.
+- `GET /api/routes`: Daftar semua route API.
 
 
 ## How to Build
