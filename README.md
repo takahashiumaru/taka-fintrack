@@ -40,6 +40,8 @@ Berikut adalah daftar endpoint API:
 - `GET /api/categories`: Ambil daftar kategori.
 - `POST /api/categories`: Tambah kategori.
 - `GET /api/categories/[id]`: Ambil detail kategori.
+- `PUT /api/categories/[id]`: Update kategori.
+- `DELETE /api/categories/[id]`: Hapus kategori.
 
 ### Laporan & AI
 - `GET /api/statements`: Daftar laporan bulanan.
