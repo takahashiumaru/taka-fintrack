@@ -45,6 +45,7 @@ Berikut adalah daftar endpoint API:
 
 ### Laporan & AI
 - `GET /api/statements`: Daftar laporan bulanan.
+- `GET /api/statements/[id]`: Ambil detail laporan bulanan.
 - `POST /api/statements/generate`: Generate laporan bulanan.
 - `GET /api/statements/[id]/download`: Unduh laporan (PDF).
 - `POST /api/chat`: AI chat interface.
