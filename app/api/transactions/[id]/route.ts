@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getAuthenticatedUser, normalizeString } from "@/lib/server/auth";
 import { ensureUserCategories, type CategoryRow } from "@/lib/server/categories";
 import { ensureSchema, getPool } from "@/lib/server/db";
-import { apiError, readJson } from "@/lib/server/http";
+import { apiError, readJson, handleApiError } from "@/lib/server/http";
 import { normalizeReceiptMetadata } from "@/lib/server/receipt-metadata";
 import { normalizePaymentAccount, normalizeTransactionDate, toTransaction, type TransactionRow } from "@/lib/server/transactions";
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
@@ -12,10 +12,10 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   const user = await getAuthenticatedUser(request);
-  if (!user) return apiError("Sesi tidak valid. Login ulang.", 401);
+  if (!user) return handleApiError(new Error("Sesi tidak valid. Login ulang."));
 
   const id = Number(params.id);
-  if (!Number.isFinite(id) || id <= 0) return apiError("ID transaksi tidak valid.", 400);
+  if (!Number.isFinite(id) || id <= 0) return handleApiError(new Error("ID transaksi tidak valid."));
 
   await ensureSchema();
 
@@ -31,7 +31,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     [id, user.id],
   );
 
-  if (rows.length === 0) return apiError("Transaksi tidak ditemukan.", 404);
+  if (rows.length === 0) return handleApiError(new Error("Transaksi tidak ditemukan."));
 
   return NextResponse.json({ transaction: toTransaction(rows[0]) });
 }
