@@ -73,4 +73,8 @@ Berikut adalah daftar endpoint API:
 ## How to Build
 1. Install dependencies: `npm install`
 2. Run build: `npm run build`
-3. For mobile, run `npm run mobile:sync` then open respective native IDE.
+3. For mobile deployment:
+   - Run `npm run mobile:assets` to generate icons/splash.
+   - Run `npm run mobile:sync` to update native project sources.
+   - Run `npm run android:open` or `npm run ios:open` to finalize in Android Studio/Xcode.
+
