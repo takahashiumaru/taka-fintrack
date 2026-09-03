@@ -8,7 +8,7 @@ console.log("Checking project integrity...");
 let hasError = false;
 
 // 1. Check required configuration files
-const reqFiles = ["package.json", "tsconfig.json", "next.config.mjs"];
+const reqFiles = ["package.json", "tsconfig.json", "next.config.mjs", "capacitor.config.ts"];
 reqFiles.forEach((file) => {
   if (fs.existsSync(path.join(rootDir, file))) {
     console.log(`[OK] Found ${file}`);
@@ -17,6 +17,7 @@ reqFiles.forEach((file) => {
     hasError = true;
   }
 });
+
 
 // 2. Warn about .env files
 const envFile = path.join(rootDir, ".env.local");
