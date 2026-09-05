@@ -13,99 +13,103 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   const user = await getAuthenticatedUser(request);
 
-  if (!user) return handleApiError(new Error("Sesi tidak valid. Login ulang."));
+  if (!user) return apiError("Sesi tidak valid. Login ulang.", 401);
 
-  await ensureSchema();
-  await ensureUserCategories(user.id);
+  try {
+    await ensureSchema();
+    await ensureUserCategories(user.id);
 
-  const { searchParams } = new URL(request.url);
-  const page = Math.max(1, Number(searchParams.get("page") ?? 1) || 1);
-  const limit = Math.min(50, Math.max(5, Number(searchParams.get("limit") ?? 20) || 20));
-  const offset = (page - 1) * limit;
-  const year = searchParams.get("year");
-  const month = searchParams.get("month");
+    const { searchParams } = new URL(request.url);
+    const page = Math.max(1, Number(searchParams.get("page") ?? 1) || 1);
+    const limit = Math.min(50, Math.max(5, Number(searchParams.get("limit") ?? 20) || 20));
+    const offset = (page - 1) * limit;
+    const year = searchParams.get("year");
+    const month = searchParams.get("month");
 
-  const [totalRows] = await getPool().execute<RowDataPacket[]>(
-    "SELECT COUNT(*) as total FROM transactions WHERE user_id = ?",
-    [user.id]
-  );
-  const total = totalRows[0].total as number;
+    const [totalRows] = await getPool().execute<RowDataPacket[]>(
+      "SELECT COUNT(*) as total FROM transactions WHERE user_id = ?",
+      [user.id]
+    );
+    const total = Number(totalRows[0]?.total ?? 0);
 
-  const [rows] = await getPool().execute<TransactionRow[]>(
-    `
+    const [rows] = await getPool().execute<TransactionRow[]>(
+      `
+        SELECT
+          t.id,
+          t.category_id,
+          t.merchant,
+          COALESCE(c.name, t.category) AS category,
+          COALESCE(c.color, '#64748B') AS category_color,
+          t.amount,
+          t.type,
+          t.transaction_date,
+          t.source,
+          t.payment_account,
+          t.receipt_total_amount,
+          t.receipt_selected_amount,
+          t.receipt_split_mode,
+          t.receipt_items_json,
+          t.receipt_selected_items_json,
+          t.receipt_adjustment_amount,
+          t.receipt_adjustment_note,
+          t.created_at
+        FROM transactions t
+        LEFT JOIN categories c
+          ON c.id = t.category_id
+          AND c.user_id = t.user_id
+        WHERE t.user_id = ?
+        ORDER BY COALESCE(t.transaction_date, t.created_at) DESC, t.id DESC
+        LIMIT ? OFFSET ?
+      `,
+      [user.id, limit, offset],
+    );
+
+    // Calculate summary for all transactions (optionally filtered by year/month)
+    let summaryQuery = `
       SELECT
-        t.id,
-        t.category_id,
-        t.merchant,
-        COALESCE(c.name, t.category) AS category,
-        COALESCE(c.color, '#64748B') AS category_color,
-        t.amount,
-        t.type,
-        t.transaction_date,
-        t.source,
-        t.payment_account,
-        t.receipt_total_amount,
-        t.receipt_selected_amount,
-        t.receipt_split_mode,
-        t.receipt_items_json,
-        t.receipt_selected_items_json,
-        t.receipt_adjustment_amount,
-        t.receipt_adjustment_note,
-        t.created_at
-      FROM transactions t
-      LEFT JOIN categories c
-        ON c.id = t.category_id
-        AND c.user_id = t.user_id
-      WHERE t.user_id = ?
-      ORDER BY COALESCE(t.transaction_date, t.created_at) DESC, t.id DESC
-      LIMIT ? OFFSET ?
-    `,
-    [user.id, limit, offset],
-  );
+        SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) AS total_income,
+        SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) AS total_expense,
+        COUNT(CASE WHEN type = 'income' THEN 1 END) AS income_count,
+        COUNT(CASE WHEN type = 'expense' THEN 1 END) AS expense_count
+      FROM transactions
+      WHERE user_id = ?
+    `;
+    const summaryParams: (number | string)[] = [user.id];
 
-  // Calculate summary for all transactions (optionally filtered by year/month)
-  let summaryQuery = `
-    SELECT
-      SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) AS total_income,
-      SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) AS total_expense,
-      COUNT(CASE WHEN type = 'income' THEN 1 END) AS income_count,
-      COUNT(CASE WHEN type = 'expense' THEN 1 END) AS expense_count
-    FROM transactions
-    WHERE user_id = ?
-  `;
-  const summaryParams: (number | string)[] = [user.id];
+    if (year && month) {
+      summaryQuery += ` AND YEAR(COALESCE(transaction_date, created_at)) = ? AND MONTH(COALESCE(transaction_date, created_at)) = ?`;
+      summaryParams.push(year, month);
+    }
 
-  if (year && month) {
-    summaryQuery += ` AND YEAR(COALESCE(transaction_date, created_at)) = ? AND MONTH(COALESCE(transaction_date, created_at)) = ?`;
-    summaryParams.push(year, month);
+    const [summaryRows] = await getPool().execute<RowDataPacket[]>(summaryQuery, summaryParams);
+
+    const summary = summaryRows[0] || { total_income: 0, total_expense: 0, income_count: 0, expense_count: 0 };
+    const totalIncome = Number(summary.total_income) || 0;
+    const totalExpense = Number(summary.total_expense) || 0;
+    const incomeCount = Number(summary.income_count) || 0;
+    const expenseCount = Number(summary.expense_count) || 0;
+
+    const payload = {
+      transactions: rows.map(toTransaction),
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+      summary: {
+        totalIncome,
+        totalExpense,
+        incomeCount,
+        expenseCount,
+        balance: totalIncome - totalExpense,
+      },
+    };
+
+    return NextResponse.json(payload);
+  } catch (error: unknown) {
+    return handleApiError(error);
   }
-
-  const [summaryRows] = await getPool().execute<RowDataPacket[]>(summaryQuery, summaryParams);
-
-  const summary = summaryRows[0] || { total_income: 0, total_expense: 0, income_count: 0, expense_count: 0 };
-  const totalIncome = Number(summary.total_income) || 0;
-  const totalExpense = Number(summary.total_expense) || 0;
-  const incomeCount = Number(summary.income_count) || 0;
-  const expenseCount = Number(summary.expense_count) || 0;
-
-  const payload = {
-    transactions: rows.map(toTransaction),
-    pagination: {
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit),
-    },
-    summary: {
-      totalIncome,
-      totalExpense,
-      incomeCount,
-      expenseCount,
-      balance: totalIncome - totalExpense,
-    },
-  };
-
-  return NextResponse.json(payload);
 }
 
 export async function POST(request: Request) {
