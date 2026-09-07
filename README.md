@@ -14,7 +14,9 @@ Taka FinTrack adalah frontend mobile-first MVP untuk pengelolaan keuangan pribad
 - `npm run build`: Build project
 - `npm run lint`: Lint project
 - `npm run typecheck`: Run TypeScript check
+- `npm run health-check`: Run repository integrity and configuration check
 - `npm run mobile:sync`: Sync project with Capacitor
+- `npm run mobile:assets`: Generate mobile splash and icons
 - `npm run android:build:release`: Build Android release APK
 - `npm run ios:open`: Open iOS project
 
