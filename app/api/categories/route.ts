@@ -15,28 +15,32 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  const user = await getAuthenticatedUser(request);
+  try {
+    const user = await getAuthenticatedUser(request);
 
-  if (!user) return apiError("Sesi tidak valid. Login ulang.", 401);
+    if (!user) return apiError("Sesi tidak valid. Login ulang.", 401);
 
-  await ensureSchema();
-  await ensureUserCategories(user.id);
+    await ensureSchema();
+    await ensureUserCategories(user.id);
 
-  const [rows] = await getPool().execute<CategoryRow[]>(
-    `
-      SELECT c.id, c.name, c.type, c.color, COUNT(t.id) AS transaction_count
-      FROM categories c
-      LEFT JOIN transactions t
-        ON t.category_id = c.id
-        AND t.user_id = c.user_id
-      WHERE c.user_id = ?
-      GROUP BY c.id, c.name, c.type, c.color
-      ORDER BY c.created_at ASC, c.id ASC
-    `,
-    [user.id],
-  );
+    const [rows] = await getPool().execute<CategoryRow[]>(
+      `
+        SELECT c.id, c.name, c.type, c.color, COUNT(t.id) AS transaction_count
+        FROM categories c
+        LEFT JOIN transactions t
+          ON t.category_id = c.id
+          AND t.user_id = c.user_id
+        WHERE c.user_id = ?
+        GROUP BY c.id, c.name, c.type, c.color
+        ORDER BY c.created_at ASC, c.id ASC
+      `,
+      [user.id],
+    );
 
-  return NextResponse.json({ categories: rows.map(toApiCategory) });
+    return NextResponse.json({ categories: rows.map(toApiCategory) });
+  } catch (error: unknown) {
+    return handleApiError(error);
+  }
 }
 
 export async function POST(request: Request) {
