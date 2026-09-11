@@ -6,9 +6,9 @@ import { ensureSchema, getPool } from "@/lib/server/db";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function getVersion(): string {
+async function getVersion(): Promise<string> {
   try {
-    const pkg = JSON.parse(fs.readFileSync(path.join(process.cwd(), "package.json"), "utf8"));
+    const pkg = JSON.parse(await fs.promises.readFile(path.join(process.cwd(), "package.json"), "utf8"));
     return pkg.version ?? "1.0.0";
   } catch {
     return "1.0.0";
@@ -43,7 +43,7 @@ export async function GET() {
   return NextResponse.json(
     {
       status,
-      version: getVersion(),
+      version: await getVersion(),
       uptime: `${Math.floor(uptime)}s`,
       memory: {
         rss: `${Math.round(memoryUsage.rss / 1024 / 1024)}MB`,
