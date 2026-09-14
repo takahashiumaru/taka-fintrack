@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAuthenticatedUser, verifyPassword, hashPassword, UserRow } from "@/lib/server/auth";
 import { ensureSchema, getPool } from "@/lib/server/db";
-import { apiError, readJson } from "@/lib/server/http";
+import { apiError, handleApiError, readJson } from "@/lib/server/http";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,22 +21,26 @@ export async function POST(request: Request) {
   await ensureSchema();
   const pool = getPool();
 
-  const [rows] = await pool.execute<UserRow[]>(
-    "SELECT password_hash FROM users WHERE id = ? LIMIT 1",
-    [user.id]
-  );
+  try {
+    const [rows] = await pool.execute<UserRow[]>(
+      "SELECT password_hash FROM users WHERE id = ? LIMIT 1",
+      [user.id]
+    );
 
-  const userRow = rows[0];
-  if (!userRow || !verifyPassword(currentPassword, userRow.password_hash)) {
-    return apiError("Password saat ini salah.", 401);
+    const userRow = rows[0];
+    if (!userRow || !verifyPassword(currentPassword, userRow.password_hash)) {
+      return apiError("Password saat ini salah.", 401);
+    }
+
+    const nextHash = hashPassword(newPassword);
+
+    await pool.execute("UPDATE users SET password_hash = ? WHERE id = ?", [
+      nextHash,
+      user.id,
+    ]);
+
+    return NextResponse.json({ message: "Password berhasil diubah." });
+  } catch (error: unknown) {
+    return handleApiError(error);
   }
-
-  const nextHash = hashPassword(newPassword);
-
-  await pool.execute("UPDATE users SET password_hash = ? WHERE id = ?", [
-    nextHash,
-    user.id,
-  ]);
-
-  return NextResponse.json({ message: "Password berhasil diubah." });
 }

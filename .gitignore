@@ -22,3 +22,7 @@ android/app/build/
 ios/App/DerivedData/
 ios/App/build/
 ios/App/Pods/
+
+# Test / Scratch artifacts
+*.txt.bak
+

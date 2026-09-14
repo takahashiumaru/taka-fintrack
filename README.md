@@ -8,6 +8,7 @@ Taka FinTrack adalah frontend mobile-first MVP untuk pengelolaan keuangan pribad
 - Capacitor (for mobile deployment)
 - MySQL (via mysql2)
 - Tailwind CSS
+- Gemini Flash 2.5 / Groq AI (via 9Router)
 
 ## Commands
 - `npm run dev`: Start development server
