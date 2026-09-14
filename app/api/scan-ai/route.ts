@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/server/auth";
-import { apiError, isAbortError, readJson, tooManyRequests, withTimeout } from "@/lib/server/http";
+import { apiError, handleApiError, isAbortError, readJson, tooManyRequests, withTimeout } from "@/lib/server/http";
 import { checkPersistentRateLimit, getClientIp } from "@/lib/server/rate-limit";
 
 export const runtime = "nodejs";
@@ -365,7 +365,7 @@ export async function POST(req: NextRequest) {
     }
 
     console.error("AI Scan Error:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return handleApiError(error);
   } finally {
     timeout.done();
   }
