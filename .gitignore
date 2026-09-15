@@ -26,3 +26,4 @@ ios/App/Pods/
 # Test / Scratch artifacts
 *.txt.bak
 
+*.txt
