@@ -10,13 +10,14 @@ import {
   type UserRow,
 } from "@/lib/server/auth";
 import { ensureSchema, getPool } from "@/lib/server/db";
-import { apiError, readJson } from "@/lib/server/http";
+import { apiError, readJson, handleApiError } from "@/lib/server/http";
 import { checkPersistentRateLimit, getClientIp } from "@/lib/server/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
+  try {
   await ensureSchema();
 
   const ip = getClientIp(request);
@@ -59,4 +60,7 @@ export async function POST(request: Request) {
   const response = NextResponse.json({ user, token, authenticated: true });
 
   return attachAuthCookie(response, token);
+  } catch (error: unknown) {
+    return handleApiError(error);
+  }
 }
