@@ -58,8 +58,8 @@ export async function generateMonthlyStatement(userId: number, year: number, mon
     FROM transactions WHERE user_id = ? AND ${dateExpr} < ?
   `, [user.id, start]);
   const openingBalance = Number(beforeRows[0]?.income ?? 0) - Number(beforeRows[0]?.expense ?? 0);
-  const totalIncome = transactions.filter((t) => t.type === "income").reduce((sum, t) => sum + Number(t.amount), 0);
-  const totalExpense = transactions.filter((t) => t.type === "expense").reduce((sum, t) => sum + Number(t.amount), 0);
+  const totalIncome = transactions.filter((t) => t.type === "income").reduce((sum: number, t: TxRow) => sum + Number(t.amount), 0);
+  const totalExpense = transactions.filter((t) => t.type === "expense").reduce((sum: number, t: TxRow) => sum + Number(t.amount), 0);
   const netCashflow = totalIncome - totalExpense;
   const closingBalance = openingBalance + netCashflow;
   const incomeByCategory = summarize(transactions, "income");
