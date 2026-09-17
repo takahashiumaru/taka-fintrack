@@ -34,7 +34,7 @@ export async function GET(request: Request) {
       ORDER BY period_year DESC, period_month DESC
       LIMIT 36
     `, [user.id]);
-    return NextResponse.json({ statements: rows.map((row) => ({
+    return NextResponse.json({ statements: rows.map((row: StatementRow) => ({
       id: Number(row.id),
       periodYear: Number(row.period_year),
       periodMonth: Number(row.period_month),
