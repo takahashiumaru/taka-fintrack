@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/server/auth";
 import { ensureSchema } from "@/lib/server/db";
-import { apiError, readJson } from "@/lib/server/http";
+import { apiError, handleApiError, readJson } from "@/lib/server/http";
 import { actOnFriendship, deleteFriendship, SocialError } from "@/lib/server/social";
 
 export const runtime = "nodejs";
@@ -22,7 +22,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     return NextResponse.json(await actOnFriendship(user.id, friendshipId, action));
   } catch (error: unknown) {
     if (error instanceof SocialError) return apiError(error.message, error.status);
-    throw error;
+    return handleApiError(error);
   }
 }
 
@@ -37,6 +37,6 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
     return NextResponse.json(await deleteFriendship(user.id, friendshipId));
   } catch (error: unknown) {
     if (error instanceof SocialError) return apiError(error.message, error.status);
-    throw error;
+    return handleApiError(error);
   }
 }
