@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/server/auth";
 import { ensureSchema, getPool } from "@/lib/server/db";
-import { handleApiError } from "@/lib/server/http";
+import { apiError, handleApiError } from "@/lib/server/http";
 import type { RowDataPacket } from "mysql2";
 
 export const runtime = "nodejs";
@@ -22,10 +22,10 @@ interface StatementRow extends RowDataPacket {
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
     const user = await getAuthenticatedUser(request);
-    if (!user) return handleApiError(new Error("Sesi tidak valid. Login ulang."));
+    if (!user) return apiError("Sesi tidak valid. Login ulang.", 401);
 
     const id = Number(params.id);
-    if (!Number.isFinite(id) || id <= 0) return handleApiError(new Error("ID statement tidak valid."));
+    if (!Number.isFinite(id) || id <= 0) return apiError("ID statement tidak valid.", 400);
 
     await ensureSchema();
 
@@ -37,7 +37,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
       [id, user.id],
     );
 
-    if (rows.length === 0) return handleApiError(new Error("Statement tidak ditemukan."));
+    if (rows.length === 0) return apiError("Statement tidak ditemukan.", 404);
 
     return NextResponse.json({ statement: rows[0] });
   } catch (error: unknown) {
