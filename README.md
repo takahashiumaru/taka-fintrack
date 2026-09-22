@@ -69,8 +69,8 @@ Berikut adalah daftar endpoint API:
 - `GET /api/notifications`: Daftar notifikasi.
 - `POST /api/notifications`: Tandai notifikasi dibaca.
 - `PATCH /api/notifications/[id]`: Update notifikasi individual.
-- `GET /api/health`: Status API & versi.
-- `GET /api/routes`: Daftar semua route API.
+- `GET /api/health`: Status API, telemetry memory & info runtime sistem.
+- `GET /api/routes`: Daftar dinamis seluruh endpoint API yang tersedia.
 
 
 ## How to Build
